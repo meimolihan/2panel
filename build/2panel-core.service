@@ -1,0 +1,15 @@
+[Unit]
+Description=2Panel Core Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/usr/local/bin
+ExecStart=/usr/local/bin/2panel-core
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

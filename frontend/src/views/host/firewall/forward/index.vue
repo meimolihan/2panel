@@ -1,0 +1,294 @@
+<template>
+    <div>
+        <FireRouter />
+
+        <div v-loading="loading">
+            <FireStatus
+                ref="fireStatusRef"
+                @search="search"
+                v-model:loading="loading"
+                v-model:mask-show="maskShow"
+                v-model:is-active="isActive"
+                v-model:name="fireName"
+                current-tab="forward"
+            />
+            <div v-if="fireName !== '-'">
+                <el-card v-if="!isActive && maskShow" class="mask-prompt">
+                    <span>{{ $t('firewall.firewallNotStart') }}</span>
+                </el-card>
+
+                <LayoutContent :title="$t('firewall.forwardRule', 2)" :class="{ mask: !isActive }">
+                    <template #leftToolBar>
+                        <el-button v-permission v-node-admin type="primary" @click="onOpenDialog('create')">
+                            {{ $t('commons.button.create') }}
+                        </el-button>
+                        <el-button
+                            v-permission
+                            v-node-admin
+                            @click="onDelete(null)"
+                            plain
+                            :disabled="selects.length === 0"
+                        >
+                            {{ $t('commons.button.delete') }}
+                        </el-button>
+                        <el-button-group>
+                            <el-button v-permission v-node-admin @click="onImport">
+                                {{ $t('commons.button.import') }}
+                            </el-button>
+                            <el-button v-permission v-node-admin :disabled="selects.length === 0" @click="onExport">
+                                {{ $t('commons.button.export') }}
+                            </el-button>
+                        </el-button-group>
+                    </template>
+                    <template #rightToolBar>
+                        <TableSearch @search="search()" v-model:searchName="searchName" />
+                        <TableRefresh @search="search()" />
+                        <TableSetting title="firewall-forward-refresh" @search="search()" />
+                    </template>
+                    <template #main>
+                        <ComplexTable
+                            :pagination-config="paginationConfig"
+                            v-model:selects="selects"
+                            @search="search"
+                            :data="data"
+                            :heightDiff="370"
+                        >
+                            <el-table-column type="selection" fix />
+                            <el-table-column :label="$t('commons.table.protocol')" :min-width="70" prop="protocol" />
+                            <el-table-column :label="$t('firewall.sourcePort')" :min-width="70" prop="port" />
+                            <el-table-column :min-width="80" :label="$t('firewall.targetIP')" prop="targetIP" />
+                            <el-table-column :label="$t('firewall.targetPort')" :min-width="70" prop="targetPort" />
+                            <template v-if="fireName === 'ufw'">
+                                <el-table-column
+                                    :label="$t('firewall.forwardInboundInterface')"
+                                    :min-width="70"
+                                    prop="interface"
+                                >
+                                    <template #default="{ row }">
+                                        <span>
+                                            {{ row.interface === '' ? $t('commons.table.all') : row.interface }}
+                                        </span>
+                                    </template>
+                                </el-table-column>
+                            </template>
+                            <fu-table-operations
+                                width="200px"
+                                :buttons="buttons"
+                                :ellipsis="10"
+                                :label="$t('commons.table.operate')"
+                                fix
+                            />
+                        </ComplexTable>
+                    </template>
+                </LayoutContent>
+            </div>
+        </div>
+
+        <OpDialog ref="opRef" @search="search" @submit="onSubmitDelete()">
+            <template #content>
+                <el-form class="mt-4 mb-1" ref="deleteForm" label-position="left">
+                    <el-form-item>
+                        <el-checkbox v-model="forceDelete" :label="$t('website.forceDelete')" />
+                        <span class="input-help">
+                            {{ $t('website.forceDeleteHelper') }}
+                        </span>
+                    </el-form-item>
+                </el-form>
+            </template>
+        </OpDialog>
+        <OperateDialog @search="search" ref="dialogRef" />
+        <ImportDialog @search="search" ref="dialogImportRef" />
+    </div>
+</template>
+
+<script lang="ts" setup>
+import FireRouter from '@/views/host/firewall/index.vue';
+import OperateDialog from './operate/index.vue';
+import ImportDialog from './import/index.vue';
+import FireStatus from '@/views/host/firewall/status/index.vue';
+import { onMounted, reactive, ref } from 'vue';
+import { operateForwardRule, searchFireRule } from '@/api/modules/host';
+import { Host } from '@/api/interface/host';
+import i18n from '@/lang';
+import { MsgSuccess } from '@/utils/message';
+import { downloadWithContent } from '@/utils/file';
+import { getCurrentDateFormatted } from '@/utils/date';
+const loading = ref();
+const activeTag = ref('forward');
+const selects = ref<any>([]);
+const searchName = ref();
+const searchStrategy = ref('');
+
+const maskShow = ref(true);
+const isActive = ref(false);
+const fireName = ref();
+const fireStatusRef = ref();
+
+const opRef = ref();
+const dialogImportRef = ref();
+const forceDelete = ref(false);
+const operateRules = ref();
+
+const data = ref();
+const paginationConfig = reactive({
+    cacheSizeKey: 'firewall-forward-page-size',
+    currentPage: 1,
+    pageSize: Number(localStorage.getItem('firewall-forward-page-size')) || 20,
+    total: 0,
+});
+
+const search = async () => {
+    if (!isActive.value) {
+        loading.value = false;
+        data.value = [];
+        paginationConfig.total = 0;
+        return;
+    }
+    let params = {
+        type: activeTag.value,
+        strategy: searchStrategy.value,
+        info: searchName.value,
+        page: paginationConfig.currentPage,
+        pageSize: paginationConfig.pageSize,
+    };
+    loading.value = true;
+    await searchFireRule(params)
+        .then((res) => {
+            loading.value = false;
+            data.value =
+                res.data.items?.map((item) => {
+                    return {
+                        ...item,
+                        interface: item.interface === '*' ? '' : item.interface,
+                    };
+                }) || [];
+            paginationConfig.total = res.data.total;
+        })
+        .catch(() => {
+            loading.value = false;
+        });
+};
+
+const dialogRef = ref();
+const onOpenDialog = async (
+    title: string,
+    rowData: Partial<Host.RuleForward> = {
+        protocol: 'tcp',
+        port: '8080',
+        targetIP: '',
+        targetPort: '',
+        interface: '',
+    },
+) => {
+    let params = {
+        title,
+        rowData: { ...rowData },
+        fireName: fireName.value,
+    };
+    dialogRef.value!.acceptParams(params);
+};
+const onDelete = async (row: Host.RuleForward | null) => {
+    let names = [];
+    let rules = [];
+    if (row) {
+        rules.push({
+            ...row,
+            operation: 'remove',
+        });
+        names = [row.port + ' (' + row.protocol + ')'];
+    } else {
+        for (const item of selects.value) {
+            names.push(item.port + ' (' + item.protocol + ')');
+            rules.push({
+                ...item,
+                operation: 'remove',
+            });
+        }
+    }
+    operateRules.value = rules;
+    opRef.value.acceptParams({
+        title: i18n.global.t('commons.button.delete'),
+        names: names,
+        msg: i18n.global.t('commons.msg.operatorHelper', [
+            i18n.global.t('firewall.forwardRule'),
+            i18n.global.t('commons.button.delete'),
+        ]),
+        api: null,
+        params: null,
+    });
+};
+const onSubmitDelete = async () => {
+    loading.value = true;
+    await operateForwardRule({ rules: operateRules.value, forceDelete: forceDelete.value })
+        .then(() => {
+            loading.value = false;
+            MsgSuccess(i18n.global.t('commons.msg.deleteSuccess'));
+            search();
+        })
+        .catch(() => {
+            loading.value = false;
+        });
+};
+
+const onImport = () => {
+    dialogImportRef.value.acceptParams(fireName.value);
+};
+
+const onExport = () => {
+    ElMessageBox.confirm(
+        i18n.global.t('firewall.exportHelper', [selects.value.length]),
+        i18n.global.t('commons.button.export'),
+        {
+            confirmButtonText: i18n.global.t('commons.button.confirm'),
+            cancelButtonText: i18n.global.t('commons.button.cancel'),
+        },
+    ).then(async () => {
+        const exportData = selects.value.map((item: Host.RuleInfo) => ({
+            family: item.family,
+            protocol: item.protocol,
+            port: item.port,
+            targetIP: item.targetIP,
+            targetPort: item.targetPort,
+            interface: item.interface,
+        }));
+        const content = JSON.stringify(exportData, null, 2);
+        const fileName = `1panel-firewall-forward-${getCurrentDateFormatted()}.json`;
+        downloadWithContent(content, fileName);
+    });
+};
+
+const buttons = [
+    {
+        label: i18n.global.t('commons.button.edit'),
+        permission: true,
+        nodeAdmin: true,
+        click: (row: Host.RuleForward) => {
+            onOpenDialog('edit', row);
+        },
+    },
+    {
+        label: i18n.global.t('commons.button.delete'),
+        permission: true,
+        nodeAdmin: true,
+        click: (row: Host.RuleForward) => {
+            onDelete(row);
+        },
+    },
+];
+
+onMounted(() => {
+    forceDelete.value = false;
+    if (fireName.value !== '-') {
+        loading.value = true;
+        fireStatusRef.value.acceptParams();
+    }
+});
+</script>
+
+<style lang="scss" scoped>
+.svg-icon {
+    font-size: 8px;
+    margin-bottom: -4px;
+    cursor: pointer;
+}
+</style>
