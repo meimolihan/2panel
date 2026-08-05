@@ -15,7 +15,7 @@ set -e
 
 cd "$(dirname "$0")/.."
 
-VERSION="${VERSION:-v0.1.0}"
+VERSION="${VERSION:-v0.1.1}"
 BUILD="$(date -u +%Y%m%d%H%M%S)"
 LDFLAGS="-s -w -X main.version=${VERSION} -X main.build=${BUILD}"
 

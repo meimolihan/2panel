@@ -159,10 +159,10 @@ GITHUB_OWNER="meimolihan"             # 已配置为你的用户名
 
 ```bash
 # 交叉编译 linux amd64 / arm64 两个二进制（无需目标机器）
-./scripts/build-release.sh                  # 默认 v0.1.0，可用 VERSION=v1.0.0 覆盖
+./scripts/build-release.sh                  # 默认 v0.1.1，可用 VERSION=v1.0.0 覆盖
 
 # 发布 GitHub Release（需安装 gh CLI）
-VERSION=v0.1.0
+VERSION=v0.1.1
 gh release create "$VERSION" dist/2panel_linux_amd64 dist/2panel_linux_arm64 \
   --title "$VERSION" --notes "2Panel scheduled task manager"
 ```
