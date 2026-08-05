@@ -58,6 +58,10 @@ func main() {
 
 	// restore running cron entries from db
 	service.RestoreCronjobs()
+	service.RestoreScriptRecords()
+
+	// seed built-in install scripts into an empty script library
+	service.SeedScripts()
 
 	addr := fmt.Sprintf(":%d", port)
 	log.Printf("2Panel %s (%s) listening on %s, data dir: %s", version, build, addr, dataDir)

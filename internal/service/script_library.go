@@ -1,17 +1,35 @@
 package service
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
+	"sync"
+	"syscall"
+	"time"
 
+	"github.com/2panel-dev/2panel/internal/database"
 	"github.com/2panel-dev/2panel/internal/dto"
 	"github.com/2panel-dev/2panel/internal/model"
 	"github.com/2panel-dev/2panel/internal/repo"
+	"github.com/2panel-dev/2panel/internal/scheduler"
 )
 
 var scriptLibraryRepo repo.ScriptLibraryRepo
 
+var scriptRecordRepo repo.ScriptRecordRepo
+
 var scriptService ScriptService
+
+// scriptRunner tracks running script tasks so they can be stopped from the UI,
+// mirroring the scheduler's cancel map but scoped to one-shot library runs.
+var scriptRunner = struct {
+	mu     sync.Mutex
+	cancel map[string]context.CancelFunc
+}{cancel: make(map[string]context.CancelFunc)}
 
 type ScriptService struct{}
 
@@ -88,6 +106,20 @@ func (u *ScriptService) Update(req dto.ScriptOperate) error {
 
 func (u *ScriptService) Delete(ids []uint) error {
 	for _, id := range ids {
+		script, err := scriptLibraryRepo.Get(repo.WithByID(id))
+		if err != nil {
+			continue
+		}
+		_, records, _ := scriptRecordRepo.Page(1, 100000, repo.WithByScriptID(id))
+		for _, record := range records {
+			if len(record.Records) != 0 {
+				_ = os.Remove(record.Records)
+			}
+		}
+		_ = os.RemoveAll(filepath.Join(scheduler.GetRunner().DataDir(), "task", "script-run", fmt.Sprintf("%d", script.ID)))
+		if err := scriptRecordRepo.Delete(repo.WithByScriptID(id)); err != nil {
+			return err
+		}
 		if err := scriptLibraryRepo.Delete(repo.WithByID(id)); err != nil {
 			return err
 		}
@@ -116,4 +148,174 @@ func (u *ScriptService) ResolveByName(name string) string {
 		return ""
 	}
 	return script.Script
+}
+
+// Run executes a library script once (the "install" action). It returns the
+// task ID used by the frontend to poll the live output.
+func (u *ScriptService) Run(id uint) (string, error) {
+	script, err := scriptLibraryRepo.Get(repo.WithByID(id))
+	if err != nil {
+		return "", fmt.Errorf("script not found")
+	}
+	if len(strings.TrimSpace(script.Script)) == 0 {
+		return "", fmt.Errorf("the script content is empty")
+	}
+
+	taskID := newTaskID()
+	record := model.ScriptRecord{
+		TaskID:     taskID,
+		ScriptID:   id,
+		ScriptName: script.Name,
+		StartTime:  time.Now(),
+		Status:     model.StatusWaiting,
+	}
+	if err := scriptRecordRepo.Create(&record); err != nil {
+		return "", err
+	}
+
+	logPath := filepath.Join(scheduler.GetRunner().DataDir(), "log", taskID+".log")
+	logWriter, err := scheduler.NewLogWriter(logPath)
+	if err != nil {
+		return "", err
+	}
+
+	go func() {
+		defer logWriter.Close()
+		_ = scriptRecordRepo.Update(record.ID, map[string]interface{}{
+			"status":  model.StatusRunning,
+			"records": logPath,
+		})
+		logWriter.Logf("start script [%s]", record.ScriptName)
+		start := time.Now()
+		err := u.runScript(taskID, script.Script, logWriter)
+		vars := map[string]interface{}{
+			"records":  logPath,
+			"task_id":  taskID,
+			"interval": float64(time.Since(record.StartTime).Milliseconds()),
+		}
+		if err != nil {
+			vars["status"] = model.StatusFailed
+			vars["message"] = err.Error()
+			logWriter.Logf("script [%s] finished failed, elapsed: %.2fs, err: %v", record.ScriptName, time.Since(start).Seconds(), err)
+		} else {
+			vars["status"] = model.StatusSuccess
+			logWriter.Logf("script [%s] finished successfully, elapsed: %.2fs", record.ScriptName, time.Since(start).Seconds())
+		}
+		_ = scriptRecordRepo.Update(record.ID, vars)
+	}()
+	return taskID, nil
+}
+
+func (u *ScriptService) runScript(taskID, script string, log *scheduler.LogWriter) error {
+	jobDir := filepath.Join(scheduler.GetRunner().DataDir(), "task", "script-run", taskID)
+	if err := os.MkdirAll(jobDir, 0755); err != nil {
+		return err
+	}
+	scriptFile := filepath.Join(jobDir, taskID+".sh")
+	if err := os.WriteFile(scriptFile, []byte(script), 0755); err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	scriptRunner.mu.Lock()
+	scriptRunner.cancel[taskID] = cancel
+	scriptRunner.mu.Unlock()
+	defer func() {
+		cancel()
+		scriptRunner.mu.Lock()
+		delete(scriptRunner.cancel, taskID)
+		scriptRunner.mu.Unlock()
+		_ = os.RemoveAll(jobDir)
+	}()
+
+	cmd := exec.CommandContext(ctx, "bash", scriptFile)
+	cmd.Stdout = log
+	cmd.Stderr = log
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		// Kill the whole process group so grandchildren release the output
+		// pipe and Wait() can return.
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+		}
+		return ctx.Err()
+	}
+}
+
+// StopRun cancels a running script task by its task ID.
+func (u *ScriptService) StopRun(taskID string) error {
+	if len(taskID) == 0 {
+		return fmt.Errorf("the task id is required")
+	}
+	scriptRunner.mu.Lock()
+	cancel, ok := scriptRunner.cancel[taskID]
+	scriptRunner.mu.Unlock()
+	if !ok {
+		return fmt.Errorf("task not found or already finished")
+	}
+	cancel()
+	return nil
+}
+
+// SearchRunRecords returns the paginated run history of library scripts.
+func (u *ScriptService) SearchRunRecords(search dto.ScriptRecordSearch) (int64, []dto.ScriptRecord, error) {
+	var opts []repo.DBOption
+	if search.ScriptID != 0 {
+		opts = append(opts, repo.WithByScriptID(search.ScriptID))
+	}
+	if len(search.Status) != 0 {
+		opts = append(opts, repo.WithByStatus(search.Status))
+	}
+	total, records, err := scriptRecordRepo.Page(search.Page.Page, search.Page.PageSize, opts...)
+	if err != nil {
+		return 0, nil, err
+	}
+	items := make([]dto.ScriptRecord, 0)
+	for _, record := range records {
+		items = append(items, dto.ScriptRecord{
+			ID:         record.ID,
+			ScriptID:   record.ScriptID,
+			ScriptName: record.ScriptName,
+			TaskID:     record.TaskID,
+			StartTime:  record.StartTime.Format("2006-01-02 15:04:05"),
+			Interval:   record.Interval,
+			Status:     record.Status,
+			Message:    record.Message,
+		})
+	}
+	return total, items, nil
+}
+
+// LoadRunLog returns the live (or final) output and status of a script run,
+// resolved by task ID so the frontend can poll during execution.
+func (u *ScriptService) LoadRunLog(taskID string) (dto.ScriptLog, error) {
+	record, err := scriptRecordRepo.Get(repo.WithByTaskID(taskID))
+	if err != nil {
+		return dto.ScriptLog{}, fmt.Errorf("record not found")
+	}
+	content, err := os.ReadFile(record.Records)
+	if err != nil {
+		content = nil
+	}
+	return dto.ScriptLog{Content: string(content), Status: record.Status}, nil
+}
+
+// RestoreScriptRecords marks in-flight script runs as failed after a service
+// restart, mirroring RestoreCronjobs.
+func RestoreScriptRecords() {
+	database.DB.Model(&model.ScriptRecord{}).Where("status IN ?", []string{model.StatusRunning, model.StatusWaiting}).
+		Updates(map[string]interface{}{"status": model.StatusFailed, "message": "interrupted by service restart"})
 }

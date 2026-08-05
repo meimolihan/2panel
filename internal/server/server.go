@@ -44,6 +44,10 @@ func New(debug bool) http.Handler {
 		mux.HandleFunc("POST /api/scripts/create", handler.AuthMiddleware(scriptApi.Create))
 		mux.HandleFunc("POST /api/scripts/update", handler.AuthMiddleware(scriptApi.Update))
 		mux.HandleFunc("POST /api/scripts/del", handler.AuthMiddleware(scriptApi.Delete))
+		mux.HandleFunc("POST /api/scripts/run", handler.AuthMiddleware(scriptApi.Run))
+		mux.HandleFunc("POST /api/scripts/run/stop", handler.AuthMiddleware(scriptApi.StopRun))
+		mux.HandleFunc("POST /api/scripts/run/records", handler.AuthMiddleware(scriptApi.SearchRunRecords))
+		mux.HandleFunc("POST /api/scripts/run/log", handler.AuthMiddleware(scriptApi.RunLog))
 	}
 
 	web, err := fs.Sub(webFS, "web")

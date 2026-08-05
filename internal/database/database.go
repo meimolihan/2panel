@@ -19,7 +19,7 @@ func Init(dbPath string) error {
 	if err != nil {
 		return fmt.Errorf("open database failed: %v", err)
 	}
-	if err := DB.AutoMigrate(&model.Cronjob{}, &model.JobRecord{}, &model.Setting{}, &model.ScriptLibrary{}); err != nil {
+	if err := DB.AutoMigrate(&model.Cronjob{}, &model.JobRecord{}, &model.Setting{}, &model.ScriptLibrary{}, &model.ScriptRecord{}); err != nil {
 		return fmt.Errorf("migrate database failed: %v", err)
 	}
 	return nil
