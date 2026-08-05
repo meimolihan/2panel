@@ -45,6 +45,24 @@ cat <<'EOF'
 2Panel - 卸载
 EOF
 
+# ---- 0. confirm uninstall (service & program) ----
+while :; do
+  read -r -p "卸载将停止并移除 2Panel 服务与程序，是否继续？[y/N]: " CONFIRM
+  case "$CONFIRM" in
+    y|Y|yes|YES)
+      echo ">>> 开始卸载 2Panel ..."
+      break
+      ;;
+    n|N|no|NO|"")
+      echo "已取消卸载。"
+      exit 0
+      ;;
+    *)
+      echo "  输入无效，请输入 y 或 n。"
+      ;;
+  esac
+done
+
 # ---- 1. stop & remove systemd service ----
 # 先从服务文件提取实际使用的端口与数据目录（卸载时一并清理）
 PORT="$DEFAULT_PORT"
@@ -124,5 +142,4 @@ fi
 close_firewall_port "$PORT"
 
 echo ""
-echo "2Panel 已卸载完成。"
-echo "如需同时删除本地源码目录，直接删除项目文件夹即可。"
+echo "2Panel 已卸载完成。如需重新安装，请再次运行 install.sh 安装脚本。"

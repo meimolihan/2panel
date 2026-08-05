@@ -32,6 +32,14 @@ func main() {
 	flag.BoolVar(&showVer, "version", false, "show version")
 	flag.Parse()
 
+	// subcommands: 2panel uninstall ...
+	if args := flag.Args(); len(args) > 0 {
+		switch args[0] {
+		case "uninstall":
+			os.Exit(cmdUninstall())
+		}
+	}
+
 	if showVer {
 		fmt.Printf("2Panel %s (%s)\n", version, build)
 		os.Exit(0)

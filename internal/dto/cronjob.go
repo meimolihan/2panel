@@ -95,6 +95,21 @@ type Record struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
+// RecordLogTailReq requests the log content appended since Offset (in bytes)
+// for the given execution record, used by the live log viewer.
+type RecordLogTailReq struct {
+	ID     uint  `json:"id"`
+	Offset int64 `json:"offset"`
+}
+
+// RecordLogTail holds the newly appended content, the next read offset and the
+// current record status so the frontend knows when to stop polling.
+type RecordLogTail struct {
+	Content string `json:"content"`
+	Offset  int64  `json:"offset"`
+	Status  string `json:"status"`
+}
+
 type PageResult struct {
 	Items interface{} `json:"items"`
 	Total int64       `json:"total"`

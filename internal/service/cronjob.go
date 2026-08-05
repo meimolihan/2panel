@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -400,15 +401,67 @@ func (u *CronjobService) SearchRecords(search dto.SearchRecord) (int64, []dto.Re
 }
 
 func (u *CronjobService) LoadRecordLog(id uint) string {
-	record, err := cronjobRepo.GetRecord(repo.WithByID(id))
+	path, err := u.recordLogPath(id)
 	if err != nil {
 		return ""
 	}
-	content, err := os.ReadFile(record.Records)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		return ""
 	}
 	return string(content)
+}
+
+// recordLogPath returns the log file path for an execution record. While a
+// task is running the record's `records` field is still empty, so the path is
+// derived from the taskID instead.
+func (u *CronjobService) recordLogPath(id uint) (string, error) {
+	record, err := cronjobRepo.GetRecord(repo.WithByID(id))
+	if err != nil {
+		return "", fmt.Errorf("record not found")
+	}
+	if record.Records != "" {
+		return record.Records, nil
+	}
+	return filepath.Join(scheduler.GetRunner().DataDir(), "log", record.TaskID+".log"), nil
+}
+
+// ReadRecordLogTail returns the log content appended since the given byte
+// offset plus the next offset and the record status. The frontend polls this
+// endpoint while a task is running to render a live log view.
+func (u *CronjobService) ReadRecordLogTail(req dto.RecordLogTailReq) (dto.RecordLogTail, error) {
+	record, err := cronjobRepo.GetRecord(repo.WithByID(req.ID))
+	if err != nil {
+		return dto.RecordLogTail{}, fmt.Errorf("record not found")
+	}
+	result := dto.RecordLogTail{Offset: req.Offset, Status: record.Status}
+	if req.Offset < 0 {
+		result.Offset = 0
+	}
+	path := record.Records
+	if path == "" {
+		path = filepath.Join(scheduler.GetRunner().DataDir(), "log", record.TaskID+".log")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return result, nil
+	}
+	defer f.Close()
+	stat, err := f.Stat()
+	if err != nil {
+		return result, nil
+	}
+	size := stat.Size()
+	if result.Offset > size {
+		result.Offset = size
+	}
+	if _, err := f.Seek(result.Offset, io.SeekStart); err != nil {
+		return result, nil
+	}
+	content, _ := io.ReadAll(f)
+	result.Content = string(content)
+	result.Offset = size
+	return result, nil
 }
 
 // Export returns all cronjobs as importable payloads (created timestamps and

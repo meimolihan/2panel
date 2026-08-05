@@ -620,6 +620,111 @@ tbody tr:hover { background: var(--row-hover-bg); }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ======================================================================
+   UI 质感与响应式增强（追加层）
+   仅涉及视觉表现 / 动效 / 触屏适配，不改结构、不改业务逻辑、不改主题色。
+   ====================================================================== */
+
+/* --- 统一交互过渡：all 0.25s ease（0.2~0.3s 区间内，禁用 linear） --- */
+.card, .login-card, .btn, .tab, .preset, .dropdown-item, .spec-row, tbody tr,
+.user-avatar, .theme-toggle, .toast, .spec-row .btn {
+  transition: all 0.25s ease;
+}
+
+/* --- 层次感：背景 → 容器 → 卡片 → 内容 分层增强 --- */
+body { -webkit-font-smoothing: antialiased; }
+
+/* 卡片顶部微弱高光 + 柔和阴影，浮起立体但不发黑（暗色主题生效，浅色主题沿用原有更高优先级规则） */
+.card {
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+/* 代码日志区内凹质感 */
+.log-view { box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.30); }
+
+/* 输入控件内凹层次（浅色主题已有，暗色主题补充） */
+.toolbar input[type=text], .toolbar select,
+.form-row input[type=text], .form-row textarea, .form-row select,
+.login-field input, .pwd-wrap, .spec-row select, .spec-row input[type=number] {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.16);
+}
+
+/* 弹窗头部 / 表头微弱渐变，区分层级 */
+.modal-head { background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent); }
+th { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent); }
+
+/* --- 桌面端（>1024px，PC）：完整留白，hover 悬浮动效全量启用 --- */
+@media (min-width: 1025px) {
+  .container { margin: 28px auto; }
+  .card { padding: 22px; }
+  .toolbar { margin-bottom: 18px; }
+  body { background-attachment: fixed; }
+}
+
+/* 仅鼠标精确指针设备启用 hover：微微上浮 + 阴影加深(沿用原规则) + 微小缩放 */
+@media (hover: hover) and (pointer: fine) {
+  .card:hover { transform: translateY(-3px) scale(1.004); }
+  .login-card:hover { transform: translateY(-3px) scale(1.005); }
+  .btn:not(:disabled):hover { transform: translateY(-2px) scale(1.02); }
+  .btn.small:not(:disabled):hover { transform: translateY(-1px) scale(1.05); }
+  .btn.primary:not(:disabled):hover { transform: translateY(-2px) scale(1.02); }
+  .btn.danger:not(:disabled):hover { transform: translateY(-2px) scale(1.02); }
+  .preset:hover { transform: translateY(-1px) scale(1.03); }
+  .dropdown-item:hover { transform: translateX(2px); }
+  .tab:hover { transform: translateY(-1px); }
+  .spec-row:hover { transform: translateY(-1px); }
+  .toast:hover { transform: translateY(-2px); }
+}
+
+/* 点击下压反馈 */
+.btn:not(:disabled):active { transform: translateY(1px) scale(0.97); box-shadow: var(--shadow-sm); }
+.preset:active { transform: translateY(1px) scale(0.98); }
+.tab:active { transform: translateY(1px); }
+.dropdown-item:active { transform: translateY(1px); }
+
+/* 触屏设备强制禁用 hover 浮起/缩放（防止触摸误触发与残留态） */
+@media (hover: none) {
+  .card:hover, .login-card:hover, .btn:hover, .preset:hover,
+  .dropdown-item:hover, .tab:hover, .spec-row:hover, .toast:hover {
+    transform: none;
+  }
+}
+
+/* 触屏（平板/手机）扩展可点击热区 ≥44px：视觉不变，仅扩大命中区域 */
+@media (pointer: coarse) {
+  .btn, .tab, .preset, .dropdown-item, .user-avatar, .theme-toggle,
+  .modal-head .close, .pwd-wrap .eye { position: relative; }
+  .btn::before, .tab::before, .preset::before, .dropdown-item::before,
+  .user-avatar::before, .theme-toggle::before,
+  .modal-head .close::before, .pwd-wrap .eye::before {
+    content: ""; position: absolute; inset: -8px; border-radius: inherit;
+  }
+}
+
+/* --- iPad 平板端（768px ~ 1024px）：适度收紧留白，阴影略微降低 --- */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .container { margin: 18px auto; padding: 0 14px; }
+  .card { padding: 16px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.10); }
+  .toolbar { margin-bottom: 14px; }
+  .modal-head { padding: 14px 18px; }
+  .modal-body { padding: 16px 18px; }
+  .form-row { margin-bottom: 14px; }
+}
+
+/* --- 手机移动端（<768px）：禁用浮起动效、单列堆叠、收窄留白、防横向溢出、热区≥44px --- */
+@media (max-width: 767px) {
+  html, body { overflow-x: hidden; }
+  body { -webkit-text-size-adjust: 100%; font-size: 13px; }
+  .container { margin: 10px auto; padding: 0 8px; }
+  .card { padding: 14px; }
+  .modal-head { padding: 12px 14px; }
+  .modal-body { padding: 12px 14px; }
+  .toolbar { gap: 8px; margin-bottom: 12px; }
+  .toolbar .btn, .toolbar input[type=text], .toolbar select,
+  td[data-label="操作"] .btn, .pager .btn, .modal-foot .btn { height: 44px; }
+  .tabs { margin-bottom: 10px; }
+}
 </style>
 </head>
 <body>
@@ -916,7 +1021,7 @@ echo 'hello 2panel'"></textarea>
       </div>
       <table>
         <thead>
-          <tr><th style="width:170px">开始时间</th><th style="width:90px">状态</th><th>日志</th><th style="width:180px">耗时(ms)</th><th style="width:100px">操作</th></tr>
+          <tr><th style="width:170px">开始时间</th><th style="width:90px">状态</th><th>日志</th><th style="width:160px">耗时</th><th style="width:100px">操作</th></tr>
         </thead>
         <tbody id="recordTbody"></tbody>
       </table>
@@ -938,6 +1043,7 @@ echo 'hello 2panel'"></textarea>
       <span class="close" onclick="closeLog()">✕</span>
     </div>
     <div class="modal-body">
+      <div id="logLiveStatus" style="display:none;margin-bottom:8px;font-size:12px;color:var(--primary)">● 实时模式：自动刷新执行日志</div>
       <pre class="log-view" id="logView"></pre>
     </div>
   </div>
@@ -1025,7 +1131,7 @@ echo 'hello 2panel'"></textarea>
       </div>
       <table>
         <thead>
-          <tr><th style="width:180px">脚本名称</th><th style="width:170px">开始时间</th><th style="width:90px">状态</th><th>日志</th><th style="width:100px">操作</th></tr>
+          <tr><th style="width:180px">脚本名称</th><th style="width:170px">开始时间</th><th style="width:90px">状态</th><th>日志</th><th style="width:140px">耗时</th><th style="width:100px">操作</th></tr>
         </thead>
         <tbody id="scriptRecordTbody"></tbody>
       </table>
@@ -1269,6 +1375,22 @@ function toggleTheme() {
 }
 
 const statusText = { enabled: '已启用', disabled: '已禁用', success: '成功', failed: '失败', running: '执行中', waiting: '等待中', unexecuted: '未执行' };
+
+function formatInterval(ms, status) {
+  const v = Number(ms);
+  if (!isFinite(v) || v < 0) return '-';
+  if (status === 'waiting' || status === 'running' || status === 'unexecuted') return '-';
+  const t = Math.round(v);
+  if (t < 1000) return t + ' 毫秒';
+  const h = Math.floor(t / 3600000);
+  const m = Math.floor((t % 3600000) / 60000);
+  const s = Math.floor((t % 60000) / 1000);
+  const msPart = t % 1000;
+  if (h > 0) return `${h} 时 ${m} 分 ${s} 秒`;
+  if (m > 0) return `${m} 分 ${s} 秒`;
+  if (s > 0) return `${s} 秒 ${msPart} 毫秒`;
+  return t + ' 毫秒';
+}
 
 async function loadList(page) {
   if (page < 1) return;
@@ -1801,7 +1923,7 @@ function renderScriptRecords(items, total) {
       <td data-label="开始时间">${esc(r.startTime)}</td>
       <td data-label="状态"><span class="tag ${r.status}">${statusText[r.status] || r.status}</span></td>
       <td data-label="日志" style="white-space:normal;max-width:380px">${err}<span class="code" style="font-size:12px">${esc(r.taskID)}.log</span></td>
-      <td data-label="耗时(ms)">${Math.round(r.interval)}</td>
+      <td data-label="耗时">${formatInterval(r.interval, r.status)}</td>
       <td data-label="操作"><button class="btn small" onclick="openScriptRunLog('${escAttr(r.taskID)}', '${escAttr(r.startTime)}')">查看日志</button></td>`;
     tbody.appendChild(tr);
   }
@@ -1872,22 +1994,64 @@ function renderRecords(items, total) {
       <td data-label="开始时间">${esc(r.startTime)}</td>
       <td data-label="状态"><span class="tag ${r.status}">${statusText[r.status] || r.status}</span></td>
       <td data-label="日志" style="white-space:normal;max-width:380px">${err}<span class="code" style="font-size:12px">${esc(r.taskID)}.log</span></td>
-      <td data-label="耗时(ms)">${Math.round(r.interval)}</td>
-      <td data-label="操作"><button class="btn small" onclick="openLog(${r.id}, '${escAttr(r.startTime)}')">查看日志</button></td>`;
+      <td data-label="耗时">${formatInterval(r.interval, r.status)}</td>
+      <td data-label="操作"><button class="btn small" onclick="openLog(${r.id}, '${escAttr(r.startTime)}', '${escAttr(r.status)}')">查看日志</button></td>`;
     tbody.appendChild(tr);
   }
 }
 
-async function openLog(id, time) {
+let logTailTimer = null;
+let logTailID = 0;
+let logTailOffset = 0;
+
+async function openLog(id, time, status) {
+  stopLogTail();
+  document.getElementById('logTitle').textContent = time || '';
+  document.getElementById('logView').innerHTML = '';
+  document.getElementById('logLiveStatus').style.display = 'none';
+  document.getElementById('logMask').classList.add('show');
+  logTailID = id;
+  logTailOffset = 0;
   try {
-    const content = await request(API + '/records/log', 'POST', { id });
-    document.getElementById('logTitle').textContent = time;
-    document.getElementById('logView').innerHTML = ansiToHtml(content || '(暂无日志内容)');
-    document.getElementById('logMask').classList.add('show');
+    await fetchLogTail(false);
+    const view = document.getElementById('logView');
+    view.scrollTop = view.scrollHeight;
+    if (status === 'running' || status === 'waiting') {
+      document.getElementById('logLiveStatus').style.display = '';
+      logTailTimer = setInterval(fetchLogTail, 3000);
+    }
   } catch (e) { toast(e.message, 'error'); }
 }
 
+async function fetchLogTail(isPoll) {
+  if (!logTailID) return;
+  const data = await request(API + '/records/log/tail', 'POST', { id: logTailID, offset: logTailOffset });
+  const view = document.getElementById('logView');
+  if (data.content) {
+    const div = document.createElement('div');
+    div.innerHTML = ansiToHtml(data.content);
+    view.appendChild(div);
+    if (isPoll) view.scrollTop = view.scrollHeight;
+  }
+  logTailOffset = data.offset;
+  if (data.status === 'running' || data.status === 'waiting') return;
+  stopLogTail();
+  if (isPoll) {
+    loadRecords(currentRecordPage);
+    toast('任务已结束，实时日志已停止');
+  }
+}
+
+function stopLogTail() {
+  if (logTailTimer) { clearInterval(logTailTimer); logTailTimer = null; }
+  logTailID = 0;
+  logTailOffset = 0;
+  const el = document.getElementById('logLiveStatus');
+  if (el) el.style.display = 'none';
+}
+
 function closeLog() {
+  stopLogTail();
   document.getElementById('logMask').classList.remove('show');
 }
 

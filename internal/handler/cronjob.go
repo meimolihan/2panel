@@ -177,6 +177,19 @@ func (a *CronjobApi) RecordLog(w http.ResponseWriter, r *http.Request) {
 	SuccessWithData(w, content)
 }
 
+func (a *CronjobApi) RecordLogTail(w http.ResponseWriter, r *http.Request) {
+	var req dto.RecordLogTailReq
+	if err := decode(&req, w, r); err != nil {
+		return
+	}
+	data, err := cronjobService.ReadRecordLogTail(req)
+	if err != nil {
+		InternalServer(w, err)
+		return
+	}
+	SuccessWithData(w, data)
+}
+
 func (a *CronjobApi) Export(w http.ResponseWriter, r *http.Request) {
 	items, err := cronjobService.Export()
 	if err != nil {
