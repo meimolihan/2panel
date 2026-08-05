@@ -11,9 +11,29 @@ set -e
 BIN_PATH="/usr/local/bin/2panel"
 SERVICE_NAME="2panel"
 DEFAULT_DATA_DIR="/var/lib/2panel"
+DEFAULT_PORT=8080
 
-error() { echo "[ERROR] $1" >&2; exit 1; }
-[ "$(id -u)" != "0" ] && error "please run as root (sudo bash uninstall.sh)"
+error() { echo "[错误] $1" >&2; exit 1; }
+[ "$(id -u)" != "0" ] && error "请以 root 身份运行（sudo bash uninstall.sh）"
+
+# ---- close firewall port opened by install.sh (best effort) ----
+close_firewall_port() {
+  local PORT="$1"
+  [ -z "$PORT" ] && return 0
+
+  if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+    firewall-cmd --permanent --remove-port="${PORT}/tcp" >/dev/null 2>&1 || true
+    firewall-cmd --reload >/dev/null 2>&1 || true
+    echo ">>> 已通过 firewalld 关闭端口 ${PORT}/tcp"
+  elif command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
+    ufw delete allow "${PORT}/tcp" >/dev/null 2>&1 || true
+    echo ">>> 已通过 ufw 关闭端口 ${PORT}/tcp"
+  elif command -v iptables >/dev/null 2>&1; then
+    if iptables -D INPUT -p tcp --dport "${PORT}" -j ACCEPT >/dev/null 2>&1; then
+      echo ">>> 已通过 iptables 关闭端口 ${PORT}/tcp"
+    fi
+  fi
+}
 
 cat <<'EOF'
   ______ _____
@@ -22,12 +42,15 @@ cat <<'EOF'
    / /  |  __/
   /_/   |_|
 
-  2Panel - Uninstall
+  2Panel - 卸载
 EOF
 
 # ---- 1. stop & remove systemd service ----
+PORT="$DEFAULT_PORT"
 if command -v systemctl >/dev/null 2>&1 && [ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
-  echo ">>> stopping and removing systemd service ${SERVICE_NAME} ..."
+  echo ">>> 正在停止并移除 systemd 服务 ${SERVICE_NAME} ..."
+  PORT=$(grep -oP 'ExecStart=.*\K-port\s+\K[0-9]+' "/etc/systemd/system/${SERVICE_NAME}.service" 2>/dev/null | head -n1)
+  [ -z "$PORT" ] && PORT="$DEFAULT_PORT"
   systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
   systemctl disable "${SERVICE_NAME}" 2>/dev/null || true
   rm -f "/etc/systemd/system/${SERVICE_NAME}.service"
@@ -37,23 +60,27 @@ fi
 # ---- 2. kill running process (background mode / fallback) ----
 PIDS=""
 if command -v pgrep >/dev/null 2>&1; then
-  PIDS=$(pgrep -f "^${BIN_PATH}" 2>/dev/null || true)
+  PIDS=$(pgrep -f "${BIN_PATH}" 2>/dev/null || true)
   [ -z "$PIDS" ] && PIDS=$(pgrep -x "2panel" 2>/dev/null || true)
 fi
 if [ -n "$PIDS" ]; then
-  echo ">>> stopping running 2panel process(es): $PIDS ..."
-  # shellcheck disable=SC2086
-  kill $PIDS 2>/dev/null || true
+  echo ">>> 正在停止 2panel 进程: $PIDS ..."
+  for PID in $PIDS; do
+    [ -d "/proc/$PID" ] || continue
+    kill "$PID" 2>/dev/null || true
+  done
   sleep 1
   # force kill if still alive
-  # shellcheck disable=SC2086
-  kill -9 $PIDS 2>/dev/null || true
+  for PID in $PIDS; do
+    [ -d "/proc/$PID" ] || continue
+    kill -9 "$PID" 2>/dev/null || true
+  done
 fi
 
 # ---- 3. remove binary ----
 if [ -f "${BIN_PATH}" ]; then
   rm -f "${BIN_PATH}"
-  echo ">>> removed binary ${BIN_PATH}"
+  echo ">>> 已删除二进制文件 ${BIN_PATH}"
 fi
 
 # ---- 4. data directory (keep by default, it contains db/scripts/logs) ----
@@ -61,18 +88,21 @@ DATA_DIR="${DATA_DIR:-}"
 [ -z "$DATA_DIR" ] && [ -d "${DEFAULT_DATA_DIR}" ] && DATA_DIR="${DEFAULT_DATA_DIR}"
 
 if [ -n "$DATA_DIR" ] && [ -d "$DATA_DIR" ]; then
-  read -r -p "Remove data directory ${DATA_DIR} ? (contains database, task scripts and logs) [y/N]: " DEL_DATA
+  read -r -p "是否删除数据目录 ${DATA_DIR}？（包含数据库、任务脚本和日志）[y/N]: " DEL_DATA
   case "$DEL_DATA" in
     y|Y|yes|YES)
       rm -rf "$DATA_DIR"
-      echo ">>> removed data directory ${DATA_DIR}"
+      echo ">>> 已删除数据目录 ${DATA_DIR}"
       ;;
     *)
-      echo ">>> kept data directory ${DATA_DIR}"
+      echo ">>> 已保留数据目录 ${DATA_DIR}"
       ;;
   esac
 fi
 
+# ---- 5. close firewall port ----
+close_firewall_port "$PORT"
+
 echo ""
-echo "2Panel has been uninstalled."
-echo "If you also want to remove the local source checkout, just delete the project folder."
+echo "2Panel 已卸载完成。"
+echo "如需同时删除本地源码目录，直接删除项目文件夹即可。"

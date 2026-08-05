@@ -142,7 +142,7 @@ go build -o 2panel . && systemctl restart 2panel
 git init
 git add .
 git commit -m "feat: 2Panel scheduled task manager"
-git remote add origin https://github.com/<你的用户名>/2Panel.git
+git remote add origin https://github.com/meimolihan/2Panel.git
 git push -u origin main
 ```
 
@@ -152,7 +152,7 @@ git push -u origin main
 
 ```bash
 # install.sh 顶部
-GITHUB_OWNER="YOUR_GITHUB_USERNAME"   # 改成你的用户名
+GITHUB_OWNER="meimolihan"             # 已配置为你的用户名
 ```
 
 ### 3. 构建 release 附件并发布
@@ -174,7 +174,7 @@ gh release create "$VERSION" dist/2panel_linux_amd64 dist/2panel_linux_arm64 \
 在任意 Linux 服务器（root 或 sudo）上执行：
 
 ```bash
-bash -c "$(curl -sSL https://raw.githubusercontent.com/<你的用户名>/2Panel/main/install.sh)"
+bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)"
 ```
 
 安装脚本会自动完成：
@@ -183,18 +183,19 @@ bash -c "$(curl -sSL https://raw.githubusercontent.com/<你的用户名>/2Panel/
 2. **交互式提示输入监听端口**（默认 8080，校验 1-65535）
 3. 提示输入数据目录（默认 `/var/lib/2panel`）
 4. **自动注册为 systemd 服务**（开机自启 + 崩溃自动重启 + journald 日志）；系统无 systemd（如容器）时自动回退为后台运行并给出提示
-5. 打印访问地址 `http://<服务器IP>:<端口>`
+5. **自动开放防火墙端口**（自动检测 firewalld → ufw → iptables，仅放行实际启用的防火墙，并打印状态）
+6. 打印访问地址 `http://<服务器IP>:<端口>`
 
 ```bash
-$ bash -c "$(curl -sSL https://raw.githubusercontent.com/<用户名>/2Panel/main/install.sh)"
+$ bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)"
 ============================================================
- Installing 2Panel
-   OS   : Linux x86_64
-   Arch : amd64
+ 正在安装 2Panel
+   系统 : Linux x86_64
+   架构 : amd64
 ============================================================
-Enter listen port [default: 8080]: 18080        # ← 输入端口号
-Enter data directory [default: /var/lib/2panel]: # 回车用默认
->>> 2panel service started.                      # ← 自动注册并启动 systemd 服务
+请输入监听端口 [默认: 8080]: 18080        # ← 输入端口号
+请输入数据目录 [默认: /var/lib/2panel]:   # 回车用默认
+>>> 2panel 服务已启动。                   # ← 自动注册并启动 systemd 服务
 ...
   Web UI   : http://192.168.1.10:18080
 ```
@@ -205,10 +206,10 @@ Enter data directory [default: /var/lib/2panel]: # 回车用默认
 # 方式一：使用卸载脚本（本地克隆或下载后执行）
 bash uninstall.sh
 # 或远程执行
-bash -c "$(curl -sSL https://raw.githubusercontent.com/<用户名>/2Panel/main/uninstall.sh)"
+bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)"
 ```
 
-脚本会依次：停止并移除 systemd 服务 → 结束后台运行进程 → 删除二进制 → **询问是否删除数据目录**（默认保留，数据目录含数据库/脚本/日志，请确认后再删）。
+脚本会依次：停止并移除 systemd 服务 → 结束后台运行进程 → 删除二进制 → **询问是否删除数据目录**（默认保留，数据目录含数据库/脚本/日志，请确认后再删）→ 关闭安装时开放的防火墙端口。
 
 ```bash
 # 方式二：手动卸载
@@ -223,7 +224,7 @@ rm -rf /var/lib/2panel                                    # 删除数据（数�
 
 ```bash
 # 直接替换二进制后重启
-bash -c "$(curl -sSL https://raw.githubusercontent.com/<用户名>/2Panel/main/install.sh)"   # 重跑即覆盖二进制
+bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)"   # 重跑即覆盖二进制
 systemctl restart 2panel   # systemd 模式
 ```
 
