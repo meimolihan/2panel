@@ -68,8 +68,7 @@ func printUninstallBanner() {
 |___ \|  _ \ __ _ _ __   ___| |
   __) | |_) / _` + "`" + ` | '_ \ / _ \ |
  / __/|  __/ (_| | | | |  __/ |
-|_____|_|   \__,_|_| |_|\___|_|
-`)
+|_____|_|   \__,_|_| |_|\___|_|`)
 	fmt.Println("2Panel - 卸载")
 	fmt.Println("")
 }
@@ -96,6 +95,13 @@ func uninstallConfirm(reader *bufio.Reader, prompt string, defYes bool) bool {
 	}
 }
 
+// detectDataDir returns the data directory of the running/installed 2panel,
+// shared by uninstall/backup/restore.
+func detectDataDir() string {
+	_, data := detectUninstallConfig()
+	return data
+}
+
 // detectUninstallConfig resolves the actual port and data dir used by the
 // running installation, preferring the systemd unit file, then the cmdline of
 // running 2panel instances, then defaults.
@@ -116,33 +122,12 @@ func detectUninstallConfig() (int, string) {
 		}
 	}
 
-	entries, err := os.ReadDir("/proc")
-	if err != nil {
-		return port, data
-	}
-	portRe := regexp.MustCompile(`-port\s+(\d+)`)
-	dataRe := regexp.MustCompile(`-data\s+(\S+)`)
-	self := strconv.Itoa(os.Getpid())
-	for _, entry := range entries {
-		if !entry.IsDir() || !isNumeric(entry.Name()) || entry.Name() == self {
-			continue
+	for _, p := range running2panelProcs() {
+		if p.port != 0 {
+			port = p.port
 		}
-		pid, e := strconv.Atoi(entry.Name())
-		if e != nil || !is2panelProcess(pid) {
-			continue
-		}
-		raw, err := os.ReadFile(filepath.Join("/proc", entry.Name(), "cmdline"))
-		if err != nil {
-			continue
-		}
-		cmd := strings.ReplaceAll(string(raw), "\x00", " ")
-		if m := portRe.FindStringSubmatch(cmd); m != nil {
-			if v, e := strconv.Atoi(m[1]); e == nil {
-				port = v
-			}
-		}
-		if m := dataRe.FindStringSubmatch(cmd); m != nil {
-			data = m[1]
+		if p.data != "" {
+			data = p.data
 		}
 		if port != uninstallDefaultPort && data != uninstallDefaultData {
 			break
@@ -190,13 +175,24 @@ func is2panelProcess(pid int) bool {
 
 // stopOtherInstances terminates running 2panel processes (background mode),
 // excluding the uninstall process itself.
-func stopOtherInstances() {
+// runningProc describes a running 2panel instance.
+type runningProc struct {
+	pid  int
+	data string
+	port int
+}
+
+// running2panelProcs lists running 2panel instances (excluding this process),
+// with the port/data dir parsed from each cmdline when present.
+func running2panelProcs() []runningProc {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
-		return
+		return nil
 	}
+	portRe := regexp.MustCompile(`-port\s+(\d+)`)
+	dataRe := regexp.MustCompile(`-data\s+(\S+)`)
 	self := strconv.Itoa(os.Getpid())
-	var pids []int
+	var procs []runningProc
 	for _, entry := range entries {
 		if !entry.IsDir() || !isNumeric(entry.Name()) || entry.Name() == self {
 			continue
@@ -205,10 +201,32 @@ func stopOtherInstances() {
 		if e != nil || !is2panelProcess(pid) {
 			continue
 		}
-		pids = append(pids, pid)
+		p := runningProc{pid: pid}
+		if raw, err := os.ReadFile(filepath.Join("/proc", entry.Name(), "cmdline")); err == nil {
+			cmd := strings.ReplaceAll(string(raw), "\x00", " ")
+			if m := portRe.FindStringSubmatch(cmd); m != nil {
+				if v, e := strconv.Atoi(m[1]); e == nil {
+					p.port = v
+				}
+			}
+			if m := dataRe.FindStringSubmatch(cmd); m != nil {
+				p.data = m[1]
+			}
+		}
+		procs = append(procs, p)
 	}
-	if len(pids) == 0 {
+	return procs
+}
+
+// stopOtherInstances terminates every running 2panel instance.
+func stopOtherInstances() {
+	procs := running2panelProcs()
+	if len(procs) == 0 {
 		return
+	}
+	pids := make([]int, 0, len(procs))
+	for _, p := range procs {
+		pids = append(pids, p.pid)
 	}
 	fmt.Printf(">>> 正在停止 2panel 进程: %v ...\n", pids)
 	for _, pid := range pids {

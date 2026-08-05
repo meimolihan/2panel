@@ -237,11 +237,64 @@ systemctl restart 2panel   # systemd 模式
 | `-debug` | `false` | 是否输出调试日志 |
 | `-version` | - | 输出版本号 |
 
+## 基础命令
+
+`2panel` 支持若干子命令，统一由二进制入口分发，与 systemd 服务解耦，可在任意机器上对目标数据目录操作。
+
+### 1. `2panel`（默认）— 启动服务
+
+```bash
+2panel                      # 默认端口 8080、数据目录 ./data
+2panel -port 18080          # 指定端口
+2panel -data /var/lib/2panel   # 指定数据目录（数据库/脚本/日志）
+2panel -debug               # 输出调试日志
+2panel -version             # 显示版本号后退出
+```
+
+### 2. `2panel backup` — 备份全部数据
+
+将数据目录（含 `2panel.db` 数据库与 `log/`、`task/` 等全部子目录）打包为 zip。**数据库保存了全部用户数据（管理员账号、密码、任务、脚本库、执行记录）**，一个备份即可完整还原整站。
+
+```bash
+2panel backup                        # 输出 ./2panel-backup-<时间戳>.zip
+2panel backup /backup/2026-08-05.zip # 指定输出路径
+2panel -data /var/lib/2panel backup  # 显式指定数据目录（未指定时自动探测）
+```
+
+- 自动探测数据目录：优先解析 systemd 服务文件（`/etc/systemd/system/2panel.service` 中的 `-data`），其次扫描运行中实例的命令行，最后回退 `/var/lib/2panel`。
+- 检测到服务正在运行时给出提示（运行中的 SQLite 可能存在不一致），建议先 `systemctl stop 2panel` 再备份。
+- 输出路径不得位于数据目录内部。
+
+### 3. `2panel restore` — 从备份还原
+
+用备份 zip 完整还原数据目录。**还原前会先停止使用该数据目录的服务与进程**（systemd 服务 + 后台实例兜底），把现有数据目录重命名保留为 `*.backup-<时间戳>`，再解压还原：
+
+```bash
+2panel restore /backup/2026-08-05.zip     # 交互确认后还原
+2panel -data /var/lib/2panel restore /backup/2026-08-05.zip
+```
+
+- 还原前校验 zip 结构，必须包含 `2panel.db` 才算有效备份。
+- 解压防 zip-slip：拒绝绝对路径、`..` 越界条目。
+- 还原完成后按提示启动服务：`systemctl start 2panel`。
+
+### 4. `2panel uninstall` — 卸载
+
+```bash
+2panel uninstall
+```
+
+完整流程：root 检查 → 交互确认 → 停止并移除 systemd 服务 / 结束后台进程 → 关闭防火墙端口 → 删除自身二进制 → 二次确认后删除数据目录。
+
+> 备份 / 还原 / 卸载共用同一套数据目录探测与进程识别逻辑，均以 `/proc/<pid>/exe` 匹配，不会误杀 shell。
+
 ## 目录结构
 
 ```
 2Panel/
-├── main.go                          # 入口：参数解析、数据库、调度器、启动 HTTP
+├── main.go                          # 入口：参数解析、数据库、调度器、启动 HTTP、子命令分发
+├── uninstall_cmd.go                 # 卸载子命令（数据目录探测 / 进程识别 / 停服 / 删数据）
+├── backup_restore.go                # 备份 / 还原子命令（zip 打包与安全解压）
 ├── install.sh                       # 远程一键安装脚本（交互式输入端口等）
 ├── uninstall.sh                     # 卸载脚本（停服务/删进程/删二进制/可选删数据）
 ├── scripts/
@@ -347,9 +400,11 @@ POST /api/cronjobs
 
 ## 数据与日志
 
-- 数据库：`<data>/2panel.db`
+- 数据库：`<data>/2panel.db`（含全部用户数据：账号/密码、任务、脚本库、执行记录）
 - 任务脚本：`<data>/task/<任务名>/<任务名>.sh`
 - 执行日志：`<data>/log/<taskID>.log`
+
+> 备份整站：`2panel backup`；完整还原：`2panel restore <备份文件.zip>`（详见「基础命令」）。
 
 ## 与 1Panel 的对应关系
 

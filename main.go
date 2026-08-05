@@ -32,11 +32,15 @@ func main() {
 	flag.BoolVar(&showVer, "version", false, "show version")
 	flag.Parse()
 
-	// subcommands: 2panel uninstall ...
+	// subcommands: 2panel uninstall|backup|restore ...
 	if args := flag.Args(); len(args) > 0 {
 		switch args[0] {
 		case "uninstall":
 			os.Exit(cmdUninstall())
+		case "backup":
+			os.Exit(cmdBackup(args[1:], dataDir))
+		case "restore":
+			os.Exit(cmdRestore(args[1:], dataDir))
 		}
 	}
 
