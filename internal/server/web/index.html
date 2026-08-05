@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2Panel</title>
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem('theme');
+    document.documentElement.setAttribute('data-theme', (t === 'light' || t === 'dark') ? t : 'dark');
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+(function () {
+  try {
+    if (localStorage.getItem('2panel_token')) document.documentElement.setAttribute('data-authed', '1');
+  } catch (e) {}
+})();
+</script>
+<style>
+:root {
+  /* 暗色主题（默认） */
+  --primary: #6f9bff;
+  --primary-hover: #82a8ff;
+  --danger: #f38ba8;
+  --success: #a6e3a1;
+  --warning: #fab387;
+  --text: #e2e8f0;
+  --text-secondary: #8892a4;
+  --border: #2e2e48;
+  --bg: #11111b;
+  --bg-card: #1a1a2e;
+  --bg-header: #22223a;
+  --bg-input: #22223a;
+  --bg-code: #151b22;
+  --bg-overlay: rgba(0, 0, 0, 0.65);
+  --tag-success-bg: rgba(166, 227, 161, 0.12); --tag-success-color: #a6e3a1;
+  --tag-disabled-bg: rgba(255, 255, 255, 0.06);
+  --tag-info-bg: rgba(111, 155, 255, 0.14); --tag-info-color: #6f9bff;
+  --tag-error-bg: rgba(243, 139, 168, 0.12); --tag-error-color: #f38ba8;
+  --tag-warning-bg: rgba(250, 179, 135, 0.12); --tag-warning-color: #fab387;
+  --tag-shell-bg: rgba(111, 155, 255, 0.14); --tag-shell-color: #6f9bff;
+  --tag-curl-bg: rgba(203, 166, 247, 0.14); --tag-curl-color: #cba6f7;
+
+  /* 视觉层级：阴影 / 渐变 / 悬浮反馈 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30), 0 1px 4px rgba(0, 0, 0, 0.16);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.28), 0 6px 20px rgba(0, 0, 0, 0.22);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.35), 0 14px 34px rgba(0, 0, 0, 0.30);
+  --shadow-primary: 0 4px 16px rgba(111, 155, 255, 0.35);
+  --card-grad: linear-gradient(180deg, #20203a 0%, #1a1a2e 100%);
+  --row-hover-bg: rgba(111, 155, 255, 0.06);
+  --focus-ring: rgba(111, 155, 255, 0.16);
+  --bg-glow-a: rgba(111, 155, 255, 0.07);
+  --bg-glow-b: rgba(166, 227, 161, 0.04);
+}
+
+[data-theme="light"] {
+  --primary: #2f6fed;
+  --primary-hover: #1e5bd8;
+  --danger: #e64545;
+  --success: #16a34a;
+  --warning: #d97706;
+  --text: #1a1a1a;
+  --text-secondary: #555555;
+  --border: #e0e0e0;
+  --bg: #f5f5f5;
+  --bg-card: #ffffff;
+  --bg-header: #f7f7f7;
+  --bg-input: #dde1e6;
+  --bg-code: #e8eaed;
+  --bg-overlay: rgba(0, 0, 0, 0.35);
+  --tag-success-bg: #ecf7f0; --tag-success-color: #16a34a;
+  --tag-disabled-bg: #f2f3f5;
+  --tag-info-bg: #e8f3ff; --tag-info-color: #2f6fed;
+  --tag-error-bg: #fdecec; --tag-error-color: #e64545;
+  --tag-warning-bg: #f5f0e8; --tag-warning-color: #d97706;
+  --tag-shell-bg: #e8f3ff; --tag-shell-color: #2f6fed;
+  --tag-curl-bg: #f3f0ff; --tag-curl-color: #6b4fd8;
+
+  /* 视觉层级：阴影 / 渐变 / 悬浮反馈（对齐 fan-panel 浅色） */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.05), 0 8px 20px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
+  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.08), 0 12px 28px rgba(0, 0, 0, 0.10);
+  --shadow-primary: 0 4px 14px rgba(47, 111, 237, 0.25);
+  --card-grad: linear-gradient(180deg, #ffffff 0%, #fdfdfe 100%);
+  --row-hover-bg: rgba(47, 111, 237, 0.06);
+  --focus-ring: rgba(47, 111, 237, 0.18);
+  --bg-glow-a: rgba(47, 111, 237, 0.06);
+  --bg-glow-b: rgba(107, 79, 216, 0.05);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+.header {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.header h1 { font-size: 18px; font-weight: 600; cursor: pointer; user-select: none; }
+.header h1 span { color: var(--primary); }
+.header .env { font-size: 12px; color: var(--text-secondary); }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.theme-toggle { padding: 0 10px; }
+.theme-toggle svg { width: 16px; height: 16px; display: block; }
+[data-theme="dark"] .icon-moon { display: none; }
+[data-theme="light"] .icon-sun { display: none; }
+.container { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+}
+.toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.toolbar input[type=text], .toolbar select {
+  height: 34px; border: 1px solid var(--border); border-radius: 6px; padding: 0 10px; background: var(--bg-card); color: var(--text); font-size: 14px; outline: none;
+}
+.toolbar input[type=text]:focus, .toolbar select:focus { border-color: var(--primary); }
+.spacer { flex: 1; }
+.btn {
+  height: 34px; padding: 0 16px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text); font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+}
+.btn:hover { border-color: var(--primary); color: var(--primary); }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn.primary:hover { background: var(--primary-hover); color: #fff; }
+.btn.danger { background: var(--bg-card); border-color: var(--danger); color: var(--danger); }
+.btn.danger:hover { background: var(--danger); color: #fff; }
+.btn.small { height: 28px; padding: 0 10px; font-size: 13px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 12px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+th { color: var(--text-secondary); font-weight: 500; background: var(--bg-header); white-space: nowrap; }
+td { white-space: nowrap; }
+td.name { font-weight: 600; }
+td.ellipsis { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.tag {
+  display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; line-height: 18px;
+}
+.tag.enabled, .tag.success { background: var(--tag-success-bg); color: var(--tag-success-color); }
+.tag.disabled { background: var(--tag-disabled-bg); color: var(--text-secondary); }
+.tag.waiting, .tag.running { background: var(--tag-info-bg); color: var(--tag-info-color); }
+.tag.failed { background: var(--tag-error-bg); color: var(--tag-error-color); }
+.tag.unexecuted { background: var(--tag-warning-bg); color: var(--tag-warning-color); }
+.tag.shell { background: var(--tag-shell-bg); color: var(--tag-shell-color); }
+.tag.curl { background: var(--tag-curl-bg); color: var(--tag-curl-color); }
+.empty { text-align: center; color: var(--text-secondary); padding: 48px 0; }
+.pager { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 16px; }
+.pager .info { color: var(--text-secondary); font-size: 13px; }
+.modal-mask {
+  position: fixed; inset: 0; background: var(--bg-overlay); display: none; align-items: flex-start; justify-content: center; z-index: 100; overflow: auto;
+}
+.modal-mask.show { display: flex; }
+.modal {
+  background: var(--bg-card); border-radius: 8px; margin-top: 8vh; width: 640px; max-width: calc(100vw - 32px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+.modal.sm { width: 420px; }
+.modal.lg { width: 860px; }
+.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.modal-head h3 { font-size: 16px; }
+.modal-head .close { cursor: pointer; color: var(--text-secondary); font-size: 18px; padding: 4px; }
+.modal-body { padding: 20px; max-height: 70vh; overflow: auto; }
+.modal-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+.form-row { margin-bottom: 16px; }
+.form-row label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 13px; }
+.form-row .required::after { content: " *"; color: var(--danger); }
+.form-row input[type=text], .form-row textarea, .form-row select {
+  width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 14px; outline: none; font-family: inherit;
+  background: var(--bg-input); color: var(--text);
+}
+.form-row input[type=text]:focus, .form-row textarea:focus, .form-row select:focus { border-color: var(--primary); }
+.form-row textarea { resize: vertical; min-height: 160px; font-family: "SFMono-Regular", Consolas, monospace; }
+.form-row .hint { color: var(--text-secondary); font-size: 12px; margin-top: 4px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.spec-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.spec-presets .preset {
+  font-size: 12px; padding: 3px 10px; border: 1px dashed var(--border); border-radius: 12px; cursor: pointer; color: var(--text-secondary);
+}
+.spec-presets .preset:hover { border-color: var(--primary); color: var(--primary); }
+.spec-toggle { margin-bottom: 8px; }
+.spec-toggle label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.spec-toggle input { width: auto; accent-color: var(--primary); }
+#specObjs { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.spec-row {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-input);
+}
+.spec-row select, .spec-row input[type=number] {
+  height: 32px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-card); color: var(--text); font-size: 13px; padding: 0 8px; outline: none;
+}
+.spec-row select.spec-type { min-width: 108px; }
+.spec-row input.spec-num { width: 68px; }
+.spec-row .unit { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+.spec-row .btn { height: 30px; }
+.spec-row .spec-preview-msg { flex-basis: 100%; font-size: 12px; color: var(--text-secondary); word-break: break-all; }
+.log-view { background: #0f1115; color: #d7dae0; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; padding: 14px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; max-height: 56vh; overflow: auto; }
+.log-view .err { color: #f87171; }
+.toast-wrap { position: fixed; top: 68px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--bg-card); border: 1px solid var(--border); border-left: 4px solid var(--primary); border-radius: 6px;
+  padding: 10px 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); font-size: 13px; min-width: 240px; max-width: 360px;
+}
+.toast.success { border-left-color: var(--success); }
+.toast.error { border-left-color: var(--danger); }
+.code { background: var(--bg-code); border-radius: 4px; padding: 1px 6px; font-family: Consolas, monospace; font-size: 12px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.tab {
+  padding: 9px 20px; border: none; background: transparent; color: var(--text-secondary);
+  font-size: 14px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+.script-mode { display: flex; gap: 18px; padding: 6px 0; }
+.script-mode label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.script-mode input { width: auto; accent-color: var(--primary); }
+.library-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; line-height: 18px;
+  background: var(--tag-shell-bg); color: var(--tag-shell-color);
+}
+
+/* 主题切换过渡动画 */
+body, .header, .card, .modal, .modal-head, .modal-foot, .btn, .tag, .toast,
+.toolbar input, .toolbar select, .form-row input, .form-row textarea, .form-row select,
+th, td, .code {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* 主题切换：禁用默认交叉淡化，改用圆形扩散揭示 */
+::view-transition-new(root),
+::view-transition-old(root) {
+  animation: none;
+}
+
+/* ===== 移动端适配（≤768px） ===== */
+@media (max-width: 768px) {
+  .header { padding: 0 12px; height: 48px; }
+  .header h1 { font-size: 16px; }
+  .container { margin: 12px auto; padding: 0 8px; }
+  .card { padding: 12px; border-radius: 10px; }
+
+  .toolbar { gap: 8px; }
+  .toolbar input[type=text] { flex: 1 1 100%; height: 38px; }
+  .toolbar select { flex: 1 1 0; height: 38px; }
+  .toolbar .spacer { display: none; }
+  .toolbar .btn { height: 38px; }
+  .btn { -webkit-tap-highlight-color: transparent; }
+
+  table { display: block; }
+  thead { display: none; }
+  tbody { display: block; }
+  tbody tr {
+    display: block; border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 12px; padding: 4px 12px 10px; background: var(--bg-card);
+  }
+  td {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    white-space: normal; word-break: break-all; padding: 9px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  td:last-child { border-bottom: none; }
+  td::before { content: attr(data-label); color: var(--text-secondary); font-size: 12px; flex: 0 0 auto; }
+  td > span, td > code { text-align: right; }
+  td.ellipsis { max-width: none; overflow: visible; text-overflow: clip; }
+  td.name { font-weight: 600; }
+  td[data-label="操作"] { flex-wrap: wrap; justify-content: flex-start; gap: 8px; padding-top: 9px; }
+  td[data-label="操作"]::before { flex-basis: 100%; }
+  td[data-label="操作"] .btn { flex: 1 1 calc(33.333% - 8px); justify-content: center; height: 36px; margin: 0; }
+
+  .pager { justify-content: center; flex-wrap: wrap; }
+  .pager .btn { flex: 1 1 40%; justify-content: center; }
+
+  .modal-mask { align-items: stretch; }
+  .modal, .modal.sm, .modal.lg {
+    margin: 0; width: 100%; max-width: none; height: 100%;
+    border-radius: 0; box-shadow: none; display: flex; flex-direction: column;
+  }
+  .modal-head, .modal-foot { flex: 0 0 auto; }
+  .modal-body { flex: 1; max-height: none; overflow: auto; -webkit-overflow-scrolling: touch; padding: 16px; }
+  .modal-foot .btn { flex: 1; height: 40px; justify-content: center; }
+  .form-grid { grid-template-columns: 1fr; gap: 0; }
+  .spec-presets .preset { flex: 1 1 auto; text-align: center; }
+  .spec-row select.spec-type { flex: 1 1 100%; }
+  .spec-row select.spec-week, .spec-row input.spec-num { flex: 1 1 92px; }
+  .spec-row .btn { flex: 0 0 auto; }
+  .log-view { max-height: none; }
+  .tabs { margin-bottom: 12px; overflow-x: auto; }
+  .tab { flex: 1 1 0; padding: 10px 0; text-align: center; white-space: nowrap; }
+
+  .toast-wrap { right: 12px; left: 12px; align-items: stretch; }
+  .toast { min-width: 0; max-width: none; }
+}
+
+/* login page */
+#loginPage { display: none; align-items: center; justify-content: center; position: fixed; inset: 0; z-index: 2000; background: var(--bg); padding: 16px; }
+#app { display: block; }
+:root:not([data-authed="1"]) #loginPage { display: flex; }
+:root:not([data-authed="1"]) #app { display: none; }
+.login-card {
+  width: 380px; max-width: 100%; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: 12px; padding: 32px 28px;
+}
+.login-card h2 { font-size: 20px; margin-bottom: 4px; }
+.login-card .sub { color: var(--text-secondary); font-size: 13px; margin-bottom: 24px; }
+.login-field { margin-bottom: 16px; }
+.login-field label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+.login-field input {
+  width: 100%; height: 40px; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px;
+  background: var(--bg-input); color: var(--text); font-size: 14px; outline: none;
+}
+.login-field input:focus { border-color: var(--primary); }
+.pwd-wrap { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-input); }
+.pwd-wrap:focus-within { border-color: var(--primary); }
+.pwd-wrap input { border: none; background: transparent; flex: 1; height: 38px; color: var(--text); }
+.pwd-wrap .eye { cursor: pointer; color: var(--text-secondary); font-size: 13px; padding: 0 10px; user-select: none; white-space: nowrap; }
+.login-err { color: var(--danger); font-size: 13px; min-height: 18px; margin-bottom: 8px; }
+.login-btn { width: 100%; height: 40px; justify-content: center; font-size: 15px; }
+.default-pwd {
+  margin-top: 18px; padding: 12px 14px; border: 1px dashed var(--warning); border-radius: 8px;
+  background: var(--tag-warning-bg); font-size: 13px;
+}
+.default-pwd .dp-label { color: var(--text-secondary); margin-bottom: 8px; }
+.default-pwd .dp-val { display: flex; align-items: center; gap: 10px; }
+.default-pwd .dp-val code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 17px; color: var(--warning); letter-spacing: 1px; }
+.default-pwd .dp-note { color: var(--text-secondary); margin-top: 8px; font-size: 12px; }
+
+/* ===== 视觉层级与微动效增强 ===== */
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(1000px 520px at 12% -10%, var(--bg-glow-a), transparent 62%),
+    radial-gradient(820px 440px at 108% -4%, var(--bg-glow-b), transparent 62%);
+  background-repeat: no-repeat;
+}
+#loginPage { background: transparent; }
+
+.header {
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+.header::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.card {
+  background-image: var(--card-grad);
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease,
+              box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.login-card {
+  background-image: var(--card-grad);
+  box-shadow: var(--shadow-lg);
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.btn {
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease,
+              box-shadow 0.25s ease, transform 0.25s ease;
+}
+.btn:active { transform: scale(0.97); box-shadow: var(--shadow-sm); }
+
+tbody tr { transition: background-color 0.25s ease; }
+tbody tr:hover { background: var(--row-hover-bg); }
+
+.tab {
+  border-radius: 6px 6px 0 0;
+  transition: color 0.25s ease, background-color 0.25s ease, border-color 0.25s ease;
+}
+.tab:hover { background: var(--row-hover-bg); }
+
+.toolbar input[type=text]:focus, .toolbar select:focus,
+.form-row input[type=text]:focus, .form-row textarea:focus, .form-row select:focus,
+.login-field input:focus, .pwd-wrap:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.modal { box-shadow: var(--shadow-lg); animation: modal-in 0.25s ease; }
+.modal-mask { animation: mask-in 0.25s ease; }
+@keyframes mask-in { from { opacity: 0; } }
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+}
+
+.toast { box-shadow: var(--shadow-md); animation: toast-in 0.25s ease; }
+@keyframes toast-in { from { opacity: 0; transform: translateX(14px); } }
+
+.spec-presets .preset {
+  transition: color 0.25s ease, border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+}
+.spec-presets .preset:hover {
+  border-color: var(--primary); color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.spec-row { transition: background-color 0.25s ease, border-color 0.25s ease; }
+.spec-row:hover { border-color: var(--primary); background: var(--row-hover-bg); }
+
+.theme-toggle svg { transition: transform 0.3s ease; }
+
+/* 浅色模式：对齐 fan-panel 显示效果（中性底 + 白卡片 + 灰内凹输入框） */
+[data-theme="light"] .header {
+  background: linear-gradient(180deg, #ffffff, #f7f7f7);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 3px 10px rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .card,
+[data-theme="light"] .login-card {
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+[data-theme="light"] .modal {
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+[data-theme="light"] .btn {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+[data-theme="light"] .btn.primary {
+  background: linear-gradient(180deg, #3f7cf1, #2f6fed);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 3px 10px rgba(47, 111, 237, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+[data-theme="light"] .btn.danger {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+[data-theme="light"] .toolbar input[type=text],
+[data-theme="light"] .toolbar select,
+[data-theme="light"] .form-row input[type=text],
+[data-theme="light"] .form-row textarea,
+[data-theme="light"] .form-row select,
+[data-theme="light"] .login-field input,
+[data-theme="light"] .spec-row select,
+[data-theme="light"] .spec-row input[type=number] {
+  background-color: #dde1e6;
+  border-color: #c4c9d0;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .toolbar input[type=text]:hover,
+[data-theme="light"] .toolbar select:hover,
+[data-theme="light"] .form-row input[type=text]:hover,
+[data-theme="light"] .form-row textarea:hover,
+[data-theme="light"] .form-row select:hover,
+[data-theme="light"] .login-field input:hover,
+[data-theme="light"] .spec-row select:hover,
+[data-theme="light"] .spec-row input[type=number]:hover {
+  background-color: #d4d8de;
+}
+[data-theme="light"] .toolbar input[type=text]:focus,
+[data-theme="light"] .toolbar select:focus,
+[data-theme="light"] .form-row input[type=text]:focus,
+[data-theme="light"] .form-row textarea:focus,
+[data-theme="light"] .form-row select:focus,
+[data-theme="light"] .login-field input:focus,
+[data-theme="light"] .spec-row select:focus,
+[data-theme="light"] .spec-row input[type=number]:focus {
+  background-color: #ffffff;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+[data-theme="light"] .pwd-wrap {
+  background-color: #dde1e6;
+  border-color: #c4c9d0;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .pwd-wrap:hover { background-color: #d4d8de; }
+[data-theme="light"] .pwd-wrap:focus-within {
+  background-color: #ffffff;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+[data-theme="light"] .login-field input,
+[data-theme="light"] .pwd-wrap,
+[data-theme="light"] .spec-row select,
+[data-theme="light"] .spec-row input[type=number] {
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+[data-theme="light"] th {
+  background: linear-gradient(180deg, #fafafa, #f4f4f4);
+  border-bottom: 1px solid #e0e0e0;
+}
+[data-theme="light"] .spec-row {
+  background: #eef0f3;
+}
+[data-theme="light"] .card:hover {
+  box-shadow: var(--shadow-hover), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+[data-theme="light"] .spec-row:hover {
+  border-color: var(--primary);
+  background: var(--row-hover-bg);
+}
+
+/* 仅桌面精确指针设备做“悬浮浮起”，避免触屏悬停残留 */
+@media (hover: hover) and (pointer: fine) {
+  .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+  .btn:not(:disabled):hover { transform: translateY(-1px); box-shadow: var(--shadow-hover); }
+  .btn.primary:not(:disabled):hover { box-shadow: var(--shadow-primary); }
+  .btn.danger:not(:disabled):hover { box-shadow: 0 4px 16px rgba(243, 139, 168, 0.28); }
+  .spec-presets .preset:hover { transform: translateY(-1px); }
+  .theme-toggle:hover svg { transform: rotate(18deg); }
+}
+
+@media (max-width: 768px) {
+  tbody tr { box-shadow: var(--shadow-sm); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+<div id="loginPage">
+  <div class="login-card">
+    <h2><span style="color:var(--primary)">2</span>Panel</h2>
+    <div class="sub">登录后管理计划任务</div>
+    <div class="login-field">
+      <label>用户名</label>
+      <input type="text" id="loginName" placeholder="admin" autocomplete="username">
+    </div>
+    <div class="login-field">
+      <label>密码</label>
+      <div class="pwd-wrap">
+        <input type="password" id="loginPwd" placeholder="请输入密码" autocomplete="current-password">
+        <span class="eye" onclick="togglePwd('loginPwd', this)">显示</span>
+      </div>
+    </div>
+    <div class="login-err" id="loginErr"></div>
+    <button class="btn primary login-btn" id="loginBtn" onclick="doLogin()">登 录</button>
+    <div class="default-pwd" id="defaultPwdBox" style="display:none">
+      <div class="dp-label">首次登录默认密码</div>
+      <div class="dp-val"><code id="defaultPwdVal"></code><button class="btn small" onclick="copyDefaultPwd()">复制</button></div>
+      <div class="dp-note">登录后请在右上角「修改密码」中更换初始密码。</div>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+<div class="header">
+  <h1 id="siteTitle" onclick="location.reload()" title="点击刷新"><span>2</span>Panel</h1>
+  <div class="header-right">
+    <span class="env" id="userInfo" style="display:none"></span>
+    <button class="btn" id="changePwdBtn" style="display:none" onclick="openPwd()">修改密码</button>
+    <button class="btn" id="logoutBtn" style="display:none" onclick="doLogout()">退出登录</button>
+    <button class="btn theme-toggle" onclick="toggleTheme()" title="切换明暗主题" aria-label="切换明暗主题">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+    </button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" id="tabCron" onclick="switchTab('cron')">计划任务</button>
+    <button class="tab" id="tabScript" onclick="switchTab('script')">脚本库</button>
+  </div>
+
+  <div id="panelCron">
+  <div class="card">
+    <div class="toolbar">
+      <input type="text" id="searchInput" placeholder="搜索任务名称" onkeyup="if(event.key==='Enter')loadList(1)">
+      <select id="typeFilter" onchange="loadList(1)">
+        <option value="">全部类型</option>
+        <option value="shell">shell 脚本</option>
+        <option value="curl">curl 请求</option>
+      </select>
+      <button class="btn" onclick="loadList(currentPage)">刷新</button>
+      <div class="spacer"></div>
+      <button class="btn" onclick="exportCronjobs()">导出</button>
+      <button class="btn" onclick="document.getElementById('importFile').click()">导入</button>
+      <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="importCronjobs(this)">
+      <button class="btn primary" onclick="openCreate()">＋ 新增任务</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:200px">任务名称</th>
+          <th style="width:80px">类型</th>
+          <th>执行频率</th>
+          <th style="width:80px">状态</th>
+          <th style="width:150px">上次执行</th>
+          <th style="width:150px">下次执行</th>
+          <th style="width:280px">操作</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="empty" id="empty" style="display:none">暂无计划任务，点击右上角「新增任务」创建</div>
+    <div class="pager" id="pager" style="display:none">
+      <span class="info" id="pageInfo"></span>
+      <button class="btn small" onclick="loadList(currentPage-1)">上一页</button>
+      <button class="btn small" onclick="loadList(currentPage+1)">下一页</button>
+    </div>
+  </div>
+  </div>
+
+  <div id="panelScript" style="display:none">
+  <div class="card">
+    <div class="toolbar">
+      <input type="text" id="scriptSearch" placeholder="搜索脚本名称/描述" onkeyup="if(event.key==='Enter')loadScriptList(1)">
+      <button class="btn" onclick="loadScriptList(currentScriptPage)">刷新</button>
+      <div class="spacer"></div>
+      <button class="btn primary" onclick="openScriptCreate()">＋ 新增脚本</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:200px">脚本名称</th>
+          <th>描述</th>
+          <th style="width:150px">创建时间</th>
+          <th style="width:180px">操作</th>
+        </tr>
+      </thead>
+      <tbody id="scriptTbody"></tbody>
+    </table>
+    <div class="empty" id="scriptEmpty" style="display:none">暂无脚本，点击右上角「新增脚本」创建</div>
+    <div class="pager" id="scriptPager" style="display:none">
+      <span class="info" id="scriptPageInfo"></span>
+      <button class="btn small" onclick="loadScriptList(currentScriptPage-1)">上一页</button>
+      <button class="btn small" onclick="loadScriptList(currentScriptPage+1)">下一页</button>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- create/edit modal -->
+<div class="modal-mask" id="editMask">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="editTitle">新增任务</h3>
+      <span class="close" onclick="closeEdit()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-row">
+          <label class="required">任务名称</label>
+          <input type="text" id="f_name" placeholder="例如：每日清理临时文件">
+        </div>
+        <div class="form-row">
+          <label class="required">任务类型</label>
+          <select id="f_type" onchange="toggleTypeFields()">
+            <option value="shell">shell 脚本</option>
+            <option value="curl">curl 请求</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label class="required">执行频率</label>
+        <div class="spec-toggle">
+          <label><input type="checkbox" id="f_specCustom" onchange="toggleSpecMode()"> 自定义 cron 表达式</label>
+        </div>
+
+        <div id="specVisual">
+          <div id="specObjs"></div>
+          <button class="btn small" type="button" onclick="addSpecRow()">＋ 添加周期</button>
+        </div>
+
+        <div id="specCustomBox" style="display:none">
+          <input type="text" id="f_spec" placeholder="cron 表达式（如 0 2 * * *）或 @every 5m">
+          <div class="spec-presets">
+            <span class="preset" onclick="setSpec('@every 1m')">每分钟 @every 1m</span>
+            <span class="preset" onclick="setSpec('@every 1h')">每小时 @every 1h</span>
+            <span class="preset" onclick="setSpec('@daily')">每天 @daily</span>
+            <span class="preset" onclick="setSpec('@weekly')">每周 @weekly</span>
+            <span class="preset" onclick="setSpec('*/5 * * * *')">每5分钟 */5 * * * *</span>
+            <span class="preset" onclick="setSpec('0 2 * * *')">每天凌晨2点</span>
+            <span class="preset" onclick="setSpec('0 0 * * 0')">每周日0点</span>
+          </div>
+        </div>
+
+        <div class="hint" id="nextHint"></div>
+      </div>
+
+      <div id="shellFields">
+        <div class="form-row">
+          <label>执行器</label>
+          <input type="text" id="f_executor" placeholder="bash / sh / python3（默认 bash）">
+        </div>
+        <div class="form-row">
+          <label>执行用户</label>
+          <input type="text" id="f_user" placeholder="留空表示当前用户，如 root">
+        </div>
+        <div class="form-row">
+          <label>脚本来源</label>
+          <div class="script-mode">
+            <label><input type="radio" name="scriptMode" value="input" checked onchange="toggleScriptMode()"> 手动输入</label>
+            <label><input type="radio" name="scriptMode" value="library" onchange="toggleScriptMode()"> 脚本库</label>
+          </div>
+        </div>
+        <div id="scriptInputBox">
+          <div class="form-row">
+            <label>脚本内容</label>
+            <textarea id="f_script" placeholder="#!/bin/bash
+echo 'hello 2panel'"></textarea>
+          </div>
+        </div>
+        <div id="scriptLibraryBox" style="display:none">
+          <div class="form-row">
+            <label>选择脚本</label>
+            <select id="f_scriptName"><option value="">（加载中…）</option></select>
+            <div class="hint">任务执行时引用脚本库中该脚本的最新内容；在脚本库中修改后无需重新保存任务。</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="curlFields" style="display:none">
+        <div class="form-row">
+          <label>请求 URL（多个用逗号分隔）</label>
+          <input type="text" id="f_url" placeholder="https://example.com/api/ping">
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-row">
+          <label>超时时间（秒）</label>
+          <input type="text" id="f_timeout" placeholder="留空表示不限制">
+        </div>
+        <div class="form-row">
+          <label>执行间隔（秒）</label>
+          <input type="text" id="f_retry" placeholder="留空表示 0">
+        </div>
+        <div class="form-row">
+          <label>保留份数</label>
+          <input type="text" id="f_retention" placeholder="默认 7">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="hint">「执行间隔」：失败后自动重试的等待秒数；「超时时间」：超过该时长自动终止任务；「保留份数」：执行记录及日志保留份数，仅保留最近 N 条记录与其日志文件（0 表示全部保留）。</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeEdit()">取消</button>
+      <button class="btn primary" onclick="saveJob()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- script library modal -->
+<div class="modal-mask" id="scriptMask">
+  <div class="modal lg">
+    <div class="modal-head">
+      <h3 id="scriptTitle">新增脚本</h3>
+      <span class="close" onclick="closeScript()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-row">
+          <label class="required">脚本名称</label>
+          <input type="text" id="s_name" placeholder="例如：每日备份数据库">
+        </div>
+        <div class="form-row">
+          <label>描述</label>
+          <input type="text" id="s_desc" placeholder="脚本用途说明（可选）">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>脚本内容</label>
+        <textarea id="s_script" placeholder="#!/bin/bash
+echo 'hello 2panel'"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeScript()">取消</button>
+      <button class="btn primary" onclick="saveScript()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- records modal -->
+<div class="modal-mask" id="recordMask">
+  <div class="modal lg">
+    <div class="modal-head">
+      <h3>执行记录：<span id="recordJobName"></span></h3>
+      <span class="close" onclick="closeRecords()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="toolbar" style="margin-bottom:12px">
+        <select id="recordStatus" onchange="loadRecords(1)">
+          <option value="">全部状态</option>
+          <option value="success">成功</option>
+          <option value="failed">失败</option>
+          <option value="running">执行中</option>
+          <option value="waiting">等待中</option>
+        </select>
+        <button class="btn small" onclick="loadRecords(currentRecordPage)">刷新</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th style="width:170px">开始时间</th><th style="width:90px">状态</th><th>日志</th><th style="width:180px">耗时(ms)</th><th style="width:100px">操作</th></tr>
+        </thead>
+        <tbody id="recordTbody"></tbody>
+      </table>
+      <div class="empty" id="recordEmpty" style="display:none">暂无执行记录</div>
+      <div class="pager" id="recordPager" style="display:none">
+        <span class="info" id="recordPageInfo"></span>
+        <button class="btn small" onclick="loadRecords(currentRecordPage-1)">上一页</button>
+        <button class="btn small" onclick="loadRecords(currentRecordPage+1)">下一页</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- log modal -->
+<div class="modal-mask" id="logMask">
+  <div class="modal lg">
+    <div class="modal-head">
+      <h3>执行日志：<span id="logTitle"></span></h3>
+      <span class="close" onclick="closeLog()">✕</span>
+    </div>
+    <div class="modal-body">
+      <pre class="log-view" id="logView"></pre>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="pwdMask">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>修改密码</h3>
+      <span class="close" onclick="closePwd()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>当前密码</label>
+        <input type="password" id="p_old" placeholder="请输入当前密码">
+      </div>
+      <div class="form-row">
+        <label>新密码</label>
+        <input type="password" id="p_new" placeholder="至少 8 位">
+      </div>
+      <div class="form-row">
+        <label>确认新密码</label>
+        <input type="password" id="p_confirm" placeholder="再次输入新密码">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closePwd()">取消</button>
+      <button class="btn primary" onclick="doChangePwd()">确认修改</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+ const API = '/api/cronjobs';
+ const AUTH_API = '/api/auth';
+ let authToken = localStorage.getItem('2panel_token') || '';
+ let currentPage = 1, pageSize = 10;
+let currentRecordPage = 1, recordPageSize = 10;
+let currentRecordCronjobID = 0;
+let editingID = 0;
+let currentScriptPage = 1, scriptPageSize = 10;
+let editingScriptID = 0;
+let scriptOptionsCache = [];
+let specCustom = false;
+let specObjs = [];
+const specOptions = [
+  { label: '每月', value: 'perMonth' },
+  { label: '每周', value: 'perWeek' },
+  { label: '每天', value: 'perDay' },
+  { label: '每小时', value: 'perHour' },
+  { label: '每N天', value: 'perNDay' },
+  { label: '每N小时', value: 'perNHour' },
+  { label: '每N分钟', value: 'perNMinute' },
+  { label: '每N秒', value: 'perNSecond' },
+];
+const weekOptions = [
+  ['1', '周一'], ['2', '周二'], ['3', '周三'], ['4', '周四'], ['5', '周五'], ['6', '周六'], ['0', '周日'],
+];
+const weekNames = { 0: '周日', 1: '周一', 2: '周二', 3: '周三', 4: '周四', 5: '周五', 6: '周六' };
+
+function hasWeek(t) { return t === 'perWeek'; }
+function hasDay(t) { return t === 'perMonth' || t === 'perNDay'; }
+function hasHour(t) { return ['perMonth', 'perWeek', 'perDay', 'perNDay', 'perNHour'].includes(t); }
+function hasMinute(t) { return ['perMonth', 'perWeek', 'perDay', 'perNDay', 'perHour', 'perNHour'].includes(t); }
+function defaultSpec() { return { specType: 'perWeek', week: 1, day: 1, hour: 1, minute: 30, second: 10 }; }
+
+function transObjToSpec(o) {
+  const day = Math.min(Math.max(o.day || 1, 1), 31);
+  const hour = Math.max(o.hour || 0, 0);
+  const minute = Math.max(o.minute || 0, 0);
+  switch (o.specType) {
+    case 'perMonth': return `${minute} ${hour} ${day} * *`;
+    case 'perWeek': return `${minute} ${hour} * * ${o.week}`;
+    case 'perNDay': return `${minute} ${hour} */${Math.max(o.day || 1, 1)} * *`;
+    case 'perDay': return `${minute} ${hour} * * *`;
+    case 'perNHour': return `${minute} */${Math.max(o.hour || 1, 1)} * * *`;
+    case 'perHour': return `${minute} * * * *`;
+    case 'perNMinute': return `@every ${Math.max(o.minute || 1, 1)}m`;
+    case 'perNSecond': return `@every ${Math.max(o.second || 1, 1)}s`;
+  }
+  return '';
+}
+
+function transSpecToObj(spec) {
+  const o = { specType: 'perDay', week: 0, day: 1, hour: 0, minute: 0, second: 10 };
+  const parts = spec.split(' ');
+  if (parts.length === 2) {
+    if (parts[1].indexOf('m') !== -1) { o.specType = 'perNMinute'; o.minute = parseInt(parts[1].replace('m', '')) || 5; return o; }
+    o.specType = 'perNSecond'; o.second = parseInt(parts[1].replace('s', '')) || 10; return o;
+  }
+  if (parts.length !== 5) return null;
+  if (parts[0] === '*' || parts[0].indexOf('/') !== -1 || parts[0].indexOf(',') !== -1 || parts[0].indexOf('-') !== -1) return null;
+  if (parts[3] !== '*') return null;
+  o.minute = parseInt(parts[0]);
+  if (parts[1] === '*') { o.specType = 'perHour'; return o; }
+  if (parts[1].indexOf('*/') !== -1) { o.specType = 'perNHour'; o.hour = parseInt(parts[1].replace('*/', '')) || 1; return o; }
+  if (parts[1].indexOf('/') !== -1 || parts[1].indexOf(',') !== -1 || parts[1].indexOf('-') !== -1) return null;
+  o.hour = parseInt(parts[1]);
+  if (parts[2].indexOf('*/') !== -1) { o.specType = 'perNDay'; o.day = parseInt(parts[2].replace('*/', '')) || 1; return o; }
+  if (parts[2] !== '*') {
+    if (parts[2].indexOf('/') !== -1 || parts[2].indexOf(',') !== -1 || parts[2].indexOf('-') !== -1 || parts[2].indexOf('L') !== -1 || parts[2].indexOf('W') !== -1) return null;
+    o.specType = 'perMonth'; o.day = parseInt(parts[2]);
+    if (parts[4] !== '*') return null;
+    return o;
+  }
+  if (parts[4] !== '*') {
+    if (parts[4].indexOf('/') !== -1 || parts[4].indexOf(',') !== -1 || parts[4].indexOf('-') !== -1) return null;
+    o.specType = 'perWeek'; o.week = parseInt(parts[4]);
+    return o;
+  }
+  o.specType = 'perDay';
+  return o;
+}
+
+function zero(n) { return String(n).padStart(2, '0'); }
+
+function specToStr(o) {
+  const h = zero(o.hour), m = zero(o.minute);
+  switch (o.specType) {
+    case 'perMonth': return `每月 ${o.day} 日 ${h}:${m}`;
+    case 'perWeek': return `每周${weekNames[o.week] || ''} ${h}:${m}`;
+    case 'perNDay': return `每 ${o.day} 天 ${h}:${m}`;
+    case 'perDay': return `每天 ${h}:${m}`;
+    case 'perNHour': return `每 ${o.hour} 小时的第 ${m} 分`;
+    case 'perHour': return `每小时的第 ${m} 分`;
+    case 'perNMinute': return `每 ${o.minute} 分钟`;
+    case 'perNSecond': return `每 ${o.second} 秒`;
+  }
+  return '';
+}
+
+function specRowHTML(index, o) {
+  const sel = o.specType || 'perWeek';
+  const num = (field, min, max, w) => `<input class="spec-num" type="number" min="${min}"${max ? ' max="' + max + '"' : ''} value="${o[field]}" oninput="specRowVal(${index}, '${field}', this.value)" title="${w}">`;
+  let html = `<div class="spec-row">
+    <select class="spec-type" onchange="specRowTypeChange(${index}, this.value)">
+      ${specOptions.map(x => `<option value="${x.value}"${sel === x.value ? ' selected' : ''}>${x.label}</option>`).join('')}
+    </select>`;
+  if (sel === 'perWeek') {
+    html += `<select class="spec-week" onchange="specRowVal(${index}, 'week', this.value)">
+      ${weekOptions.map(w => `<option value="${w[0]}"${String(o.week) === w[0] ? ' selected' : ''}>${w[1]}</option>`).join('')}
+    </select>`;
+  }
+  if (hasDay(sel)) html += `${num('day', 1, 31, '天')}<span class="unit">天</span>`;
+  if (hasHour(sel)) html += `${num('hour', 0, 23, '时')}<span class="unit">时</span>`;
+  if (hasMinute(sel)) html += `${num('minute', 0, 59, '分')}<span class="unit">分</span>`;
+  if (sel === 'perNMinute') html += `${num('minute', 1, null, '分钟')}<span class="unit">分钟</span>`;
+  if (sel === 'perNSecond') html += `${num('second', 1, null, '秒')}<span class="unit">秒</span>`;
+  html += `<button class="btn small" type="button" onclick="previewRow(${index})">预览</button>`;
+  if (specObjs.length > 1) html += `<button class="btn small danger" type="button" onclick="delSpecRow(${index})">删除</button>`;
+  html += `<span class="spec-preview-msg" id="specPreviewMsg${index}"></span></div>`;
+  return html;
+}
+
+function renderSpecRows() {
+  document.getElementById('specObjs').innerHTML = specObjs.map((o, i) => specRowHTML(i, o)).join('');
+  updateSpecHint();
+}
+
+function specRowVal(index, field, value) {
+  specObjs[index][field] = parseInt(value, 10) || 0;
+}
+
+function specRowTypeChange(index, value) {
+  specObjs[index].specType = value;
+  renderSpecRows();
+}
+
+function addSpecRow() {
+  specObjs.push(defaultSpec());
+  renderSpecRows();
+}
+
+function delSpecRow(index) {
+  specObjs.splice(index, 1);
+  renderSpecRows();
+}
+
+async function previewRow(index) {
+  const msg = document.getElementById('specPreviewMsg' + index);
+  if (!msg) return;
+  msg.textContent = '计算中…';
+  try {
+    const list = await request(API + '/next', 'POST', { spec: transObjToSpec(specObjs[index]) });
+    msg.textContent = '未来执行：' + list.join(' → ');
+  } catch (e) {
+    msg.textContent = '频率无效：' + e.message;
+  }
+}
+
+function updateSpecHint() {
+  const desc = specObjs.map(specToStr).filter(Boolean);
+  document.getElementById('nextHint').textContent = desc.length ? '执行周期：' + desc.join('；') : '';
+}
+
+function collectSpecs() {
+  if (specCustom) {
+    return document.getElementById('f_spec').value.split('&&').map(s => s.trim()).filter(Boolean);
+  }
+  if (!specObjs.length) specObjs.push(defaultSpec());
+  return specObjs.map(transObjToSpec).filter(Boolean);
+}
+
+function toggleSpecMode() {
+  specCustom = document.getElementById('f_specCustom').checked;
+  document.getElementById('specVisual').style.display = specCustom ? 'none' : 'block';
+  document.getElementById('specCustomBox').style.display = specCustom ? 'block' : 'none';
+  if (specCustom) {
+    calcNext(document.getElementById('f_spec').value);
+  } else {
+    if (!specObjs.length) specObjs.push(defaultSpec());
+    renderSpecRows();
+  }
+}
+
+async function request(url, method, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (authToken) opts.headers['Authorization'] = 'Bearer ' + authToken;
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const resp = await fetch(url, opts);
+  const data = await resp.json();
+  if (resp.status === 401) {
+    showLogin();
+    throw new Error(data.msg || '未登录或登录已过期');
+  }
+  if (data.code !== 0) throw new Error(data.msg || '请求失败');
+  return data.data;
+}
+
+function toast(msg, type) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (type || '');
+  el.textContent = msg;
+  document.getElementById('toastWrap').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function toggleTheme() {
+  const target = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  const commit = () => {
+    document.documentElement.setAttribute('data-theme', target);
+    try { localStorage.setItem('theme', target); } catch (e) {}
+  };
+  if (document.startViewTransition) {
+    const t = document.startViewTransition(commit);
+    t.ready.then(() => {
+      const cx = window.innerWidth, cy = 0;
+      const r = Math.hypot(Math.max(cx, window.innerWidth - cx), Math.max(cy, window.innerHeight - cy));
+      document.documentElement.animate(
+        { clipPath: [`circle(0% at ${cx}px ${cy}px)`, `circle(${r}px at ${cx}px ${cy}px)`] },
+        { duration: 500, easing: 'ease-in-out', pseudoElement: '::view-transition-new(root)' }
+      );
+    }).catch(() => {});
+  } else {
+    commit();
+  }
+}
+
+const statusText = { enabled: '已启用', disabled: '已禁用', success: '成功', failed: '失败', running: '执行中', waiting: '等待中', unexecuted: '未执行' };
+
+async function loadList(page) {
+  if (page < 1) return;
+  currentPage = page;
+  try {
+    const info = document.getElementById('searchInput').value.trim();
+    const type = document.getElementById('typeFilter').value;
+    const data = await request(API + '/search', 'POST', {
+      page: currentPage, pageSize, info, type, orderBy: 'created_at', order: 'desc'
+    });
+    renderList(data.items || [], data.total);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function renderList(items, total) {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  document.getElementById('empty').style.display = items.length ? 'none' : 'block';
+  document.getElementById('pager').style.display = total > pageSize ? 'flex' : 'none';
+  document.getElementById('pageInfo').textContent = `共 ${total} 条 · 第 ${currentPage}/${Math.ceil(total / pageSize) || 1} 页`;
+  for (const item of items) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="name" data-label="任务名称">${esc(item.name)}</td>
+      <td data-label="类型"><span class="tag ${item.type}">${item.type === 'shell' ? 'shell 脚本' : 'curl 请求'}</span></td>
+      <td class="ellipsis" data-label="执行频率" title="${esc(item.spec)}"><span class="code">${esc(item.spec)}</span></td>
+      <td data-label="状态"><span class="tag ${item.status}">${statusText[item.status] || item.status}</span>${item.isExecuting ? ' <span class="tag running">执行中</span>' : ''}</td>
+      <td data-label="上次执行">${esc(item.lastRecordTime || '-')}</td>
+      <td data-label="下次执行">${esc(item.nextRunTime || '-')}</td>
+      <td data-label="操作">
+        <button class="btn small" onclick="openEdit(${item.id})">编辑</button>
+        <button class="btn small" onclick="handleOnce(${item.id})">执行</button>
+        <button class="btn small" onclick="toggleStatus(${item.id}, '${item.status}')">${item.status === 'enabled' ? '停用' : '启用'}</button>
+        <button class="btn small" onclick="openRecords(${item.id}, '${escAttr(item.name)}')">记录</button>
+        <button class="btn small danger" onclick="removeJob(${item.id})">删除</button>
+      </td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function escAttr(s) { return esc(s); }
+
+const ansiPalette = ['#000000', '#cd0000', '#00cd00', '#cdcd00', '#0000ee', '#cd00cd', '#00cdcd', '#e5e5e5', '#7f7f7f', '#ff0000', '#00ff00', '#ffff00', '#5c5cff', '#ff00ff', '#00ffff', '#ffffff'];
+function xterm256(n) {
+  if (n < 16) return ansiPalette[n] || '#ffffff';
+  if (n < 232) {
+    n -= 16;
+    const r = Math.floor(n / 36), g = Math.floor((n % 36) / 6), b = n % 6;
+    const v = x => (x ? 55 + x * 40 : 0);
+    return 'rgb(' + v(r) + ',' + v(g) + ',' + v(b) + ')';
+  }
+  const g = 8 + (n - 232) * 10;
+  return 'rgb(' + g + ',' + g + ',' + g + ')';
+}
+function ansiRgb(r, g, b) { return 'rgb(' + r + ',' + g + ',' + b + ')'; }
+function ansiToHtml(str) {
+  const text = String(str == null ? '' : str);
+  const re = /\u001b\[([0-9;]*)m/g;
+  let html = '';
+  let last = 0;
+  let fg = null, bg = null, bold = false, dim = false, italic = false, underline = false;
+  const style = () => {
+    const parts = [];
+    if (bold) parts.push('font-weight:700');
+    if (dim) parts.push('opacity:.75');
+    if (italic) parts.push('font-style:italic');
+    if (underline) parts.push('text-decoration:underline');
+    if (fg) parts.push('color:' + fg);
+    if (bg) parts.push('background-color:' + bg);
+    return parts.length ? ' style="' + parts.join(';') + '"' : '';
+  };
+  let m;
+  let openSpan = false;
+  while ((m = re.exec(text)) !== null) {
+    html += esc(text.slice(last, m.index));
+    const codes = m[1] ? m[1].split(';') : ['0'];
+    for (let i = 0; i < codes.length; i++) {
+      const n = parseInt(codes[i], 10);
+      if (n === 38 || n === 48) {
+        const isFg = n === 38;
+        if (codes[i + 1] === '5') { if (isFg) fg = xterm256(parseInt(codes[i + 2], 10)); else bg = xterm256(parseInt(codes[i + 2], 10)); i += 2; }
+        else if (codes[i + 1] === '2') { if (isFg) fg = ansiRgb(codes[i + 2], codes[i + 3], codes[i + 4]); else bg = ansiRgb(codes[i + 2], codes[i + 3], codes[i + 4]); i += 4; }
+        else if (codes[i + 1] === '0') { if (isFg) fg = null; else bg = null; i += 1; }
+        continue;
+      }
+      if (n === 0) { fg = bg = null; bold = dim = italic = underline = false; }
+      else if (n === 1) bold = true;
+      else if (n === 2) dim = true;
+      else if (n === 3) italic = true;
+      else if (n === 4) underline = true;
+      else if (n === 22) { bold = false; dim = false; }
+      else if (n === 23) italic = false;
+      else if (n === 24) underline = false;
+      else if (n === 39) fg = null;
+      else if (n === 49) bg = null;
+      else if (n >= 30 && n <= 37) fg = ansiPalette[n - 30];
+      else if (n >= 90 && n <= 97) fg = ansiPalette[n - 90 + 8];
+      else if (n >= 40 && n <= 47) bg = ansiPalette[n - 40];
+      else if (n >= 100 && n <= 107) bg = ansiPalette[n - 100 + 8];
+    }
+    const s = style();
+    if (openSpan) { html += '</span>'; openSpan = false; }
+    if (s) { html += '<span' + s + '>'; openSpan = true; }
+    last = re.lastIndex;
+  }
+  html += esc(text.slice(last));
+  if (openSpan) html += '</span>';
+  return html;
+}
+
+function setSpec(spec) {
+  document.getElementById('f_spec').value = spec;
+  calcNext(spec);
+}
+
+async function calcNext(spec) {
+  const hint = document.getElementById('nextHint');
+  if (!spec) { hint.textContent = ''; return; }
+  try {
+    const list = await request(API + '/next', 'POST', { spec });
+    hint.textContent = '未来执行时间：' + list.join(' → ');
+  } catch (e) {
+    hint.textContent = '频率格式无效：' + e.message;
+  }
+}
+
+function toggleTypeFields() {
+  const type = document.getElementById('f_type').value;
+  document.getElementById('shellFields').style.display = type === 'shell' ? 'block' : 'none';
+  document.getElementById('curlFields').style.display = type === 'curl' ? 'block' : 'none';
+}
+
+function resetForm() {
+  editingID = 0;
+  ['f_name', 'f_spec', 'f_executor', 'f_user', 'f_script', 'f_url', 'f_timeout', 'f_retry', 'f_retention'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f_type').value = 'shell';
+  document.getElementById('nextHint').textContent = '';
+  document.getElementById('f_specCustom').checked = false;
+  specCustom = false;
+  specObjs = [defaultSpec()];
+  document.getElementById('f_retention').value = 7;
+  const inputMode = document.querySelector('input[name="scriptMode"][value="input"]');
+  if (inputMode) inputMode.checked = true;
+  toggleScriptMode();
+  renderSpecRows();
+  toggleSpecMode();
+  toggleTypeFields();
+}
+
+function openCreate() {
+  resetForm();
+  fillScriptOptions();
+  document.getElementById('editTitle').textContent = '新增任务';
+  document.getElementById('editMask').classList.add('show');
+}
+
+async function openEdit(id) {
+  try {
+    const data = await request(API + '/load/info', 'POST', { id });
+    resetForm();
+    editingID = data.id;
+    document.getElementById('f_name').value = data.name || '';
+    document.getElementById('f_type').value = data.type || 'shell';
+    document.getElementById('f_spec').value = data.spec || '';
+    document.getElementById('f_executor').value = data.executor || '';
+    document.getElementById('f_user').value = data.user || '';
+    document.getElementById('f_script').value = data.script || '';
+    document.getElementById('f_url').value = data.url || '';
+    document.getElementById('f_timeout').value = data.timeout || '';
+    document.getElementById('f_retry').value = data.retryTimes || '';
+    document.getElementById('f_retention').value = data.retainCopies || 7;
+    document.getElementById('editTitle').textContent = '编辑任务';
+    if (data.type === 'shell') {
+      const libMode = !!data.scriptName;
+      document.querySelector('input[name="scriptMode"][value="' + (libMode ? 'library' : 'input') + '"]').checked = true;
+      if (libMode) {
+        const sel = document.getElementById('f_scriptName');
+        if (!scriptOptionsCache.some(s => s.name === data.scriptName)) {
+          sel.innerHTML = `<option value="${escAttr(data.scriptName)}">${esc(data.scriptName)}（脚本库中已删除）</option>`;
+        }
+        sel.value = data.scriptName || '';
+      }
+      toggleScriptMode();
+    }
+    let parsed = [];
+    let parseOk = true;
+    for (const s of (data.spec || '').split('&&')) {
+      const o = transSpecToObj(s.trim());
+      if (o) parsed.push(o); else { parseOk = false; break; }
+    }
+    if (!parseOk || !parsed.length) {
+      specCustom = true;
+      specObjs = [];
+      document.getElementById('f_specCustom').checked = true;
+    } else {
+      specCustom = !!data.specCustom;
+      specObjs = parsed;
+      document.getElementById('f_specCustom').checked = specCustom;
+    }
+    toggleTypeFields();
+    toggleSpecMode();
+    document.getElementById('editMask').classList.add('show');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function closeEdit() {
+  document.getElementById('editMask').classList.remove('show');
+}
+
+async function saveJob() {
+  const name = document.getElementById('f_name').value.trim();
+  const type = document.getElementById('f_type').value;
+  const spec = collectSpecs().join('&&');
+  if (!name) return toast('请填写任务名称', 'error');
+  if (!spec) return toast('请填写执行频率', 'error');
+  const scriptMode = document.querySelector('input[name="scriptMode"]:checked').value;
+  const isLib = type === 'shell' && scriptMode === 'library';
+  const body = {
+    id: editingID,
+    name,
+    type,
+    spec,
+    specCustom,
+    executor: document.getElementById('f_executor').value.trim() || 'bash',
+    user: document.getElementById('f_user').value.trim(),
+    script: type === 'shell' && !isLib ? document.getElementById('f_script').value : '',
+    scriptName: isLib ? document.getElementById('f_scriptName').value : '',
+    url: type === 'curl' ? document.getElementById('f_url').value.trim() : '',
+    timeout: parseInt(document.getElementById('f_timeout').value || '0', 10) || 0,
+    retryTimes: parseInt(document.getElementById('f_retry').value || '0', 10) || 0,
+    retainCopies: parseInt(document.getElementById('f_retention').value || '7', 10) || 7,
+  };
+  if (isLib && !body.scriptName) return toast('请选择脚本库中的脚本', 'error');
+  try {
+    if (editingID) {
+      await request(API + '/update', 'POST', body);
+      toast('任务已更新', 'success');
+    } else {
+      await request(API, 'POST', body);
+      toast('任务已创建', 'success');
+    }
+    closeEdit();
+    loadList(currentPage);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function handleOnce(id) {
+  try {
+    await request(API + '/handle', 'POST', { id });
+    toast('已触发执行', 'success');
+    setTimeout(() => loadList(currentPage), 1500);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function toggleStatus(id, status) {
+  try {
+    await request(API + '/status', 'POST', { id, status: status === 'enabled' ? 'disabled' : 'enabled' });
+    toast(status === 'enabled' ? '任务已停用' : '任务已启用', 'success');
+    loadList(currentPage);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function removeJob(id) {
+  if (!confirm('确定要删除该计划任务吗？相关执行记录和脚本文件将一并删除。')) return;
+  request(API + '/del', 'POST', { ids: [id] })
+    .then(() => { toast('任务已删除', 'success'); loadList(currentPage); })
+    .catch(e => toast(e.message, 'error'));
+}
+
+/* ---------- tabs / import / export ---------- */
+
+function switchTab(tab) {
+  const cron = tab === 'cron';
+  document.getElementById('tabCron').className = 'tab' + (cron ? ' active' : '');
+  document.getElementById('tabScript').className = 'tab' + (cron ? '' : ' active');
+  document.getElementById('panelCron').style.display = cron ? 'block' : 'none';
+  document.getElementById('panelScript').style.display = cron ? 'none' : 'block';
+  if (!cron) loadScriptList(currentScriptPage);
+}
+
+async function exportCronjobs() {
+  try {
+    const items = await request(API + '/export', 'POST', {});
+    if (!items || !items.length) return toast('暂无任务可导出', 'error');
+    const d = new Date();
+    const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `2panel-cronjobs-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    toast(`已导出 ${items.length} 个任务`, 'success');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function importCronjobs(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  try {
+    const text = await file.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      return toast('导入失败：不是有效的 JSON 文件', 'error');
+    }
+    if (!Array.isArray(data)) data = data.data || data.cronjobs;
+    if (!Array.isArray(data)) return toast('导入失败：未找到任务数组', 'error');
+    const res = await request(API + '/import', 'POST', { data });
+    toast(`导入完成：新增 ${res.created} 个，跳过 ${res.skipped} 个，失败 ${res.failed} 个`, res.failed ? 'error' : 'success');
+    loadList(1);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+/* ---------- script library ---------- */
+
+async function loadScriptList(page) {
+  if (page < 1) return;
+  currentScriptPage = page;
+  try {
+    const info = document.getElementById('scriptSearch').value.trim();
+    const data = await request('/api/scripts/search', 'POST', {
+      page: currentScriptPage, pageSize: scriptPageSize, info
+    });
+    renderScriptList(data.items || [], data.total);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function renderScriptList(items, total) {
+  const tbody = document.getElementById('scriptTbody');
+  tbody.innerHTML = '';
+  document.getElementById('scriptEmpty').style.display = items.length ? 'none' : 'block';
+  document.getElementById('scriptPager').style.display = total > scriptPageSize ? 'flex' : 'none';
+  document.getElementById('scriptPageInfo').textContent = `共 ${total} 条 · 第 ${currentScriptPage}/${Math.ceil(total / scriptPageSize) || 1} 页`;
+  for (const s of items) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="name" data-label="脚本名称">${esc(s.name)}</td>
+      <td data-label="描述" style="white-space:normal;word-break:break-all;max-width:520px">${esc(s.description) || '<span style="color:var(--text-secondary)">-</span>'}</td>
+      <td data-label="创建时间">${esc((s.createdAt || '').replace('T', ' ').slice(0, 19))}</td>
+      <td data-label="操作">
+        <button class="btn small" onclick="openScriptEdit(${s.id})">编辑</button>
+        <button class="btn small" onclick="copyScript(${s.id})">复制内容</button>
+        <button class="btn small danger" onclick="removeScript(${s.id})">删除</button>
+      </td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+async function copyScript(id) {
+  try {
+    const data = await request('/api/scripts/load/info', 'POST', { id });
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(data.script || '').then(() => toast('脚本内容已复制', 'success')).catch(() => {});
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = data.script || '';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); toast('脚本内容已复制', 'success'); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function resetScriptForm() {
+  editingScriptID = 0;
+  document.getElementById('s_name').value = '';
+  document.getElementById('s_desc').value = '';
+  document.getElementById('s_script').value = '';
+}
+
+function openScriptCreate() {
+  resetScriptForm();
+  document.getElementById('scriptTitle').textContent = '新增脚本';
+  document.getElementById('scriptMask').classList.add('show');
+}
+
+async function openScriptEdit(id) {
+  try {
+    const data = await request('/api/scripts/load/info', 'POST', { id });
+    editingScriptID = data.id;
+    document.getElementById('s_name').value = data.name || '';
+    document.getElementById('s_desc').value = data.description || '';
+    document.getElementById('s_script').value = data.script || '';
+    document.getElementById('scriptTitle').textContent = '编辑脚本';
+    document.getElementById('scriptMask').classList.add('show');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function closeScript() {
+  document.getElementById('scriptMask').classList.remove('show');
+}
+
+async function saveScript() {
+  const name = document.getElementById('s_name').value.trim();
+  if (!name) return toast('请填写脚本名称', 'error');
+  const body = {
+    id: editingScriptID,
+    name,
+    description: document.getElementById('s_desc').value.trim(),
+    script: document.getElementById('s_script').value,
+  };
+  try {
+    if (editingScriptID) {
+      await request('/api/scripts/update', 'POST', body);
+      toast('脚本已更新', 'success');
+    } else {
+      await request('/api/scripts/create', 'POST', body);
+      toast('脚本已创建', 'success');
+    }
+    closeScript();
+    loadScriptList(currentScriptPage);
+    refreshScriptOptions();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function removeScript(id) {
+  if (!confirm('确定要删除该脚本吗？引用它的计划任务执行时将找不到脚本。')) return;
+  request('/api/scripts/del', 'POST', { ids: [id] })
+    .then(() => { toast('脚本已删除', 'success'); loadScriptList(currentScriptPage); refreshScriptOptions(); })
+    .catch(e => toast(e.message, 'error'));
+}
+
+async function refreshScriptOptions() {
+  try {
+    scriptOptionsCache = await request(API + '/script/options', 'POST', {});
+  } catch (e) { scriptOptionsCache = []; }
+}
+
+function fillScriptOptions() {
+  const sel = document.getElementById('f_scriptName');
+  sel.innerHTML = scriptOptionsCache.length
+    ? scriptOptionsCache.map(s => `<option value="${escAttr(s.name)}">${esc(s.name)}</option>`).join('')
+    : '<option value="">（脚本库为空，请先新增脚本）</option>';
+}
+
+function toggleScriptMode() {
+  const mode = document.querySelector('input[name="scriptMode"]:checked').value;
+  document.getElementById('scriptInputBox').style.display = mode === 'input' ? 'block' : 'none';
+  document.getElementById('scriptLibraryBox').style.display = mode === 'library' ? 'block' : 'none';
+}
+
+function openRecords(id, name) {
+  currentRecordCronjobID = id;
+  currentRecordPage = 1;
+  document.getElementById('recordJobName').textContent = name;
+  document.getElementById('recordMask').classList.add('show');
+  loadRecords(1);
+}
+
+function closeRecords() {
+  document.getElementById('recordMask').classList.remove('show');
+}
+
+async function loadRecords(page) {
+  if (page < 1) return;
+  currentRecordPage = page;
+  try {
+    const status = document.getElementById('recordStatus').value;
+    const data = await request(API + '/search/records', 'POST', {
+      page: currentRecordPage, pageSize: recordPageSize, cronjobID: currentRecordCronjobID, status
+    });
+    renderRecords(data.items || [], data.total);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function renderRecords(items, total) {
+  const tbody = document.getElementById('recordTbody');
+  tbody.innerHTML = '';
+  document.getElementById('recordEmpty').style.display = items.length ? 'none' : 'block';
+  document.getElementById('recordPager').style.display = total > recordPageSize ? 'flex' : 'none';
+  document.getElementById('recordPageInfo').textContent = `共 ${total} 条 · 第 ${currentRecordPage}/${Math.ceil(total / recordPageSize) || 1} 页`;
+  for (const r of items) {
+    const tr = document.createElement('tr');
+    const err = r.message ? `<div style="color:var(--danger);font-size:12px" title="${escAttr(r.message)}">${esc(r.message)}</div>` : '';
+    tr.innerHTML = `
+      <td data-label="开始时间">${esc(r.startTime)}</td>
+      <td data-label="状态"><span class="tag ${r.status}">${statusText[r.status] || r.status}</span></td>
+      <td data-label="日志" style="white-space:normal;max-width:380px">${err}<span class="code" style="font-size:12px">${esc(r.taskID)}.log</span></td>
+      <td data-label="耗时(ms)">${Math.round(r.interval)}</td>
+      <td data-label="操作"><button class="btn small" onclick="openLog(${r.id}, '${escAttr(r.startTime)}')">查看日志</button></td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+async function openLog(id, time) {
+  try {
+    const content = await request(API + '/records/log', 'POST', { id });
+    document.getElementById('logTitle').textContent = time;
+    document.getElementById('logView').innerHTML = ansiToHtml(content || '(暂无日志内容)');
+    document.getElementById('logMask').classList.add('show');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function closeLog() {
+  document.getElementById('logMask').classList.remove('show');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeEdit(); closeRecords(); closeLog(); closeScript(); }
+});
+['editMask', 'recordMask', 'logMask', 'pwdMask', 'scriptMask'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function (e) {
+    if (e.target === this) this.classList.remove('show');
+  });
+});
+
+/* ---------- auth ---------- */
+
+function showLogin() {
+  authToken = '';
+  try { localStorage.removeItem('2panel_token'); } catch (e) {}
+  document.documentElement.removeAttribute('data-authed');
+  document.getElementById('loginPwd').value = '';
+  document.getElementById('loginErr').textContent = '';
+  document.getElementById('loginBtn').disabled = false;
+  refreshDefaultPwd();
+}
+
+async function refreshDefaultPwd() {
+  const box = document.getElementById('defaultPwdBox');
+  box.style.display = 'none';
+  try {
+    const st = await request(AUTH_API + '/status', 'POST', {});
+    if (st.hasDefaultPasswd && st.defaultPassword) {
+      document.getElementById('defaultPwdVal').textContent = st.defaultPassword;
+      box.style.display = 'block';
+    }
+  } catch (e) {}
+}
+
+function enterApp() {
+  document.documentElement.setAttribute('data-authed', '1');
+  document.getElementById('userInfo').style.display = '';
+  document.getElementById('changePwdBtn').style.display = '';
+  document.getElementById('logoutBtn').style.display = '';
+  loadList(1);
+}
+
+async function doLogin() {
+  const name = document.getElementById('loginName').value.trim();
+  const pwd = document.getElementById('loginPwd').value;
+  const err = document.getElementById('loginErr');
+  document.getElementById('loginBtn').disabled = true;
+  err.textContent = '';
+  try {
+    const info = await request(AUTH_API + '/login', 'POST', { name, password: pwd });
+    authToken = info.token;
+    try { localStorage.setItem('2panel_token', authToken); } catch (e) {}
+    enterApp();
+  } catch (e) {
+    err.textContent = e.message;
+    document.getElementById('loginBtn').disabled = false;
+  }
+}
+
+async function doLogout() {
+  try { await request(AUTH_API + '/logout', 'POST', {}); } catch (e) {}
+  showLogin();
+}
+
+function togglePwd(id, el) {
+  const input = document.getElementById(id);
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  el.textContent = show ? '隐藏' : '显示';
+}
+
+function copyDefaultPwd() {
+  const v = document.getElementById('defaultPwdVal').textContent;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(v).then(() => toast('已复制', 'success')).catch(() => fallbackCopy(v));
+  } else fallbackCopy(v);
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); toast('已复制', 'success'); } catch (e) {}
+  document.body.removeChild(ta);
+}
+
+function openPwd() {
+  ['p_old', 'p_new', 'p_confirm'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('pwdMask').classList.add('show');
+}
+
+function closePwd() {
+  document.getElementById('pwdMask').classList.remove('show');
+}
+
+async function doChangePwd() {
+  const old = document.getElementById('p_old').value;
+  const pwd = document.getElementById('p_new').value;
+  const confirm = document.getElementById('p_confirm').value;
+  if (!old) return toast('请输入当前密码', 'error');
+  if (pwd.length < 8) return toast('新密码长度至少 8 位', 'error');
+  if (pwd !== confirm) return toast('两次输入的新密码不一致', 'error');
+  try {
+    await request(AUTH_API + '/change-password', 'POST', { oldPassword: old, newPassword: pwd });
+    toast('密码修改成功', 'success');
+    closePwd();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+document.getElementById('loginPwd').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+document.getElementById('f_spec').addEventListener('input', e => calcNext(e.target.value));
+
+(function boot() {
+  if (authToken) {
+    enterApp();
+    refreshScriptOptions();
+  }
+  else showLogin();
+})();
+</script>
+</body>
+</html>

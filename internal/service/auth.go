@@ -1,0 +1,186 @@
+package service
+
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"log"
+	"math/big"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/2panel-dev/2panel/internal/dto"
+	"github.com/2panel-dev/2panel/internal/repo"
+)
+
+var (
+	settingRepo repo.SettingRepo
+
+	tokenMutex sync.RWMutex
+	tokens     = make(map[string]time.Time)
+)
+
+const (
+	SettingInitialized      = "auth_initialized"
+	SettingUserName         = "UserName"
+	SettingPassword         = "Password"
+	SettingDefaultPassword  = "DefaultPassword"
+
+	defaultUserName = "admin"
+	tokenTTL        = 24 * time.Hour
+)
+
+type AuthService struct{}
+
+var authService AuthService
+
+// InitAuth initializes the admin account with a random default password on
+// first launch, mirroring the behavior of 1Panel's install-time password.
+func InitAuth() {
+	initialized, err := authService.Initialized()
+	if err != nil || initialized {
+		return
+	}
+	pwd := generatePassword()
+	if err := settingRepo.Set(SettingUserName, defaultUserName); err != nil {
+		log.Printf("init auth username failed: %v", err)
+		return
+	}
+	if err := settingRepo.Set(SettingPassword, hashPassword(pwd)); err != nil {
+		log.Printf("init auth password failed: %v", err)
+		return
+	}
+	if err := settingRepo.Set(SettingDefaultPassword, pwd); err != nil {
+		log.Printf("init auth default password failed: %v", err)
+		return
+	}
+	if err := settingRepo.Set(SettingInitialized, "1"); err != nil {
+		log.Printf("init auth flag failed: %v", err)
+		return
+	}
+	log.Printf("admin account initialized, default password: %s (please change it after first login)", pwd)
+}
+
+func (u *AuthService) Initialized() (bool, error) {
+	if _, err := settingRepo.Get(SettingInitialized); err != nil {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (u *AuthService) Status() dto.AuthStatus {
+	initialized, _ := u.Initialized()
+	status := dto.AuthStatus{Initialized: initialized}
+	if !initialized {
+		return status
+	}
+	if setting, err := settingRepo.Get(SettingUserName); err == nil {
+		status.UserName = setting.Value
+	}
+	if setting, err := settingRepo.Get(SettingDefaultPassword); err == nil && len(setting.Value) != 0 {
+		status.HasDefaultPasswd = true
+		status.DefaultPassword = setting.Value
+	}
+	return status
+}
+
+func (u *AuthService) Login(req dto.Login) (dto.LoginInfo, error) {
+	name := strings.TrimSpace(req.Name)
+	if len(name) == 0 {
+		return dto.LoginInfo{}, errors.New("用户名不能为空")
+	}
+	if len(req.Password) == 0 {
+		return dto.LoginInfo{}, errors.New("密码不能为空")
+	}
+	userName, err := settingRepo.Get(SettingUserName)
+	if err != nil || userName.Value != name {
+		return dto.LoginInfo{}, errors.New("用户名或密码错误")
+	}
+	pwdSetting, err := settingRepo.Get(SettingPassword)
+	if err != nil || pwdSetting.Value != hashPassword(req.Password) {
+		return dto.LoginInfo{}, errors.New("用户名或密码错误")
+	}
+	token, err := generateToken()
+	if err != nil {
+		return dto.LoginInfo{}, err
+	}
+	tokenMutex.Lock()
+	tokens[token] = time.Now().Add(tokenTTL)
+	tokenMutex.Unlock()
+	return dto.LoginInfo{Token: token, Name: name}, nil
+}
+
+func (u *AuthService) VerifyToken(token string) bool {
+	if len(token) == 0 {
+		return false
+	}
+	tokenMutex.RLock()
+	expire, ok := tokens[token]
+	tokenMutex.RUnlock()
+	if !ok {
+		return false
+	}
+	if time.Now().After(expire) {
+		tokenMutex.Lock()
+		delete(tokens, token)
+		tokenMutex.Unlock()
+		return false
+	}
+	return true
+}
+
+func (u *AuthService) Logout(token string) {
+	tokenMutex.Lock()
+	delete(tokens, token)
+	tokenMutex.Unlock()
+}
+
+func (u *AuthService) ChangePassword(req dto.ChangePassword) error {
+	pwdSetting, err := settingRepo.Get(SettingPassword)
+	if err != nil || pwdSetting.Value != hashPassword(req.OldPassword) {
+		return errors.New("旧密码错误")
+	}
+	if len(req.NewPassword) < 8 {
+		return errors.New("新密码长度至少 8 位")
+	}
+	if len(req.NewPassword) > 64 {
+		return errors.New("新密码长度不能超过 64 位")
+	}
+	if err := settingRepo.Set(SettingPassword, hashPassword(req.NewPassword)); err != nil {
+		return err
+	}
+	if err := settingRepo.Set(SettingDefaultPassword, ""); err != nil {
+		return err
+	}
+	return nil
+}
+
+func hashPassword(pwd string) string {
+	sum := sha256.Sum256([]byte(pwd))
+	return hex.EncodeToString(sum[:])
+}
+
+func generateToken() (string, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("generate token failed: %v", err)
+	}
+	return hex.EncodeToString(buf), nil
+}
+
+var pwdAlphabet = []byte("abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+
+func generatePassword() string {
+	buf := make([]byte, 12)
+	for i := range buf {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(pwdAlphabet))))
+		if err != nil {
+			return "12345678"
+		}
+		buf[i] = pwdAlphabet[n.Int64()]
+	}
+	return string(buf)
+}
