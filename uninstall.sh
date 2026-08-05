@@ -46,14 +46,18 @@ cat <<'EOF'
 EOF
 
 # ---- 1. stop & remove systemd service ----
+# 先从服务文件提取实际使用的端口与数据目录（卸载时一并清理）
 PORT="$DEFAULT_PORT"
+DATA_DIR="${DATA_DIR:-}"
 if command -v systemctl >/dev/null 2>&1 && [ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
   echo ">>> 正在停止并移除 systemd 服务 ${SERVICE_NAME} ..."
-  PORT=$(grep -oP 'ExecStart=.*\K-port\s+\K[0-9]+' "/etc/systemd/system/${SERVICE_NAME}.service" 2>/dev/null | head -n1)
+  SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+  PORT=$(grep -oE '\-port [0-9]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
   [ -z "$PORT" ] && PORT="$DEFAULT_PORT"
+  [ -z "$DATA_DIR" ] && DATA_DIR=$(grep -oE '\-data [^ ]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
   systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
   systemctl disable "${SERVICE_NAME}" 2>/dev/null || true
-  rm -f "/etc/systemd/system/${SERVICE_NAME}.service"
+  rm -f "$SERVICE_FILE"
   systemctl daemon-reload 2>/dev/null || true
 fi
 
@@ -64,6 +68,16 @@ if command -v pgrep >/dev/null 2>&1; then
   [ -z "$PIDS" ] && PIDS=$(pgrep -x "2panel" 2>/dev/null || true)
 fi
 if [ -n "$PIDS" ]; then
+  # 无 systemd 场景：从运行进程 cmdline 解析实际端口与数据目录（供后续清理）
+  if [ -z "$DATA_DIR" ]; then
+    for PID in $PIDS; do
+      [ -d "/proc/$PID" ] || continue
+      CMD=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null)
+      [ -z "$PORT_CMD" ] && PORT_CMD=$(printf '%s' "$CMD" | grep -oE '\-port [0-9]+' | awk '{print $2}')
+      [ -z "$DATA_DIR" ] && DATA_DIR=$(printf '%s' "$CMD" | grep -oE '\-data [^ ]+' | awk '{print $2}')
+      [ -n "$PORT_CMD" ] && [ -n "$DATA_DIR" ] && break
+    done
+  fi
   echo ">>> 正在停止 2panel 进程: $PIDS ..."
   for PID in $PIDS; do
     [ -d "/proc/$PID" ] || continue
@@ -77,25 +91,31 @@ if [ -n "$PIDS" ]; then
   done
 fi
 
+# 优先级：systemd 服务文件 > 运行进程 cmdline > 环境变量 > 默认目录
+[ -z "$PORT" ] && [ -n "$PORT_CMD" ] && PORT="$PORT_CMD"
+[ -n "$DATA_DIR" ] && DEFAULT_DATA_DIR="$DATA_DIR"
+
 # ---- 3. remove binary ----
 if [ -f "${BIN_PATH}" ]; then
   rm -f "${BIN_PATH}"
   echo ">>> 已删除二进制文件 ${BIN_PATH}"
 fi
 
-# ---- 4. data directory (keep by default, it contains db/scripts/logs) ----
-DATA_DIR="${DATA_DIR:-}"
+# ---- 4. data directory (persist data: db/scripts/logs) ----
+# DATA_DIR 已按优先级解析：systemd 服务文件 > 运行进程 cmdline > 环境变量 > 默认目录。
+# 删除前确认，默认删除（回车=删除，输入 n 保留）。
 [ -z "$DATA_DIR" ] && [ -d "${DEFAULT_DATA_DIR}" ] && DATA_DIR="${DEFAULT_DATA_DIR}"
 
 if [ -n "$DATA_DIR" ] && [ -d "$DATA_DIR" ]; then
-  read -r -p "是否删除数据目录 ${DATA_DIR}？（包含数据库、任务脚本和日志）[y/N]: " DEL_DATA
+  echo ">>> 检测到数据目录: ${DATA_DIR}"
+  read -r -p "是否删除数据目录 ${DATA_DIR}？（包含数据库、任务脚本和日志）[Y/n]: " DEL_DATA
   case "$DEL_DATA" in
-    y|Y|yes|YES)
-      rm -rf "$DATA_DIR"
-      echo ">>> 已删除数据目录 ${DATA_DIR}"
+    n|N|no|NO)
+      echo ">>> 已保留数据目录 ${DATA_DIR}"
       ;;
     *)
-      echo ">>> 已保留数据目录 ${DATA_DIR}"
+      rm -rf "$DATA_DIR"
+      echo ">>> 已删除数据目录 ${DATA_DIR}"
       ;;
   esac
 fi

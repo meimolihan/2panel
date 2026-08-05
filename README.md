@@ -209,7 +209,7 @@ bash uninstall.sh
 bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)"
 ```
 
-脚本会依次：停止并移除 systemd 服务 → 结束后台运行进程 → 删除二进制 → **询问是否删除数据目录**（默认保留，数据目录含数据库/脚本/日志，请确认后再删）→ 关闭安装时开放的防火墙端口。
+脚本会依次：停止并移除 systemd 服务 → 结束后台运行进程 → 删除二进制 → **询问是否删除数据目录**（默认删除，按 `n` 可保留；数据目录含数据库/脚本/日志）→ 关闭安装时开放的防火墙端口。数据目录会从 systemd 服务文件中自动解析，无需手动指定。
 
 ```bash
 # 方式二：手动卸载

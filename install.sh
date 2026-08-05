@@ -189,9 +189,9 @@ IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 open_firewall_port "$PORT"
 
 if [ "$FW_OPENED" = "y" ]; then
-  FW_LINE="    防火墙   : 已开放 ${PORT}/tcp"
+  FW_LINE="防火墙   : 已开放 ${PORT}/tcp"
 else
-  FW_LINE="    防火墙   : 未检测到活跃防火墙，已跳过"
+  FW_LINE="防火墙   : 未检测到活跃防火墙，已跳过"
 fi
 
 if [ "$USE_SYSTEMD" = "y" ]; then
