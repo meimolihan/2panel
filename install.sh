@@ -12,7 +12,7 @@
 set -e
 
 # ================== customize me ==================
-GITHUB_OWNER="YOUR_GITHUB_USERNAME"   # TODO: your GitHub username
+GITHUB_OWNER="meimolihan"   # TODO: your GitHub username
 GITHUB_REPO="2Panel"                  # GitHub repository name
 DEFAULT_PORT=8080
 DEFAULT_DATA_DIR="/var/lib/2panel"
