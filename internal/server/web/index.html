@@ -338,6 +338,51 @@ th, td, .code {
 .default-pwd .dp-val code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 17px; color: var(--warning); letter-spacing: 1px; }
 .default-pwd .dp-note { color: var(--text-secondary); margin-top: 8px; font-size: 12px; }
 
+/* ===== 修改密码页面 ===== */
+.pwd-modal { width: 440px; }
+.pwd-modal .modal-head h3 { display: inline-flex; align-items: center; gap: 8px; }
+.pwd-modal .modal-icon {
+  width: 28px; height: 28px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 15px; line-height: 1;
+  background: var(--tag-info-bg); color: var(--tag-info-color);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+[data-theme="light"] .pwd-modal .modal-icon {
+  background: linear-gradient(180deg, #e8f3ff, #dcecff);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 2px rgba(47, 111, 237, 0.15);
+}
+.pwd-form-row { margin-bottom: 16px; }
+.pwd-form-row label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 13px; }
+.pwd-form-row .pwd-wrap { background: var(--bg-input); }
+.pwd-form-row .pwd-wrap:focus-within { background: var(--bg-card); }
+.pwd-meter { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.meter-bar {
+  flex: 1; height: 5px; border-radius: 3px;
+  background: var(--tag-disabled-bg); overflow: hidden;
+  border: 1px solid var(--border);
+}
+.meter-bar span {
+  display: block; height: 100%; width: 0; border-radius: 3px;
+  background: var(--danger); transition: width 0.25s ease, background-color 0.25s ease;
+}
+.meter-text { font-size: 12px; color: var(--text-secondary); white-space: nowrap; min-width: 56px; text-align: right; }
+.pwd-tip {
+  display: flex; align-items: flex-start; gap: 6px;
+  padding: 10px 12px; border-radius: 8px;
+  background: var(--tag-info-bg); color: var(--text-secondary);
+  font-size: 12px; line-height: 1.6;
+  border: 1px solid transparent;
+}
+[data-theme="light"] .pwd-tip {
+  background: #f3f7ff; border-color: #e3ecff; color: #4a5a78;
+}
+.pwd-tip .tip-dot { flex: 0 0 auto; margin-top: 3px; }
+.pwd-modal .modal-foot .btn.primary:disabled { opacity: 0.55; cursor: not-allowed; }
+@media (max-width: 768px) {
+  .pwd-modal { width: 100%; }
+}
+
 /* ===== 视觉层级与微动效增强 ===== */
 body {
   background-color: var(--bg);
@@ -849,28 +894,42 @@ echo 'hello 2panel'"></textarea>
 </div>
 
 <div class="modal-mask" id="pwdMask">
-  <div class="modal">
+  <div class="modal sm pwd-modal">
     <div class="modal-head">
-      <h3>修改密码</h3>
+      <h3><span class="modal-icon">🔐</span>修改密码</h3>
       <span class="close" onclick="closePwd()">✕</span>
     </div>
     <div class="modal-body">
-      <div class="form-row">
-        <label>当前密码</label>
-        <input type="password" id="p_old" placeholder="请输入当前密码">
+      <div class="pwd-form-row">
+        <label for="p_old">当前密码</label>
+        <div class="pwd-wrap">
+          <input type="password" id="p_old" placeholder="请输入当前密码" autocomplete="current-password">
+          <span class="eye" onclick="togglePwd('p_old', this)">显示</span>
+        </div>
       </div>
-      <div class="form-row">
-        <label>新密码</label>
-        <input type="password" id="p_new" placeholder="至少 8 位">
+      <div class="pwd-form-row">
+        <label for="p_new">新密码</label>
+        <div class="pwd-wrap">
+          <input type="password" id="p_new" placeholder="至少 8 位" autocomplete="new-password">
+          <span class="eye" onclick="togglePwd('p_new', this)">显示</span>
+        </div>
+        <div class="pwd-meter" id="pwdMeter">
+          <div class="meter-bar"><span id="meterFill"></span></div>
+          <span class="meter-text" id="meterText"></span>
+        </div>
       </div>
-      <div class="form-row">
-        <label>确认新密码</label>
-        <input type="password" id="p_confirm" placeholder="再次输入新密码">
+      <div class="pwd-form-row">
+        <label for="p_confirm">确认新密码</label>
+        <div class="pwd-wrap">
+          <input type="password" id="p_confirm" placeholder="再次输入新密码" autocomplete="new-password">
+          <span class="eye" onclick="togglePwd('p_confirm', this)">显示</span>
+        </div>
       </div>
+      <div class="pwd-tip" id="pwdTip">密码需至少 8 位，建议混合大小写字母、数字与符号。</div>
     </div>
     <div class="modal-foot">
       <button class="btn" onclick="closePwd()">取消</button>
-      <button class="btn primary" onclick="doChangePwd()">确认修改</button>
+      <button class="btn primary" id="pwdSubmit" onclick="doChangePwd()">确认修改</button>
     </div>
   </div>
 </div>
@@ -1700,11 +1759,68 @@ function fallbackCopy(text) {
 
 function openPwd() {
   ['p_old', 'p_new', 'p_confirm'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('meterFill').style.width = '0';
+  document.getElementById('meterText').textContent = '';
+  document.getElementById('pwdSubmit').disabled = false;
   document.getElementById('pwdMask').classList.add('show');
+  setTimeout(() => document.getElementById('p_old').focus(), 120);
 }
 
 function closePwd() {
   document.getElementById('pwdMask').classList.remove('show');
+}
+
+function pwdScore(pwd) {
+  let score = 0;
+  if (pwd.length >= 8) score++;
+  if (pwd.length >= 12) score++;
+  if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score++;
+  if (/\d/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+  return score;
+}
+
+function onPwdInput() {
+  const pwd = document.getElementById('p_new').value;
+  const fill = document.getElementById('meterFill');
+  const text = document.getElementById('meterText');
+  const levels = [
+    { min: 0, label: '', color: 'var(--danger)' },
+    { min: 1, label: '弱', color: '#e64545' },
+    { min: 2, label: '一般', color: '#d97706' },
+    { min: 3, label: '中等', color: '#d97706' },
+    { min: 4, label: '强', color: '#16a34a' },
+    { min: 5, label: '很强', color: '#16a34a' },
+  ];
+  const lv = levels.filter(l => pwd.length > 0 && pwdScore(pwd) >= l.min).pop() || levels[0];
+  fill.style.width = (pwdScore(pwd) / 5 * 100) + '%';
+  fill.style.background = lv.color;
+  text.textContent = pwd.length ? lv.label : '';
+  text.style.color = lv.color;
+  validatePwd();
+}
+
+function validatePwd() {
+  const pwd = document.getElementById('p_new').value;
+  const confirm = document.getElementById('p_confirm').value;
+  const tip = document.getElementById('pwdTip');
+  const submit = document.getElementById('pwdSubmit');
+  if (pwd.length > 0 && pwd.length < 8) {
+    tip.textContent = '新密码长度不足 8 位。';
+    tip.style.borderColor = 'var(--danger)';
+    submit.disabled = true;
+    return false;
+  }
+  if (confirm.length > 0 && pwd !== confirm) {
+    tip.textContent = '两次输入的新密码不一致。';
+    tip.style.borderColor = 'var(--danger)';
+    submit.disabled = true;
+    return false;
+  }
+  tip.textContent = '密码需至少 8 位，建议混合大小写字母、数字与符号。';
+  tip.style.borderColor = 'transparent';
+  submit.disabled = false;
+  return true;
 }
 
 async function doChangePwd() {
@@ -1714,12 +1830,25 @@ async function doChangePwd() {
   if (!old) return toast('请输入当前密码', 'error');
   if (pwd.length < 8) return toast('新密码长度至少 8 位', 'error');
   if (pwd !== confirm) return toast('两次输入的新密码不一致', 'error');
+  const btn = document.getElementById('pwdSubmit');
+  btn.disabled = true;
+  btn.textContent = '提交中...';
   try {
     await request(AUTH_API + '/change-password', 'POST', { oldPassword: old, newPassword: pwd });
     toast('密码修改成功', 'success');
     closePwd();
   } catch (e) { toast(e.message, 'error'); }
+  btn.disabled = false;
+  btn.textContent = '确认修改';
 }
+
+document.getElementById('p_new').addEventListener('input', onPwdInput);
+document.getElementById('p_confirm').addEventListener('input', validatePwd);
+['p_old', 'p_new', 'p_confirm'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') doChangePwd();
+  });
+});
 
 document.getElementById('loginPwd').addEventListener('keydown', e => {
   if (e.key === 'Enter') doLogin();
