@@ -175,7 +175,7 @@ curl -fSL --retry 3 -o "${BIN_PATH}.download" "${BIN_URL}" || error "下载失�
 
 # ---- verify checksum ----
 if command -v sha256sum >/dev/null 2>&1; then
-  if curl -fsSL --retry 2 -o "${BIN_PATH}.sha256" "${SHA_URL}"; then
+  if curl -fsSL --retry 2 -o "${BIN_PATH}.sha256" "${SHA_URL}" 2>/dev/null; then
     EXPECTED=$(awk '{print $1}' "${BIN_PATH}.sha256" | tr '[:upper:]' '[:lower:]')
     if [ -n "$EXPECTED" ]; then
       ACTUAL=$(sha256sum "${BIN_PATH}.download" | awk '{print $1}')
@@ -185,8 +185,8 @@ if command -v sha256sum >/dev/null 2>&1; then
       ok "SHA-256 校验通过"
     fi
   else
-    printf "  %s %s\n" "${gl_huang}[警告]${reset}" "未找到 SHA-256 校验文件（${gl_hui}${SHA_URL}${reset}），跳过完整性校验。"
-    printf "  %s\n" "    请确认发布资产包含 ${gl_lan}${ARCH}.sha256${reset}。"
+    printf "  %s %s\n" "${gl_huang}[警告]${reset}" "未找到 SHA-256 校验文件，已跳过完整性校验。"
+    printf "  %s\n" "    发布资产中缺少 ${gl_lan}${ARCH}.sha256${reset}，或该文件下载失败。"
   fi
   rm -f "${BIN_PATH}.sha256"
 fi
