@@ -164,6 +164,19 @@ echo ">>> 正在创建数据目录 ${DATA_DIR} ..."
 mkdir -p "${DATA_DIR}"
 chmod 700 "${DATA_DIR}"
 
+# ---- write installation record ----
+# 供 uninstall.sh / `2panel uninstall` 在“无运行进程、无 systemd 服务”时仍能
+# 定位并彻底清理数据目录，避免重装后残留用户数据。
+mkdir -p /etc/2panel
+cat > /etc/2panel/config <<EOF
+# 2Panel 安装记录（由 install.sh 生成，请勿手动修改）
+BIN_PATH=${BIN_PATH}
+PORT=${PORT}
+DATA_DIR=${DATA_DIR}
+EOF
+chmod 0644 /etc/2panel/config
+echo ">>> 已写入安装记录 /etc/2panel/config"
+
 "${BIN_PATH}" -version
 
 if [ "$USE_SYSTEMD" = "y" ]; then
@@ -194,8 +207,8 @@ UNIT
     exit 1
   fi
 else
-  if command -v pgrep >/dev/null 2>&1 && pgrep -f "${BIN_PATH} -port ${PORT}" >/dev/null 2>&1; then
-    echo "[警告] 2panel 可能已在端口 ${PORT} 上运行"
+  if command -v pgrep >/dev/null 2>&1 && pgrep -x "2panel" >/dev/null 2>&1; then
+    echo "[警告] 检测到 2panel 进程可能已在运行"
   else
     nohup "${BIN_PATH}" -port "${PORT}" -data "${DATA_DIR}" >> "${DATA_DIR}/2panel.log" 2>&1 &
     echo ">>> 2panel 已在后台启动，pid: $!"

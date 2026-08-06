@@ -25,6 +25,7 @@ const (
 	uninstallBinPath     = "/usr/local/bin/2panel"
 	uninstallServiceName = "2panel"
 	uninstallServiceFile = "/etc/systemd/system/2panel.service"
+	uninstallConfigFile  = "/etc/2panel/config"
 	uninstallDefaultData = "/var/lib/2panel"
 	uninstallDefaultPort = 8080
 )
@@ -56,6 +57,16 @@ func cmdUninstall() int {
 		}
 	} else {
 		fmt.Printf(">>> 已保留数据目录 %s\n", dataDir)
+	}
+
+	// remove the installation record written by install.sh
+	if _, err := os.Stat(uninstallConfigFile); err == nil {
+		if err := os.Remove(uninstallConfigFile); err != nil {
+			fmt.Printf("[警告] 删除安装记录 %s 失败: %v\n", uninstallConfigFile, err)
+		} else {
+			fmt.Printf(">>> 已删除安装记录 %s\n", uninstallConfigFile)
+		}
+		_ = os.Remove(filepath.Dir(uninstallConfigFile))
 	}
 
 	fmt.Println("")
@@ -122,12 +133,60 @@ func extractDataArg(s string) string {
 	return ""
 }
 
+// readConfigFile reads the installation record written by install.sh. It is
+// the authoritative source for the installed instance's port, data dir and
+// binary path, so uninstall works even when no process is running and no
+// systemd unit exists (the previous behavior silently left custom data dirs
+// behind and a reinstall resurrected all user data).
+func readConfigFile() (portS, data, bin string) {
+	content, err := os.ReadFile(uninstallConfigFile)
+	if err != nil {
+		return "", "", ""
+	}
+	for _, line := range strings.Split(string(content), "\n") {
+		line = strings.TrimSpace(line)
+		if len(line) == 0 || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		value = strings.TrimSpace(value)
+		if len(value) == 0 {
+			continue
+		}
+		switch strings.TrimSpace(key) {
+		case "PORT":
+			portS = value
+		case "DATA_DIR":
+			data = value
+		case "BIN_PATH":
+			bin = value
+		}
+	}
+	return portS, data, bin
+}
+
 // detectUninstallConfig resolves the actual port and data dir used by the
-// running installation, preferring the systemd unit file, then the cmdline of
-// running 2panel instances, then defaults.
+// installed 2panel. Priority: the install record written by install.sh, then
+// the systemd unit file, then the cmdline of running 2panel instances, then
+// defaults.
 func detectUninstallConfig() (int, string) {
 	port := uninstallDefaultPort
 	data := uninstallDefaultData
+
+	if portS, dir, _ := readConfigFile(); dir != "" || portS != "" {
+		if portS != "" {
+			if v, e := strconv.Atoi(portS); e == nil && v > 0 && v <= 65535 {
+				port = v
+			}
+		}
+		if dir != "" {
+			data = dir
+			return port, data
+		}
+	}
 
 	if content, err := os.ReadFile(uninstallServiceFile); err == nil {
 		s := string(content)
@@ -183,14 +242,15 @@ func stop2panelService() {
 }
 
 // is2panelProcess reports whether the process identified by pid is an actual
-// 2panel binary, checked via its resolved executable. Matching only on the
-// cmdline string would also kill wrapper shells that merely contain the path.
+// 2panel binary, checked via its resolved executable. Only the exact binary
+// name matches; wrapper shells or monitoring scripts whose command line merely
+// contains the path are never treated as 2panel instances.
 func is2panelProcess(pid int) bool {
 	exe, err := os.Readlink(filepath.Join("/proc", strconv.Itoa(pid), "exe"))
 	if err != nil {
 		return false
 	}
-	return strings.Contains(filepath.Base(exe), "2panel")
+	return filepath.Base(exe) == "2panel"
 }
 
 // stopOtherInstances terminates running 2panel processes (background mode),
@@ -287,6 +347,9 @@ func closeFirewallPort(port int) {
 
 func remove2panelBinary() {
 	paths := map[string]bool{uninstallBinPath: true}
+	if _, _, bin := readConfigFile(); bin != "" {
+		paths[bin] = true
+	}
 	if exe, err := os.Executable(); err == nil {
 		paths[exe] = true
 	}

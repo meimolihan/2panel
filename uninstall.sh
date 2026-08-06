@@ -12,9 +12,42 @@ BIN_PATH="/usr/local/bin/2panel"
 SERVICE_NAME="2panel"
 DEFAULT_DATA_DIR="/var/lib/2panel"
 DEFAULT_PORT=8080
+CONFIG_FILE="/etc/2panel/config"
 
 error() { echo "[错误] $1" >&2; exit 1; }
 [ "$(id -u)" != "0" ] && error "请以 root 身份运行（sudo bash uninstall.sh）"
+
+# ---- read installation record written by install.sh ----
+# 最高优先级来源：即使没有运行进程、没有 systemd 服务文件，
+# 也能定位真实的端口、数据目录与二进制路径。
+read_config() {
+  [ -f "$CONFIG_FILE" ] || return 0
+  while IFS='=' read -r KEY VALUE; do
+    KEY=$(printf '%s' "$KEY" | tr -d ' ')
+    VALUE=$(printf '%s' "$VALUE" | tr -d '\r')
+    case "$KEY" in
+      BIN_PATH) [ -n "$VALUE" ] && BIN_PATH="$VALUE" ;;
+      PORT) [ -n "$VALUE" ] && PORT="$VALUE" ;;
+      DATA_DIR) [ -n "$VALUE" ] && DATA_DIR="$VALUE" ;;
+    esac
+  done < "$CONFIG_FILE"
+}
+
+# ---- find real 2panel processes ----
+# 扫描 /proc/*/exe 的可执行文件 basename 是否为 2panel，而不是用
+# pgrep -f 匹配命令行字符串：后者会误伤命令行中恰好含该路径的
+# 包装 shell / 监控脚本（甚至可能误杀卸载脚本自身的父进程）。
+find_2panel_pids() {
+  local d pid exe
+  for d in /proc/[0-9]*; do
+    [ -d "$d" ] || continue
+    pid="${d#/proc/}"
+    [ "$pid" = "$$" ] && continue
+    exe=$(readlink "$d/exe" 2>/dev/null) || continue
+    [ "$(basename "$exe")" = "2panel" ] || continue
+    echo "$pid"
+  done
+}
 
 # ---- close firewall port opened by install.sh (best effort) ----
 close_firewall_port() {
@@ -63,14 +96,17 @@ while :; do
   esac
 done
 
-# ---- 1. stop & remove systemd service ----
-# 先从服务文件提取实际使用的端口与数据目录（卸载时一并清理）
+# ---- 1. resolve install info ----
+# 优先级：安装记录 /etc/2panel/config > systemd 服务文件 > 运行进程 cmdline > 环境变量 > 默认。
+# 安装记录由 install.sh 写入，保证“无运行进程、无服务文件”时仍能定位真实数据目录。
 PORT="$DEFAULT_PORT"
 DATA_DIR="${DATA_DIR:-}"
+read_config
+
 if command -v systemctl >/dev/null 2>&1 && [ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
   echo ">>> 正在停止并移除 systemd 服务 ${SERVICE_NAME} ..."
   SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-  PORT=$(grep -oE '\-port [0-9]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
+  [ -z "$PORT" ] && PORT=$(grep -oE '\-port [0-9]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
   [ -z "$PORT" ] && PORT="$DEFAULT_PORT"
   [ -z "$DATA_DIR" ] && DATA_DIR=$(grep -oE '\-data [^ ]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
   systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
@@ -80,11 +116,7 @@ if command -v systemctl >/dev/null 2>&1 && [ -f "/etc/systemd/system/${SERVICE_N
 fi
 
 # ---- 2. kill running process (background mode / fallback) ----
-PIDS=""
-if command -v pgrep >/dev/null 2>&1; then
-  PIDS=$(pgrep -f "${BIN_PATH}" 2>/dev/null || true)
-  [ -z "$PIDS" ] && PIDS=$(pgrep -x "2panel" 2>/dev/null || true)
-fi
+PIDS=$(find_2panel_pids)
 if [ -n "$PIDS" ]; then
   # 无 systemd 场景：从运行进程 cmdline 解析实际端口与数据目录（供后续清理）
   if [ -z "$DATA_DIR" ]; then
@@ -109,7 +141,6 @@ if [ -n "$PIDS" ]; then
   done
 fi
 
-# 优先级：systemd 服务文件 > 运行进程 cmdline > 环境变量 > 默认目录
 [ -z "$PORT" ] && [ -n "$PORT_CMD" ] && PORT="$PORT_CMD"
 [ -n "$DATA_DIR" ] && DEFAULT_DATA_DIR="$DATA_DIR"
 
@@ -120,7 +151,6 @@ if [ -f "${BIN_PATH}" ]; then
 fi
 
 # ---- 4. data directory (persist data: db/scripts/logs) ----
-# DATA_DIR 已按优先级解析：systemd 服务文件 > 运行进程 cmdline > 环境变量 > 默认目录。
 # 删除前确认，默认删除（回车=删除，输入 n 保留）。
 [ -z "$DATA_DIR" ] && [ -d "${DEFAULT_DATA_DIR}" ] && DATA_DIR="${DEFAULT_DATA_DIR}"
 
@@ -138,7 +168,14 @@ if [ -n "$DATA_DIR" ] && [ -d "$DATA_DIR" ]; then
   esac
 fi
 
-# ---- 5. close firewall port ----
+# ---- 5. remove installation record ----
+if [ -f "$CONFIG_FILE" ]; then
+  rm -f "$CONFIG_FILE"
+  echo ">>> 已删除安装记录 $CONFIG_FILE"
+  rmdir "$(dirname "$CONFIG_FILE")" 2>/dev/null || true
+fi
+
+# ---- 6. close firewall port ----
 close_firewall_port "$PORT"
 
 echo ""
