@@ -83,7 +83,7 @@
   --shadow-hover: 0 6px 14px rgba(15, 23, 42, 0.08), 0 16px 34px rgba(15, 23, 42, 0.12);
   --shadow-primary: 0 4px 14px rgba(47, 111, 237, 0.28);
   --card-grad: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
-  --row-hover-bg: rgba(47, 111, 237, 0.07);
+  --row-hover-bg: rgba(47, 111, 237, 0.20);
   --focus-ring: rgba(47, 111, 237, 0.18);
   --bg-glow-a: rgba(47, 111, 237, 0.09);
   --bg-glow-b: rgba(107, 79, 216, 0.07);
@@ -105,8 +105,9 @@ body {
   justify-content: space-between;
   gap: 12px;
 }
-.header h1 { font-size: 18px; font-weight: 600; cursor: pointer; user-select: none; }
+.header h1 { font-size: 18px; font-weight: 600; cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 8px; }
 .header h1 span { color: var(--primary); }
+.header-logo { width: 22px; height: 22px; display: block; flex: 0 0 auto; }
 .header .env { font-size: 12px; color: var(--text-secondary); }
 .header-right { display: flex; align-items: center; gap: 12px; }
 [data-theme="dark"] .icon-moon { display: none; }
@@ -195,12 +196,12 @@ td.ellipsis { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 }
 .modal-mask.show { display: flex; }
 .modal {
-  background: var(--bg-card); border-radius: 8px; margin-top: 8vh; width: 640px; max-width: calc(100vw - 32px);
+  background: var(--bg-card); border-radius: 15px; margin-top: 8vh; width: 640px; max-width: calc(100vw - 32px);
   box-shadow: 0 8px 32px rgba(0,0,0,0.18);
 }
 .modal.sm { width: 420px; }
 .modal.lg { width: 860px; }
-.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); border-radius: 15px 15px 0 0; }
 .modal-head h3 { font-size: 16px; }
 .modal-head .close { cursor: pointer; color: var(--text-secondary); font-size: 18px; padding: 4px; }
 .modal-body { padding: 20px; max-height: 70vh; overflow: auto; }
@@ -457,7 +458,7 @@ body {
 .btn:active { transform: scale(0.97); box-shadow: var(--shadow-sm); }
 
 tbody tr { transition: background-color 0.25s ease; }
-tbody tr:hover { background: var(--row-hover-bg); }
+tbody tr:hover { background: var(--row-hover-bg); background-image: none; }
 
 .tab {
   border-radius: 6px 6px 0 0;
@@ -585,7 +586,7 @@ tbody tr:hover { background: var(--row-hover-bg); }
   background: var(--row-hover-bg);
 }
 [data-theme="light"] .tabs { border-bottom-color: #dde2e8; }
-[data-theme="light"] .tab:hover { background: rgba(15, 23, 42, 0.04); }
+[data-theme="light"] .tab:hover { background: rgba(15, 23, 42, 0.16); }
 [data-theme="light"] .tab.active {
   background: linear-gradient(180deg, #f0f6ff, #ffffff);
   border-bottom-color: var(--primary);
@@ -687,6 +688,10 @@ th { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transp
 /* 列表行极淡分隔底色，强化局部层级 */
 tbody tr { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent); }
 [data-theme="light"] tbody tr { background-image: linear-gradient(180deg, #ffffff, #fbfcfe); }
+[data-theme="light"] tbody tr:hover {
+  background: var(--row-hover-bg);
+  background-image: none;
+}
 
 /* --- 三、Hover 精细动画：仅鼠标精确指针设备生效（复合上浮 + 极微缩放 + 阴影弥散） ---
    缩放上限 scale(1.01)，上浮 translateY(-3px)，阴影由浅平滑加深为弥散柔和阴影 */
@@ -724,8 +729,8 @@ tbody tr { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.02), 
 .tab:active { transform: translateY(0); }
 .dropdown-item:active { transform: translateY(0); }
 
-/* --- 五、触屏彻底隔离 hover：纯触摸设备强制清除上浮/缩放残留态 --- */
-@media (hover: none) {
+/* --- 五、触屏彻底隔离 hover：hover:none 或 pointer:coarse 强制清除上浮/缩放残留态 --- */
+@media (hover: none), (pointer: coarse) {
   .card:hover, .login-card:hover, .btn:hover, .preset:hover,
   .dropdown-item:hover, .tab:hover, .spec-row:hover, .toast:hover {
     transform: none;
@@ -751,23 +756,44 @@ tbody tr { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.02), 
   body { background-attachment: fixed; }
 }
 
-/* --- 八、iPad 平板端（768px ~ 1024px）：padding 缩小 15%、阴影弱化为单层柔和阴影、列数不变 --- */
+/* --- 八、iPad 平板端（768px ~ 1024px）：padding 缩小 15%、双层阴影透明度 ×0.75（约降 25%）、列数不变 --- */
 @media (min-width: 768px) and (max-width: 1024px) {
   .container { margin: 18px auto; padding: 0 14px; }
-  .card { padding: 17px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.08); background-image: none; }
-  .login-card { box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 10px 26px rgba(0, 0, 0, 0.08); }
+  .card {
+    padding: 17px; background-image: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 8px 20px rgba(0, 0, 0, 0.06);
+  }
+  [data-theme="light"] .card {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 20px rgba(0, 0, 0, 0.05);
+  }
+  .login-card {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05), 0 16px 40px rgba(0, 0, 0, 0.08);
+  }
+  [data-theme="light"] .login-card {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04), 0 16px 40px rgba(0, 0, 0, 0.06);
+  }
   .toolbar { margin-bottom: 14px; }
   .modal-head { padding: 14px 18px; }
   .modal-body { padding: 16px 18px; }
   .form-row { margin-bottom: 14px; }
 }
 
-/* --- 九、iPad 平板 hover：外接鼠标（any-hover: hover）才启用轻微 hover，纯触摸仅静态阴影 --- */
-@media (max-width: 1024px) and (any-hover: hover) {
-  .card:hover { transform: translateY(-2px) scale(1.005); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 20px rgba(0, 0, 0, 0.08); }
-  .login-card:hover { transform: translateY(-2px) scale(1.005); }
+/* --- 九、iPad 平板 hover：仅「外接鼠标（hover:hover）+ 精确指针（pointer:fine）」启用，
+       双层阴影透明度 ×0.75，比桌面端更克制；纯触摸设备不触发 hover --- */
+@media (min-width: 768px) and (max-width: 1024px) and (hover: hover) and (pointer: fine) {
+  .card:hover {
+    transform: translateY(-2px) scale(1.005);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 8px 20px rgba(0, 0, 0, 0.06);
+  }
+  [data-theme="light"] .card:hover {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 20px rgba(0, 0, 0, 0.05);
+  }
+  .login-card:hover {
+    transform: translateY(-2px) scale(1.005);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05), 0 16px 40px rgba(0, 0, 0, 0.09);
+  }
   .btn:not(:disabled):hover, .btn.primary:not(:disabled):hover, .btn.danger:not(:disabled):hover {
-    transform: translateY(-1px) scale(1.005); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px) scale(1.005); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
   }
   .preset:hover, .tab:hover, .spec-row:hover, .dropdown-item:hover, .toast:hover { transform: translateY(-1px); }
 }
@@ -817,7 +843,17 @@ tbody tr { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.02), 
 
 <div id="app">
 <div class="header">
-  <h1 id="siteTitle" onclick="location.reload()" title="点击刷新"><span>2</span>Panel</h1>
+  <h1 id="siteTitle" onclick="location.reload()" title="点击刷新">
+    <svg class="icon header-logo" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M69.530864 0h884.938272v1024H69.530864z" fill="#E0E0E0" fill-opacity="0"/>
+      <path d="M79.560165 259.855802v503.572017l435.09465 250.73251 434.041152-250.73251-1.053498-502.518519-432.987654-250.73251-435.09465 249.679012z" fill="#005EFD"/>
+      <path d="M93.255638 268.283786v486.716049l422.452675 241.251029 419.292181-242.304527v-485.662551l-421.399177-242.304527-420.345679 242.304527z" fill="#FFFFFF"/>
+      <path d="M139.609547 294.621235l95.868313 56.888888 371.884774-218.074074-93.761317-53.728395-373.99177 214.913581z" fill="#005EFD"/>
+      <path d="M139.609547 293.567737v435.09465l243.358025 139.061728 92.707819-55.835391-241.251029-140.115226 1.053498-320.263375-95.868313-57.942386zM791.269663 350.096329v321.780412l95.269925 55.732148V294.364181L645.749992 154.506008 551.527243 210.238156l239.74242 139.858173z" fill="#0854C1"/>
+      <path d="M420.893498 886.470058l93.339918 56.052411 372.306172-214.692346-94.387094-57.110123L420.893498 886.470058z" fill="#005EFD"/>
+      <path d="M406 444 h212 v72 h-212 z M406 562 h212 v72 h-212 z" fill="#005EFD"/>
+      <path d="M618 444 l31.6 -16.8 v72 l-31.6 16.8 z M618 562 l31.6 -16.8 v72 l-31.6 16.8 z" fill="#0854C1"/>
+    </svg><span>2</span>Panel</h1>
   <div class="header-right">
     <span class="env" id="userInfo" style="display:none"></span>
     <button class="btn theme-toggle" onclick="toggleTheme()" title="切换明暗主题" aria-label="切换明暗主题">
