@@ -14,12 +14,62 @@ DEFAULT_DATA_DIR="/var/lib/2panel"
 DEFAULT_PORT=8080
 CONFIG_FILE="/etc/2panel/config"
 
-error() { echo "[错误] $1" >&2; exit 1; }
+# ================== terminal colors ==================
+list_color_init() {
+    export gl_hui=$'\033[38;5;59m'
+    export gl_hong=$'\033[38;5;9m'
+    export gl_lv=$'\033[38;5;10m'
+    export gl_huang=$'\033[38;5;11m'
+    export gl_lan=$'\033[38;5;32m'
+    export gl_bai=$'\033[38;5;15m'
+    export gl_zi=$'\033[38;5;13m'
+    export gl_bufan=$'\033[38;5;14m'
+    export reset=$'\033[0m'
+}
+list_color_init
+
+sep_line() {
+  printf '%s' "$gl_bufan"
+  printf '—%.0s' {1..32}
+  printf '%s\n' "$reset"
+}
+
+section() {
+  printf "  %s %s\n" "${gl_zi}▶${reset}" "$1"
+}
+
+ok() {
+  printf "  %s %s\n" "${gl_lv}>>>${reset}" "$1"
+}
+
+skip() {
+  printf "  %s %s\n" "${gl_hui}--${reset}" "$1"
+}
+
+print_banner() {
+  local z="$gl_zi" r="$reset" b="$gl_bai" l="$gl_lan"
+  printf '%s\n' \
+    "${z} ____  ____                  _${r}" \
+    "${z}|___ \\|  _ \\ __ _ _ __   ___| |${r}" \
+    "${z}  __) | |_) / _\` | '_ \\ / _ \\ |${r}" \
+    "${z} / __/|  __/ (_| | | | |  __/ |${r}" \
+    "${z}|_____|_|   \\__,_|_| |_|\\___|_|${r}" \
+    "" \
+    "${b}2Panel${r} - ${l}卸载${r}" \
+    ""
+}
+
+break_end() {
+    echo -e "${gl_lv}操作完成${gl_bai}"
+    echo -e "${gl_bai}按任意键继续 ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}\c"
+    read -r -n 1 -s -r -p ""
+    echo ""
+    clear
+}
+
+error() { printf "  %s %s\n" "${gl_hong}[错误]${reset}" "$1" >&2; exit 1; }
 [ "$(id -u)" != "0" ] && error "请以 root 身份运行（sudo bash uninstall.sh）"
 
-# ---- read installation record written by install.sh ----
-# 最高优先级来源：即使没有运行进程、没有 systemd 服务文件，
-# 也能定位真实的端口、数据目录与二进制路径。
 read_config() {
   [ -f "$CONFIG_FILE" ] || return 0
   while IFS='=' read -r KEY VALUE; do
@@ -33,10 +83,6 @@ read_config() {
   done < "$CONFIG_FILE"
 }
 
-# ---- find real 2panel processes ----
-# 扫描 /proc/*/exe 的可执行文件 basename 是否为 2panel，而不是用
-# pgrep -f 匹配命令行字符串：后者会误伤命令行中恰好含该路径的
-# 包装 shell / 监控脚本（甚至可能误杀卸载脚本自身的父进程）。
 find_2panel_pids() {
   local d pid exe
   for d in /proc/[0-9]*; do
@@ -49,76 +95,71 @@ find_2panel_pids() {
   done
 }
 
-# ---- close firewall port opened by install.sh (best effort) ----
 close_firewall_port() {
   local PORT="$1"
   [ -z "$PORT" ] && return 0
 
+  # 1. firewalld
   if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
     firewall-cmd --permanent --remove-port="${PORT}/tcp" >/dev/null 2>&1 || true
     firewall-cmd --reload >/dev/null 2>&1 || true
-    echo ">>> 已通过 firewalld 关闭端口 ${PORT}/tcp"
+    ok "已通过 ${gl_bai}firewalld${reset} 关闭端口 ${gl_lan}${PORT}/tcp${reset}"
+  # 2. ufw
   elif command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
     ufw delete allow "${PORT}/tcp" >/dev/null 2>&1 || true
-    echo ">>> 已通过 ufw 关闭端口 ${PORT}/tcp"
+    ok "已通过 ${gl_bai}ufw${reset} 关闭端口 ${gl_lan}${PORT}/tcp${reset}"
+  # 3. iptables
   elif command -v iptables >/dev/null 2>&1; then
     if iptables -D INPUT -p tcp --dport "${PORT}" -j ACCEPT >/dev/null 2>&1; then
-      echo ">>> 已通过 iptables 关闭端口 ${PORT}/tcp"
+      ok "已通过 ${gl_bai}iptables${reset} 关闭端口 ${gl_lan}${PORT}/tcp${reset}"
     fi
   fi
 }
 
-cat <<'EOF'
- ____  ____                  _
-|___ \|  _ \ __ _ _ __   ___| |
-  __) | |_) / _` | '_ \ / _ \ |
- / __/|  __/ (_| | | | |  __/ |
-|_____|_|   \__,_|_| |_|\___|_|
-
-2Panel - 卸载
-EOF
-
-# ---- 0. confirm uninstall (service & program) ----
+print_banner
+sep_line
+section "卸载确认"
 while :; do
-  read -r -p "卸载将停止并移除 2Panel 服务与程序，是否继续？[y/N]: " CONFIRM
+  read -r -p "${gl_huang}卸载将停止并移除 2Panel 服务与程序，是否继续？${gl_bai}[y/N]${reset}: " CONFIRM
   case "$CONFIRM" in
     y|Y|yes|YES)
-      echo ">>> 开始卸载 2Panel ..."
+      ok "开始卸载 2Panel ..."
       break
       ;;
     n|N|no|NO|"")
-      echo "已取消卸载。"
+      printf "  %s\n" "${gl_huang}已取消卸载。${reset}"
       exit 0
       ;;
     *)
-      echo "  输入无效，请输入 y 或 n。"
+      printf "  %s\n" "${gl_huang}输入无效，请输入 y 或 n。${reset}"
       ;;
   esac
 done
 
-# ---- 1. resolve install info ----
-# 优先级：安装记录 /etc/2panel/config > systemd 服务文件 > 运行进程 cmdline > 环境变量 > 默认。
-# 安装记录由 install.sh 写入，保证“无运行进程、无服务文件”时仍能定位真实数据目录。
 PORT="$DEFAULT_PORT"
 DATA_DIR="${DATA_DIR:-}"
 read_config
 
+sep_line
+section "停止服务"
 if command -v systemctl >/dev/null 2>&1 && [ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
-  echo ">>> 正在停止并移除 systemd 服务 ${SERVICE_NAME} ..."
   SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
   [ -z "$PORT" ] && PORT=$(grep -oE '\-port [0-9]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
   [ -z "$PORT" ] && PORT="$DEFAULT_PORT"
   [ -z "$DATA_DIR" ] && DATA_DIR=$(grep -oE '\-data [^ ]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
+  ok "正在停止并移除 systemd 服务 ${gl_bai}${SERVICE_NAME}${reset} ..."
   systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
   systemctl disable "${SERVICE_NAME}" 2>/dev/null || true
   rm -f "$SERVICE_FILE"
   systemctl daemon-reload 2>/dev/null || true
+else
+  skip "未发现 systemd 服务，跳过。"
 fi
 
-# ---- 2. kill running process (background mode / fallback) ----
+sep_line
+section "停止进程"
 PIDS=$(find_2panel_pids)
 if [ -n "$PIDS" ]; then
-  # 无 systemd 场景：从运行进程 cmdline 解析实际端口与数据目录（供后续清理）
   if [ -z "$DATA_DIR" ]; then
     for PID in $PIDS; do
       [ -d "/proc/$PID" ] || continue
@@ -128,55 +169,68 @@ if [ -n "$PIDS" ]; then
       [ -n "$PORT_CMD" ] && [ -n "$DATA_DIR" ] && break
     done
   fi
-  echo ">>> 正在停止 2panel 进程: $PIDS ..."
+  ok "正在停止 2panel 进程: ${gl_bai}$PIDS${reset} ..."
   for PID in $PIDS; do
     [ -d "/proc/$PID" ] || continue
     kill "$PID" 2>/dev/null || true
   done
   sleep 1
-  # force kill if still alive
   for PID in $PIDS; do
     [ -d "/proc/$PID" ] || continue
     kill -9 "$PID" 2>/dev/null || true
   done
+else
+  skip "未发现运行中的 2panel 进程，跳过。"
 fi
 
 [ -z "$PORT" ] && [ -n "$PORT_CMD" ] && PORT="$PORT_CMD"
 [ -n "$DATA_DIR" ] && DEFAULT_DATA_DIR="$DATA_DIR"
 
-# ---- 3. remove binary ----
+sep_line
+section "删除二进制"
 if [ -f "${BIN_PATH}" ]; then
   rm -f "${BIN_PATH}"
-  echo ">>> 已删除二进制文件 ${BIN_PATH}"
+  ok "已删除二进制文件 ${gl_bai}${BIN_PATH}${reset}"
+else
+  skip "未找到二进制文件 ${gl_bai}${BIN_PATH}${reset}，跳过。"
 fi
 
-# ---- 4. data directory (persist data: db/scripts/logs) ----
-# 删除前确认，默认删除（回车=删除，输入 n 保留）。
+sep_line
+section "删除数据目录"
 [ -z "$DATA_DIR" ] && [ -d "${DEFAULT_DATA_DIR}" ] && DATA_DIR="${DEFAULT_DATA_DIR}"
 
 if [ -n "$DATA_DIR" ] && [ -d "$DATA_DIR" ]; then
-  echo ">>> 检测到数据目录: ${DATA_DIR}"
-  read -r -p "是否删除数据目录 ${DATA_DIR}？（包含数据库、任务脚本和日志）[Y/n]: " DEL_DATA
+  ok "检测到数据目录: ${gl_bai}${DATA_DIR}${reset}"
+  read -r -p "${gl_huang}是否删除数据目录 ${DATA_DIR}？（包含数据库、任务脚本和日志）${gl_bai}[Y/n]${reset}: " DEL_DATA
   case "$DEL_DATA" in
     n|N|no|NO)
-      echo ">>> 已保留数据目录 ${DATA_DIR}"
+      skip "已保留数据目录 ${gl_bai}${DATA_DIR}${reset}"
       ;;
     *)
       rm -rf "$DATA_DIR"
-      echo ">>> 已删除数据目录 ${DATA_DIR}"
+      ok "已删除数据目录 ${gl_bai}${DATA_DIR}${reset}"
       ;;
   esac
+else
+  skip "未找到数据目录，跳过。"
 fi
 
-# ---- 5. remove installation record ----
+sep_line
+section "删除安装记录"
 if [ -f "$CONFIG_FILE" ]; then
   rm -f "$CONFIG_FILE"
-  echo ">>> 已删除安装记录 $CONFIG_FILE"
+  ok "已删除安装记录 ${gl_bai}$CONFIG_FILE${reset}"
   rmdir "$(dirname "$CONFIG_FILE")" 2>/dev/null || true
+else
+  skip "未找到安装记录 ${gl_bai}$CONFIG_FILE${reset}，跳过。"
 fi
 
-# ---- 6. close firewall port ----
+sep_line
+section "关闭防火墙"
 close_firewall_port "$PORT"
 
-echo ""
-echo "2Panel 已卸载完成。如需重新安装，请再次运行 install.sh 安装脚本。"
+sep_line
+printf "  %s\n" "${gl_lv}✔ 2Panel 已卸载完成${reset}"
+printf "  %s\n" "${gl_hui}如需重新安装，请再次运行 install.sh 安装脚本。${reset}"
+sep_line
+break_end

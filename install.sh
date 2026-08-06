@@ -19,23 +19,58 @@ DEFAULT_DATA_DIR="/var/lib/2panel"
 
 API_BASE="https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}"
 
-print_banner() {
-  cat <<'EOF'
- ____  ____                  _
-|___ \|  _ \ __ _ _ __   ___| |
-  __) | |_) / _` | '_ \ / _ \ |
- / __/|  __/ (_| | | | |  __/ |
-|_____|_|   \__,_|_| |_|\___|_|
+# ================== terminal colors ==================
+list_color_init() {
+    export gl_hui=$'\033[38;5;59m'
+    export gl_hong=$'\033[38;5;9m'
+    export gl_lv=$'\033[38;5;10m'
+    export gl_huang=$'\033[38;5;11m'
+    export gl_lan=$'\033[38;5;32m'
+    export gl_bai=$'\033[38;5;15m'
+    export gl_zi=$'\033[38;5;13m'
+    export gl_bufan=$'\033[38;5;14m'
+    export reset=$'\033[0m'
+}
+list_color_init
 
-2Panel - 计划任务管理工具
-EOF
+sep_line() {
+  printf '%s' "$gl_bufan"
+  printf '—%.0s' {1..32}
+  printf '%s\n' "$reset"
 }
 
-error() { echo "[错误] $1" >&2; exit 1; }
+section() {
+  printf "  %s %s\n" "${gl_zi}▶${reset}" "$1"
+}
+
+ok() {
+  printf "  %s %s\n" "${gl_lv}>>>${reset}" "$1"
+}
+
+print_banner() {
+  local z="$gl_zi" r="$reset" b="$gl_bai" l="$gl_lan"
+  printf '%s\n' \
+    "${z} ____  ____                  _${r}" \
+    "${z}|___ \\|  _ \\ __ _ _ __   ___| |${r}" \
+    "${z}  __) | |_) / _\` | '_ \\ / _ \\ |${r}" \
+    "${z} / __/|  __/ (_| | | | |  __/ |${r}" \
+    "${z}|_____|_|   \\__,_|_| |_|\\___|_|${r}" \
+    "" \
+    "${b}2Panel${r} - ${l}计划任务管理工具${r}" \
+    ""
+}
+
+break_end() {
+    echo -e "${gl_lv}操作完成${gl_bai}"
+    echo -e "${gl_bai}按任意键继续 ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}\c"
+    read -r -n 1 -s -r -p ""
+    echo ""
+    clear
+}
+
+error() { printf "  %s %s\n" "${gl_hong}[错误]${reset}" "$1" >&2; exit 1; }
 
 # ---- firewall: automatically open the listen port ----
-# 依次尝试 firewalld → ufw → iptables，仅放行已实际启用的防火墙。
-# 结果写入 FW_OPENED（y/n），供安装横幅展示真实状态。
 FW_OPENED="n"
 open_firewall_port() {
   local PORT="$1"
@@ -46,7 +81,7 @@ open_firewall_port() {
       firewall-cmd --permanent --add-port="${PORT}/tcp" >/dev/null 2>&1 || true
       firewall-cmd --reload >/dev/null 2>&1 || true
     fi
-    echo ">>> 已通过 firewalld 开放端口 ${PORT}/tcp"
+    ok "已通过 ${gl_bai}firewalld${reset} 开放端口 ${gl_lan}${PORT}/tcp${reset}"
     FW_OPENED="y"
     return 0
   fi
@@ -56,7 +91,7 @@ open_firewall_port() {
     if ! ufw status 2>/dev/null | grep -q "${PORT}/tcp"; then
       ufw allow "${PORT}/tcp" >/dev/null 2>&1 || true
     fi
-    echo ">>> 已通过 ufw 开放端口 ${PORT}/tcp"
+    ok "已通过 ${gl_bai}ufw${reset} 开放端口 ${gl_lan}${PORT}/tcp${reset}"
     FW_OPENED="y"
     return 0
   fi
@@ -64,21 +99,20 @@ open_firewall_port() {
   # 3. iptables
   if command -v iptables >/dev/null 2>&1; then
     if iptables -C INPUT -p tcp --dport "${PORT}" -j ACCEPT >/dev/null 2>&1; then
-      echo ">>> 端口 ${PORT}/tcp 已在 iptables 中放行"
+      ok "端口 ${gl_lan}${PORT}/tcp${reset} 已在 iptables 中放行"
       FW_OPENED="y"
       return 0
     fi
-    # 仅当 INPUT 链存在实际过滤策略时才添加规则，避免画蛇添足
     if iptables -L INPUT -n 2>/dev/null | grep -qE 'policy (DROP|REJECT)|REJECT|DROP'; then
       if iptables -I INPUT -p tcp --dport "${PORT}" -j ACCEPT >/dev/null 2>&1; then
-        echo ">>> 已通过 iptables 开放端口 ${PORT}/tcp"
+        ok "已通过 ${gl_bai}iptables${reset} 开放端口 ${gl_lan}${PORT}/tcp${reset}"
         FW_OPENED="y"
         return 0
       fi
     fi
   fi
 
-  echo "[提示] 未检测到活跃的防火墙（firewalld/ufw/iptables），跳过端口开放。"
+  printf "  %s %s\n" "${gl_huang}[提示]${reset}" "未检测到活跃的防火墙（firewalld/ufw/iptables），跳过端口开放。"
 }
 
 # ---- preflight ----
@@ -94,41 +128,39 @@ case "$ARCH" in
 esac
 
 print_banner
-echo "============================================================"
-echo " 正在安装 2Panel"
-echo "   系统 : $(uname -s) $(uname -m)"
-echo "   架构 : $ARCH"
-echo "============================================================"
+sep_line
+section "安装信息"
+printf "  %-14s %s\n" "${gl_lan}系统${reset}" "$(uname -s) $(uname -m)"
+printf "  %-14s %s\n" "${gl_lan}架构${reset}" "${ARCH}"
+sep_line
 
 # ---- prompt: listen port ----
+section "配置参数"
 while :; do
-  read -r -p "请输入监听端口 [默认: ${DEFAULT_PORT}]: " PORT
+  read -r -p "${gl_bai}请输入监听端口${reset} ${gl_hui}[默认: ${DEFAULT_PORT}]${reset}: " PORT
   PORT="${PORT:-$DEFAULT_PORT}"
   case "$PORT" in
-    ''|*[!0-9]*) echo "  端口无效，请重新输入。" ;;
+    ''|*[!0-9]*) printf "  %s\n" "${gl_huang}端口无效，请重新输入。${reset}" ;;
     *)
       if [ "$PORT" -ge 1 ] && [ "$PORT" -le 65535 ]; then
         break
       fi
-      echo "  端口超出范围（1-65535），请重新输入。"
+      printf "  %s\n" "${gl_huang}端口超出范围（1-65535），请重新输入。${reset}"
       ;;
   esac
 done
 
 # ---- prompt: data directory ----
-read -r -p "请输入数据目录 [默认: ${DEFAULT_DATA_DIR}]: " DATA_DIR
+read -r -p "${gl_bai}请输入数据目录${reset} ${gl_hui}[默认: ${DEFAULT_DATA_DIR}]${reset}: " DATA_DIR
 DATA_DIR="${DATA_DIR:-$DEFAULT_DATA_DIR}"
 
 # ---- systemd: auto-configure (preferred) ----
-# systemd 提供开机自启、崩溃自动重启与 journald 统一日志；
-# 仅当系统没有 systemd（如容器环境）时才回退为后台运行模式。
 if command -v systemctl >/dev/null 2>&1; then
   USE_SYSTEMD="y"
 else
   USE_SYSTEMD="n"
-  echo ""
-  echo "[警告] 未检测到 systemd（容器或受限环境）。"
-  echo "       已回退为后台运行模式，重启或崩溃后服务不会自动恢复。"
+  printf "  %s\n" "${gl_huang}[警告]${reset} 未检测到 systemd（容器或受限环境）。"
+  printf "  %s\n" "    已回退为后台运行模式，重启或崩溃后服务不会自动恢复。"
 fi
 
 BIN_DIR="/usr/local/bin"
@@ -136,11 +168,12 @@ BIN_PATH="${BIN_DIR}/2panel"
 BIN_URL="https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest/download/2panel_linux_${ARCH}"
 SHA_URL="${BIN_URL}.sha256"
 
-echo ""
-echo ">>> 正在下载 2panel (${ARCH}) ..."
+sep_line
+section "安装程序"
+ok "正在下载 ${gl_bai}2panel${reset} (${gl_lan}${ARCH}${reset}) ..."
 curl -fSL --retry 3 -o "${BIN_PATH}.download" "${BIN_URL}" || error "下载失败，请检查 GITHUB_OWNER 与 GitHub Release 附件"
 
-# ---- verify checksum (suppress_errors only when the .sha256 is unavailable) ----
+# ---- verify checksum ----
 if command -v sha256sum >/dev/null 2>&1; then
   if curl -fsSL --retry 2 -o "${BIN_PATH}.sha256" "${SHA_URL}"; then
     EXPECTED=$(awk '{print $1}' "${BIN_PATH}.sha256" | tr '[:upper:]' '[:lower:]')
@@ -149,10 +182,11 @@ if command -v sha256sum >/dev/null 2>&1; then
       if [ "$ACTUAL" != "$EXPECTED" ]; then
         error "下载文件校验失败（SHA-256 不匹配），已中止安装，请检查发布资产或网络是否被劫持"
       fi
-      echo ">>> SHA-256 校验通过"
+      ok "SHA-256 校验通过"
     fi
   else
-    echo "[警告] 未找到 SHA-256 校验文件（${SHA_URL}），跳过完整性校验。请确认发布资产包含 ${ARCH}.sha256。"
+    printf "  %s %s\n" "${gl_huang}[警告]${reset}" "未找到 SHA-256 校验文件（${gl_hui}${SHA_URL}${reset}），跳过完整性校验。"
+    printf "  %s\n" "    请确认发布资产包含 ${gl_lan}${ARCH}.sha256${reset}。"
   fi
   rm -f "${BIN_PATH}.sha256"
 fi
@@ -160,13 +194,12 @@ fi
 chmod +x "${BIN_PATH}.download"
 mv "${BIN_PATH}.download" "${BIN_PATH}"
 
-echo ">>> 正在创建数据目录 ${DATA_DIR} ..."
+ok "已安装二进制至 ${gl_bai}${BIN_PATH}${reset}"
+ok "正在创建数据目录 ${gl_lan}${DATA_DIR}${reset} ..."
 mkdir -p "${DATA_DIR}"
 chmod 700 "${DATA_DIR}"
 
 # ---- write installation record ----
-# 供 uninstall.sh / `2panel uninstall` 在“无运行进程、无 systemd 服务”时仍能
-# 定位并彻底清理数据目录，避免重装后残留用户数据。
 mkdir -p /etc/2panel
 cat > /etc/2panel/config <<EOF
 # 2Panel 安装记录（由 install.sh 生成，请勿手动修改）
@@ -175,10 +208,12 @@ PORT=${PORT}
 DATA_DIR=${DATA_DIR}
 EOF
 chmod 0644 /etc/2panel/config
-echo ">>> 已写入安装记录 /etc/2panel/config"
+ok "已写入安装记录 ${gl_bai}/etc/2panel/config${reset}"
 
 "${BIN_PATH}" -version
 
+sep_line
+section "启动服务"
 if [ "$USE_SYSTEMD" = "y" ]; then
   cat > /etc/systemd/system/2panel.service <<UNIT
 [Unit]
@@ -200,18 +235,18 @@ UNIT
   systemctl restart 2panel || true
   sleep 2
   if systemctl is-active 2panel >/dev/null 2>&1; then
-    echo ">>> 2panel 服务已启动。"
+    ok "2panel 服务已启动。"
     systemctl status 2panel --no-pager || true
   else
-    echo "[错误] 服务启动失败，请检查：journalctl -u 2panel -n 50" >&2
+    printf "  %s\n" "${gl_hong}[错误]${reset} 服务启动失败，请检查：${gl_bai}journalctl -u 2panel -n 50${reset}" >&2
     exit 1
   fi
 else
   if command -v pgrep >/dev/null 2>&1 && pgrep -x "2panel" >/dev/null 2>&1; then
-    echo "[警告] 检测到 2panel 进程可能已在运行"
+    printf "  %s\n" "${gl_huang}[警告]${reset} 检测到 2panel 进程可能已在运行"
   else
     nohup "${BIN_PATH}" -port "${PORT}" -data "${DATA_DIR}" >> "${DATA_DIR}/2panel.log" 2>&1 &
-    echo ">>> 2panel 已在后台启动，pid: $!"
+    ok "2panel 已在后台启动，pid: ${gl_bai}$!${reset}"
   fi
 fi
 
@@ -221,45 +256,29 @@ IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 open_firewall_port "$PORT"
 
 if [ "$FW_OPENED" = "y" ]; then
-  FW_LINE="防火墙   : 已开放 ${PORT}/tcp"
+  FW_STATUS="${gl_lv}已开放 ${PORT}/tcp${reset}"
 else
-  FW_LINE="防火墙   : 未检测到活跃防火墙，已跳过"
+  FW_STATUS="${gl_huang}未检测到活跃防火墙，已跳过${reset}"
 fi
 
+sep_line
 if [ "$USE_SYSTEMD" = "y" ]; then
-  cat <<EOF
-
-============================================================
-  2Panel 安装成功！
-
-    Web UI   : http://${IP}:${PORT}
-    数据目录 : ${DATA_DIR}
-    二进制   : ${BIN_PATH}
-    版本     : ${BIN_PATH} -version
-    ${FW_LINE}
-
-  已注册为 systemd 服务 "2panel":
-    systemctl status 2panel      # 查看服务状态
-    systemctl restart 2panel     # 重启服务
-    journalctl -u 2panel -f      # 查看实时日志
-    systemctl disable 2panel     # 关闭开机自启
-============================================================
-EOF
+  printf "  %s\n" "${gl_lv}✔ 2Panel 安装成功！${reset}"
+  printf "  %-14s %s\n" "${gl_lan}访问地址${reset}" "${gl_bai}http://${IP}:${PORT}${reset}"
+  printf "  %-14s %s\n" "${gl_lan}数据目录${reset}" "${gl_bai}${DATA_DIR}${reset}"
+  printf "  %-14s %s\n" "${gl_lan}二进制文件${reset}" "${gl_bai}${BIN_PATH}${reset}"
+  printf "  %-14s %s\n" "${gl_lan}防火墙状态${reset}" "$FW_STATUS"
+  printf "  %-14s %s\n" "${gl_lan}运行模式${reset}" "${gl_bai}systemd 服务${reset}"
+  printf "  %-14s %s\n" "${gl_lan}服务命令${reset}" "${gl_hui}systemctl status 2panel${reset}"
 else
-  cat <<EOF
-
-============================================================
-  2Panel 安装成功！（后台运行模式）
-
-    Web UI   : http://${IP}:${PORT}
-    数据目录 : ${DATA_DIR}
-    二进制   : ${BIN_PATH}
-    版本     : ${BIN_PATH} -version
-    ${FW_LINE}
-
-  注意：后台运行模式在系统重启后不会自动恢复。
-        如需开机自启 / 崩溃自动重启 / journald 日志，
-        请在安装 systemd 后重新运行本脚本。
-============================================================
-EOF
+  printf "  %s\n" "${gl_lv}✔ 2Panel 安装成功！${reset} ${gl_huang}（后台运行模式）${reset}"
+  printf "  %-14s %s\n" "${gl_lan}访问地址${reset}" "${gl_bai}http://${IP}:${PORT}${reset}"
+  printf "  %-14s %s\n" "${gl_lan}数据目录${reset}" "${gl_bai}${DATA_DIR}${reset}"
+  printf "  %-14s %s\n" "${gl_lan}二进制文件${reset}" "${gl_bai}${BIN_PATH}${reset}"
+  printf "  %-14s %s\n" "${gl_lan}防火墙状态${reset}" "$FW_STATUS"
+  printf "  %-14s %s\n" "${gl_lan}运行模式${reset}" "${gl_huang}后台运行${reset}"
+  printf "  %s\n" "  ${gl_huang}注意：${reset}后台运行模式在系统重启后不会自动恢复。"
+  printf "  %s\n" "    如需开机自启 / 崩溃自动重启 / journald 日志，请在安装 systemd 后重新运行本脚本。"
 fi
+sep_line
+break_end
