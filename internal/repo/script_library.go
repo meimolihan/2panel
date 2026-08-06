@@ -37,9 +37,7 @@ func (u *ScriptLibraryRepo) Page(page, size int, opts ...DBOption) (int64, []mod
 	if err := db.Count(&count).Error; err != nil {
 		return 0, nil, err
 	}
-	if size <= 0 {
-		size = 10
-	}
+	size = normalizePageSize(size)
 	if page <= 0 {
 		page = 1
 	}

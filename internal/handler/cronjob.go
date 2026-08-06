@@ -50,7 +50,7 @@ func (a *CronjobApi) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := cronjobService.Create(req); err != nil {
-		InternalServer(w, err)
+		Error(w, http.StatusBadRequest, err)
 		return
 	}
 	Success(w)
@@ -88,7 +88,7 @@ func (a *CronjobApi) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := cronjobService.Update(req.ID, req); err != nil {
-		InternalServer(w, err)
+		Error(w, http.StatusBadRequest, err)
 		return
 	}
 	Success(w)

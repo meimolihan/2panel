@@ -278,6 +278,44 @@ systemctl restart 2panel   # systemd 模式
 - 解压防 zip-slip：拒绝绝对路径、`..` 越界条目。
 - 还原完成后按提示启动服务：`systemctl start 2panel`。
 
+### 完整备份 / 还原操作流程
+
+**备份**（先停服务保证数据库一致，再启动）：
+
+```bash
+systemctl stop 2panel          # 停止服务，保证数据库一致
+2panel backup /root/backup.zip # 备份（此时无运行实例，不再提示）
+systemctl start 2panel         # 恢复服务
+```
+
+**验证备份文件**：
+
+```bash
+unzip -l /root/backup.zip      # 应包含 2panel.db / log/ / task/
+```
+
+**还原**（restore 自动停服务，`&&` 后自动重启）：
+
+```bash
+echo y | 2panel restore /root/backup.zip && systemctl start 2panel
+```
+
+- 还原前会把现有数据目录重命名保留为 `/var/lib/2panel.backup-<时间戳>`，出问题可回退。
+- 还原后验证：`systemctl status 2panel` 显示 active、`curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/` 返回 200。
+
+### Web 端备份还原（用户菜单）
+
+登录后点击右上角头像 → 用户菜单「备份还原」，无需命令行即可导出 / 还原全部数据，zip 格式与 `2panel backup` / `2panel restore` 完全互通。
+
+**导出备份**：点「立即备份并下载」，浏览器下载 `2panel-backup-<时间戳>.zip`（含 `2panel.db` 与 `log/`、`task/` 全部数据）。
+
+**还原备份**：选择 `.zip` 备份文件 →「开始还原」→ 确认后原地替换数据：
+
+- 还原前会先拒绝「有任务正在执行」的情况（等待完成或先停止任务）。
+- 写入数据库前会自动把当前库保存为 `data.pre-restore-<时间戳>.db`，出问题可回退。
+- 仅还原 `log/`、`task/` 目录数据（zip-slip 防护，拒绝绝对路径与越界条目），并自动重置调度、恢复所有已启用任务。
+- **还原后账号密码以备份时为准**：若备份后改过密码，请使用备份时的密码登录。
+
 ### 4. `2panel uninstall` — 卸载
 
 ```bash
@@ -311,9 +349,10 @@ systemctl restart 2panel   # systemd 模式
 │   │   ├── scheduler.go             # robfig/cron 调度、shell/curl 执行、超时与停止
 │   │   └── log_writer.go            # 执行日志落盘 + 内存缓冲
 │   ├── service/cronjob.go           # 业务逻辑（注册调度、执行、记录、导入导出）
+│   ├── service/backup.go            # Web 备份还原业务（zip 打包 / 原地替换还原）
 │   ├── service/script_library.go    # 脚本库业务逻辑
 │   ├── handler/cronjob.go           # HTTP 处理函数
-│   ├── handler/script_library.go    # 脚本库 HTTP 处理函数
+│   ├── handler/auth.go              # 认证 + Web 备份还原 HTTP 处理
 │   └── server/server.go             # 路由 + 内嵌 Web 静态资源
 └── internal/server/web/index.html   # 单页管理界面（无外部 CDN）
 ```
@@ -329,6 +368,8 @@ systemctl restart 2panel   # systemd 模式
 | POST | `/api/auth/login` | 登录，返回 `{token, name}` |
 | POST | `/api/auth/logout` | 退出登录 |
 | POST | `/api/auth/change-password` | 修改密码 |
+| POST | `/api/auth/backup` | 备份全部数据（下载 zip 附件） |
+| POST | `/api/auth/restore` | 上传 zip 还原数据（multipart 字段 `file`） |
 | POST | `/api/cronjobs` | 创建任务 |
 | POST | `/api/cronjobs/search` | 分页查询任务 |
 | POST | `/api/cronjobs/load/info` | 加载单个任务 |

@@ -1,10 +1,19 @@
 package repo
 
 import (
+	"errors"
+
 	"github.com/2panel-dev/2panel/internal/database"
 	"github.com/2panel-dev/2panel/internal/model"
 	"gorm.io/gorm"
 )
+
+// ErrJobExecuting is returned by StartRecord when the cronjob is already
+// running, so a manual trigger and a scheduled tick can never double-run it.
+var ErrJobExecuting = errors.New("cronjob is executing")
+
+// maxPageSize caps the number of rows a single page may request.
+const maxPageSize = 200
 
 type DBOption func(*gorm.DB) *gorm.DB
 
@@ -81,14 +90,23 @@ func (u *CronjobRepo) Page(page, size int, opts ...DBOption) (int64, []model.Cro
 	if err := db.Count(&count).Error; err != nil {
 		return 0, nil, err
 	}
-	if size <= 0 {
-		size = 10
-	}
+	size = normalizePageSize(size)
 	if page <= 0 {
 		page = 1
 	}
 	err := db.Limit(size).Offset(size * (page - 1)).Find(&cronjobs).Error
 	return count, cronjobs, err
+}
+
+// normalizePageSize clamps the page size into [1, maxPageSize].
+func normalizePageSize(size int) int {
+	if size <= 0 {
+		size = 10
+	}
+	if size > maxPageSize {
+		size = maxPageSize
+	}
+	return size
 }
 
 func (u *CronjobRepo) List(opts ...DBOption) ([]model.Cronjob, error) {
@@ -143,9 +161,7 @@ func (u *CronjobRepo) PageRecords(page, size int, opts ...DBOption) (int64, []mo
 	if err := db.Count(&count).Error; err != nil {
 		return 0, nil, err
 	}
-	if size <= 0 {
-		size = 10
-	}
+	size = normalizePageSize(size)
 	if page <= 0 {
 		page = 1
 	}
@@ -191,16 +207,30 @@ func WithByTaskID(taskID string) DBOption {
 	}
 }
 
-func (u *CronjobRepo) StartRecord(cronjobID uint) model.JobRecord {
-	record := model.JobRecord{
-		CronjobID: cronjobID,
-		TaskID:    newTaskID(),
-		StartTime: now(),
-		Status:    model.StatusWaiting,
-	}
-	_ = u.CreateRecord(&record)
-	_ = u.Update(cronjobID, map[string]interface{}{"is_executing": true})
-	return record
+// StartRecord atomically marks the cronjob as executing and creates its
+// waiting record. The single UPDATE guards against a manual trigger and a
+// scheduled tick both starting the job; the loser gets ErrJobExecuting.
+func (u *CronjobRepo) StartRecord(cronjobID uint) (model.JobRecord, error) {
+	var record model.JobRecord
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		res := tx.Model(&model.Cronjob{}).
+			Where("id = ? AND is_executing = ?", cronjobID, false).
+			Update("is_executing", true)
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return ErrJobExecuting
+		}
+		record = model.JobRecord{
+			CronjobID: cronjobID,
+			TaskID:    newTaskID(),
+			StartTime: now(),
+			Status:    model.StatusWaiting,
+		}
+		return tx.Create(&record).Error
+	})
+	return record, err
 }
 
 func (u *CronjobRepo) EndRecord(record model.JobRecord, status, message, records string) {

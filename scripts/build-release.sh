@@ -26,6 +26,8 @@ build() {
   echo ">>> building ${name} (${os}/${arch}) ..."
   CGO_ENABLED=0 GOOS="${os}" GOARCH="${arch}" \
     go build -trimpath -ldflags "${LDFLAGS}" -o "dist/${name}" .
+  echo ">>> checksum ${name}.sha256 ..."
+  (cd dist && sha256sum "${name}" > "${name}.sha256")
 }
 
 build linux amd64 2panel_linux_amd64
@@ -35,5 +37,5 @@ echo ""
 echo ">>> done. Release assets:"
 ls -lh dist/
 echo ""
-echo "Upload them to a GitHub Release, e.g.:"
-echo "  gh release create ${VERSION} dist/2panel_linux_amd64 dist/2panel_linux_arm64 --title ${VERSION}"
+echo "Upload them to a GitHub Release (binaries AND their .sha256 files), e.g.:"
+echo "  gh release create ${VERSION} dist/2panel_linux_amd64 dist/2panel_linux_amd64.sha256 dist/2panel_linux_arm64 dist/2panel_linux_arm64.sha256 --title ${VERSION}"

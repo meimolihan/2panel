@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/2panel-dev/2panel/internal/database"
 )
 
 const backupDBName = "2panel.db"
@@ -47,12 +49,31 @@ func cmdBackup(args []string, flagData string) int {
 	for _, p := range running2panelProcs() {
 		if p.data == dataDir {
 			fmt.Printf("[提示] 检测到 2panel 正在使用数据目录 %s（PID %d），\n", dataDir, p.pid)
-			fmt.Println("        运行中的数据库可能存在不一致，建议先停止服务再备份。")
+			fmt.Println("        将通过数据库快照保证备份一致性。")
 			break
 		}
 	}
 
-	if err := zipDir(dataDir, dest); err != nil {
+	// Snapshot the database so the archive stays consistent even while the
+	// server is writing; the live -wal/-shm files are never bundled.
+	dbPath := filepath.Join(dataDir, backupDBName)
+	snapName := ""
+	if _, err := os.Stat(dbPath); err == nil {
+		snap, cErr := os.CreateTemp("", "2panel-backup-*.db")
+		if cErr != nil {
+			fmt.Printf("[错误] 创建临时文件失败: %v\n", cErr)
+			return 1
+		}
+		snapName = snap.Name()
+		snap.Close()
+		defer os.Remove(snapName)
+		if cErr := database.SnapshotDB(dbPath, snapName); cErr != nil {
+			fmt.Printf("[错误] 生成数据库快照失败: %v\n", cErr)
+			return 1
+		}
+	}
+
+	if err := zipDir(dataDir, dest, snapName); err != nil {
 		fmt.Printf("[错误] 备份失败: %v\n", err)
 		return 1
 	}
@@ -146,8 +167,10 @@ func stopInstanceUsingDataDir(dataDir string) {
 	}
 }
 
-// zipDir archives src into dest, storing paths relative to src.
-func zipDir(src, dest string) error {
+// zipDir archives src into dest, storing paths relative to src. When
+// dbSnapshot is non-empty the entry for 2panel.db is served from that file
+// instead of the live database.
+func zipDir(src, dest, dbSnapshot string) error {
 	out, err := os.Create(dest)
 	if err != nil {
 		return err
@@ -167,6 +190,10 @@ func zipDir(src, dest string) error {
 		if rel == "." {
 			return nil
 		}
+		if strings.HasPrefix(rel, backupDBName+"-") {
+			// skip live WAL/SHM/journal companions; the snapshot is authoritative
+			return nil
+		}
 		rel = filepath.ToSlash(rel)
 		if info.IsDir() {
 			hdr := &zip.FileHeader{Name: rel + "/", Method: zip.Deflate}
@@ -180,17 +207,22 @@ func zipDir(src, dest string) error {
 		}
 		hdr.Name = rel
 		hdr.Method = zip.Deflate
+		hdr.SetMode(info.Mode())
 		w, err := zw.CreateHeader(hdr)
 		if err != nil {
 			return err
 		}
-		f, err := os.Open(path)
+		file := path
+		if rel == backupDBName && dbSnapshot != "" {
+			file = dbSnapshot
+		}
+		f, err := os.Open(file)
 		if err != nil {
 			return err
 		}
-		defer f.Close()
-		_, err = io.Copy(w, f)
-		return err
+		_, cErr := io.Copy(w, f)
+		f.Close()
+		return cErr
 	})
 }
 
@@ -221,6 +253,10 @@ func unzipDir(src, dest string) error {
 		name := filepath.Clean(filepath.FromSlash(f.Name))
 		if name == ".." || strings.HasPrefix(name, ".."+string(os.PathSeparator)) || filepath.IsAbs(name) {
 			return fmt.Errorf("压缩包中包含非法路径: %s", f.Name)
+		}
+		if strings.HasPrefix(name, backupDBName+"-") {
+			// stale WAL/SHM/journal files would corrupt the restored database
+			continue
 		}
 		target := filepath.Join(dest, name)
 		if !strings.HasPrefix(target, dest) {

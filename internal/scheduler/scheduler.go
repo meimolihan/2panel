@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -55,6 +56,67 @@ func (r *Runner) DataDir() string {
 	return r.dataDir
 }
 
+// everyTokenRe matches a numeric duration token (with optional unit) inside an
+// @every spec. Go's time.ParseDuration lacks day/week units, so they are
+// normalized to hours before scheduling or previewing.
+var everyTokenRe = regexp.MustCompile(`^(\d+(?:\.\d+)?)(ns|us|µs|μs|ms|s|m|h|d|w)`)
+
+// NormalizeEverySpec rewrites an "@every <duration>" spec into a Go-duration
+// form (e.g. "@every 1d" -> "@every 24h0m0s") so it is accepted everywhere.
+// A bare number is treated as minutes for compatibility with older saves.
+// Non-every specs are returned unchanged.
+func NormalizeEverySpec(spec string) (string, error) {
+	rest, found := strings.CutPrefix(spec, "@every ")
+	if !found {
+		return spec, nil
+	}
+	rest = strings.TrimSpace(rest)
+	if len(rest) == 0 {
+		return "", fmt.Errorf("invalid @every interval")
+	}
+	// bare number = minutes, for compatibility with older saves
+	if n, err := strconv.Atoi(rest); err == nil {
+		return "@every " + (time.Duration(n) * time.Minute).String(), nil
+	}
+	var total time.Duration
+	s := rest
+	for len(s) > 0 {
+		m := everyTokenRe.FindStringSubmatch(s)
+		if m == nil {
+			return "", fmt.Errorf("invalid @every interval: %s", rest)
+		}
+		n, err := strconv.ParseFloat(m[1], 64)
+		if err != nil {
+			return "", fmt.Errorf("invalid @every interval: %s", rest)
+		}
+		var mult time.Duration
+		switch m[2] {
+		case "ns":
+			mult = time.Nanosecond
+		case "us", "µs", "μs":
+			mult = time.Microsecond
+		case "ms":
+			mult = time.Millisecond
+		case "s":
+			mult = time.Second
+		case "m":
+			mult = time.Minute
+		case "h":
+			mult = time.Hour
+		case "d":
+			mult = 24 * time.Hour
+		case "w":
+			mult = 7 * 24 * time.Hour
+		}
+		total += time.Duration(n * float64(mult))
+		s = strings.TrimPrefix(s, m[0])
+	}
+	if total < time.Second {
+		total = time.Second
+	}
+	return "@every " + total.String(), nil
+}
+
 // Register adds cron entries for the job and returns comma-joined entry IDs.
 // The job spec may contain multiple specs joined by "&&" (like 1Panel), each
 // of which is registered as its own cron entry.
@@ -66,7 +128,17 @@ func (r *Runner) Register(job *model.Cronjob, handle func(*model.Cronjob)) (stri
 		if len(spec) == 0 {
 			continue
 		}
-		entryID, err := r.cron.AddFunc(spec, func() {
+		normalized, err := NormalizeEverySpec(spec)
+		if err != nil {
+			for _, id := range ids {
+				var entryID cron.EntryID
+				if _, err := fmt.Sscanf(id, "%d", &entryID); err == nil {
+					r.cron.Remove(entryID)
+				}
+			}
+			return "", err
+		}
+		entryID, err := r.cron.AddFunc(normalized, func() {
 			handle(job)
 		})
 		if err != nil {
@@ -97,6 +169,15 @@ func (r *Runner) Remove(entryIDs string) {
 			continue
 		}
 		r.cron.Remove(entryID)
+	}
+}
+
+// ResetEntries removes every scheduled cron entry. It is used before
+// re-registering jobs from a freshly restored database to avoid double
+// scheduling of the old entries.
+func (r *Runner) ResetEntries() {
+	for _, e := range r.cron.Entries() {
+		r.cron.Remove(e.ID)
 	}
 }
 

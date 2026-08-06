@@ -134,10 +134,29 @@ fi
 BIN_DIR="/usr/local/bin"
 BIN_PATH="${BIN_DIR}/2panel"
 BIN_URL="https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest/download/2panel_linux_${ARCH}"
+SHA_URL="${BIN_URL}.sha256"
 
 echo ""
 echo ">>> 正在下载 2panel (${ARCH}) ..."
 curl -fSL --retry 3 -o "${BIN_PATH}.download" "${BIN_URL}" || error "下载失败，请检查 GITHUB_OWNER 与 GitHub Release 附件"
+
+# ---- verify checksum (suppress_errors only when the .sha256 is unavailable) ----
+if command -v sha256sum >/dev/null 2>&1; then
+  if curl -fsSL --retry 2 -o "${BIN_PATH}.sha256" "${SHA_URL}"; then
+    EXPECTED=$(awk '{print $1}' "${BIN_PATH}.sha256" | tr '[:upper:]' '[:lower:]')
+    if [ -n "$EXPECTED" ]; then
+      ACTUAL=$(sha256sum "${BIN_PATH}.download" | awk '{print $1}')
+      if [ "$ACTUAL" != "$EXPECTED" ]; then
+        error "下载文件校验失败（SHA-256 不匹配），已中止安装，请检查发布资产或网络是否被劫持"
+      fi
+      echo ">>> SHA-256 校验通过"
+    fi
+  else
+    echo "[警告] 未找到 SHA-256 校验文件（${SHA_URL}），跳过完整性校验。请确认发布资产包含 ${ARCH}.sha256。"
+  fi
+  rm -f "${BIN_PATH}.sha256"
+fi
+
 chmod +x "${BIN_PATH}.download"
 mv "${BIN_PATH}.download" "${BIN_PATH}"
 

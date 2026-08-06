@@ -102,6 +102,26 @@ func detectDataDir() string {
 	return data
 }
 
+var (
+	dataArgRe = regexp.MustCompile(`-data\s+(?:([^"' \t]+)|"([^"]+)"|'([^']+)')`)
+	portArgRe = regexp.MustCompile(`-port\s+(\d+)`)
+)
+
+// extractDataArg pulls the value of a -data argument, tolerating quotes so a
+// data directory containing spaces is parsed correctly.
+func extractDataArg(s string) string {
+	m := dataArgRe.FindStringSubmatch(s)
+	if m == nil {
+		return ""
+	}
+	for _, g := range m[1:] {
+		if g != "" {
+			return g
+		}
+	}
+	return ""
+}
+
 // detectUninstallConfig resolves the actual port and data dir used by the
 // running installation, preferring the systemd unit file, then the cmdline of
 // running 2panel instances, then defaults.
@@ -111,13 +131,13 @@ func detectUninstallConfig() (int, string) {
 
 	if content, err := os.ReadFile(uninstallServiceFile); err == nil {
 		s := string(content)
-		if m := regexp.MustCompile(`-port\s+(\d+)`).FindStringSubmatch(s); m != nil {
+		if m := portArgRe.FindStringSubmatch(s); m != nil {
 			if v, e := strconv.Atoi(m[1]); e == nil {
 				port = v
 			}
 		}
-		if m := regexp.MustCompile(`-data\s+(\S+)`).FindStringSubmatch(s); m != nil {
-			data = m[1]
+		if d := extractDataArg(s); d != "" {
+			data = d
 			return port, data
 		}
 	}
@@ -189,8 +209,6 @@ func running2panelProcs() []runningProc {
 	if err != nil {
 		return nil
 	}
-	portRe := regexp.MustCompile(`-port\s+(\d+)`)
-	dataRe := regexp.MustCompile(`-data\s+(\S+)`)
 	self := strconv.Itoa(os.Getpid())
 	var procs []runningProc
 	for _, entry := range entries {
@@ -204,13 +222,13 @@ func running2panelProcs() []runningProc {
 		p := runningProc{pid: pid}
 		if raw, err := os.ReadFile(filepath.Join("/proc", entry.Name(), "cmdline")); err == nil {
 			cmd := strings.ReplaceAll(string(raw), "\x00", " ")
-			if m := portRe.FindStringSubmatch(cmd); m != nil {
+			if m := portArgRe.FindStringSubmatch(cmd); m != nil {
 				if v, e := strconv.Atoi(m[1]); e == nil {
 					p.port = v
 				}
 			}
-			if m := dataRe.FindStringSubmatch(cmd); m != nil {
-				p.data = m[1]
+			if d := extractDataArg(cmd); d != "" {
+				p.data = d
 			}
 		}
 		procs = append(procs, p)

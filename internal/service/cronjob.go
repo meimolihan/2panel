@@ -1,12 +1,12 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -123,24 +123,23 @@ func (u *CronjobService) nextRunTime(spec string) ([]string, error) {
 }
 
 func (u *CronjobService) nextRunTimeSingle(spec string, now time.Time) ([]string, error) {
-	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 	var next []string
 	if strings.HasPrefix(spec, "@every ") {
-		duration := time.Minute
-		intervalStr := strings.TrimPrefix(spec, "@every ")
-		if strings.HasSuffix(intervalStr, "s") {
-			duration = time.Second
-		}
-		intervalStr = strings.TrimSuffix(intervalStr, "s")
-		intervalStr = strings.TrimSuffix(intervalStr, "m")
-		interval, err := strconv.Atoi(intervalStr)
+		normalized, err := scheduler.NormalizeEverySpec(spec)
 		if err != nil {
 			return nil, err
 		}
+		dur, err := time.ParseDuration(strings.TrimPrefix(normalized, "@every "))
+		if err != nil {
+			return nil, err
+		}
+		if dur < time.Second {
+			dur = time.Second
+		}
 		for i := 0; i < 5; i++ {
-			nextTime := now.Add(time.Duration(interval) * duration)
-			next = append(next, nextTime.Format("2006-01-02 15:04:05"))
-			now = nextTime
+			now = now.Add(dur)
+			next = append(next, now.Format("2006-01-02 15:04:05"))
 		}
 		return next, nil
 	}
@@ -164,7 +163,7 @@ func (u *CronjobService) Create(req dto.CronjobOperate) error {
 	if _, err := cronjobRepo.Get(repo.WithByName(req.Name)); err == nil {
 		return fmt.Errorf("the cronjob name already exists")
 	}
-	if err := u.validateSpec(req.Spec); err != nil {
+	if err := u.validateOperate(req); err != nil {
 		return err
 	}
 	cronjob := model.Cronjob{
@@ -200,7 +199,7 @@ func (u *CronjobService) Update(id uint, req dto.CronjobOperate) error {
 	if err != nil {
 		return fmt.Errorf("cronjob not found")
 	}
-	if err := u.validateSpec(req.Spec); err != nil {
+	if err := u.validateOperate(req); err != nil {
 		return err
 	}
 
@@ -239,6 +238,9 @@ func (u *CronjobService) Update(id uint, req dto.CronjobOperate) error {
 }
 
 func (u *CronjobService) UpdateStatus(id uint, status string) error {
+	if status != model.StatusEnable && status != model.StatusDisable {
+		return fmt.Errorf("无效的任务状态: %s", status)
+	}
 	cronjob, err := cronjobRepo.Get(repo.WithByID(id))
 	if err != nil {
 		return fmt.Errorf("cronjob not found")
@@ -332,20 +334,11 @@ func (u *CronjobService) HandleJob(cronjob *model.Cronjob) {
 	if err != nil {
 		return
 	}
-	if cronjobItem.IsExecuting {
-		record := model.JobRecord{
-			CronjobID: cronjobItem.ID,
-			TaskID:    newTaskID(),
-			StartTime: time.Now(),
-			Status:    model.StatusUnexecut,
-			Message:   "the cronjob is executing, please wait",
-		}
-		_ = cronjobRepo.CreateRecord(&record)
-		u.removeExpiredLog(cronjobItem)
+	record, err := cronjobRepo.StartRecord(cronjobItem.ID)
+	if err != nil {
+		u.recordSkipped(cronjobItem, err)
 		return
 	}
-
-	record := cronjobRepo.StartRecord(cronjobItem.ID)
 	logPath := filepath.Join(scheduler.GetRunner().DataDir(), "log", record.TaskID+".log")
 	logWriter, err := scheduler.NewLogWriter(logPath)
 	if err != nil {
@@ -370,6 +363,22 @@ func (u *CronjobService) HandleJob(cronjob *model.Cronjob) {
 		cronjobRepo.EndRecord(record, model.StatusSuccess, "", logPath)
 		logWriter.Logf("cronjob [%s] finished successfully, elapsed: %.2fs", cronjobItem.Name, time.Since(start).Seconds())
 	}()
+}
+
+// recordSkipped records an "unexecuted" marker when the job could not start
+// because it is already executing, and prunes the job's history.
+func (u *CronjobService) recordSkipped(cronjob model.Cronjob, cause error) {
+	if errors.Is(cause, repo.ErrJobExecuting) {
+		rec := model.JobRecord{
+			CronjobID: cronjob.ID,
+			TaskID:    newTaskID(),
+			StartTime: time.Now(),
+			Status:    model.StatusUnexecut,
+			Message:   "the cronjob is executing, please wait",
+		}
+		_ = cronjobRepo.CreateRecord(&rec)
+	}
+	u.removeExpiredLog(cronjob)
 }
 
 func (u *CronjobService) SearchRecords(search dto.SearchRecord) (int64, []dto.Record, error) {
@@ -536,14 +545,39 @@ func (u *CronjobService) resolveScriptContent(cronjob *model.Cronjob) {
 	}
 }
 
+// validateOperate performs server-side validation of a create/update payload.
+// The dto struct tags carry no binding framework, so every rule is enforced
+// here rather than relying on tags that are never evaluated.
+func (u *CronjobService) validateOperate(req dto.CronjobOperate) error {
+	if len(strings.TrimSpace(req.Name)) == 0 {
+		return fmt.Errorf("the cronjob name is required")
+	}
+	switch req.Type {
+	case model.TypeShell:
+		if len(strings.TrimSpace(req.Script)) == 0 && len(strings.TrimSpace(req.ScriptName)) == 0 {
+			return fmt.Errorf("the shell script is required")
+		}
+	case model.TypeCurl:
+		if len(strings.TrimSpace(req.URL)) == 0 {
+			return fmt.Errorf("the curl url is required")
+		}
+	default:
+		return fmt.Errorf("unsupported cronjob type: %s", req.Type)
+	}
+	return u.validateSpec(req.Spec)
+}
+
 func (u *CronjobService) validateSpec(spec string) error {
-	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 	for _, s := range strings.Split(spec, "&&") {
 		s = strings.TrimSpace(s)
 		if len(s) == 0 {
 			continue
 		}
 		if strings.HasPrefix(s, "@every ") {
+			if _, err := scheduler.NormalizeEverySpec(s); err != nil {
+				return err
+			}
 			continue
 		}
 		if _, err := parser.Parse(s); err != nil {
@@ -557,6 +591,7 @@ func (u *CronjobService) validateSpec(spec string) error {
 // the service restarts. It also resets the runtime state that a previous
 // process crash may have left behind: a stuck is_executing flag would
 // otherwise block the job forever, and in-flight records would stay "waiting".
+// Callers are responsible for stopping the scheduler first (ResetEntries).
 func RestoreCronjobs() {
 	database.DB.Model(&model.Cronjob{}).Where("is_executing = ?", true).Update("is_executing", false)
 	database.DB.Model(&model.JobRecord{}).Where("status = ?", model.StatusWaiting).

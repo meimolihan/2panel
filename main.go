@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/2panel-dev/2panel/internal/database"
 	"github.com/2panel-dev/2panel/internal/scheduler"
@@ -57,9 +58,11 @@ func main() {
 		dataDir = filepath.Join(filepath.Dir(exe), "data")
 	}
 	for _, dir := range []string{dataDir, filepath.Join(dataDir, "log"), filepath.Join(dataDir, "task")} {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0700); err != nil {
 			log.Fatalf("create data dir %s failed: %v", dir, err)
 		}
+		// tighten permissions on pre-existing directories too
+		_ = os.Chmod(dir, 0700)
 	}
 
 	if err := database.Init(filepath.Join(dataDir, "2panel.db")); err != nil {
@@ -78,8 +81,12 @@ func main() {
 	addr := fmt.Sprintf(":%d", port)
 	log.Printf("2Panel %s (%s) listening on %s, data dir: %s", version, build, addr, dataDir)
 	srv := &http.Server{
-		Addr:    addr,
-		Handler: server.New(debug),
+		Addr:              addr,
+		Handler:           server.New(debug),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       120 * time.Second,
+		WriteTimeout:      120 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("server exited: %v", err)

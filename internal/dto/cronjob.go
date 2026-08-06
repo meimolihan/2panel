@@ -19,9 +19,9 @@ type SearchCronjob struct {
 
 type CronjobOperate struct {
 	ID         uint   `json:"id"`
-	Name       string `json:"name" binding:"required"`
-	Type       string `json:"type" binding:"required,oneof=shell curl"`
-	Spec       string `json:"spec" binding:"required"`
+	Name       string `json:"name"`
+	Type       string `json:"type"`
+	Spec       string `json:"spec"`
 	SpecCustom bool   `json:"specCustom"`
 
 	Executor string `json:"executor"`
@@ -62,20 +62,20 @@ type CronjobInfo struct {
 }
 
 type OperateByID struct {
-	ID uint `json:"id" binding:"required"`
+	ID uint `json:"id"`
 }
 
 type CronjobSpec struct {
-	Spec string `json:"spec" binding:"required"`
+	Spec string `json:"spec"`
 }
 
 type CronjobBatchDelete struct {
-	IDs []uint `json:"ids" binding:"required"`
+	IDs []uint `json:"ids"`
 }
 
 type CronjobUpdateStatus struct {
-	ID     uint   `json:"id" binding:"required"`
-	Status string `json:"status" binding:"required,oneof=enabled disabled"`
+	ID     uint   `json:"id"`
+	Status string `json:"status"`
 }
 
 type SearchRecord struct {

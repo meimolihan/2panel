@@ -34,14 +34,22 @@ func (u *ScriptRecordRepo) Page(page, size int, opts ...DBOption) (int64, []mode
 	if err := db.Count(&count).Error; err != nil {
 		return 0, nil, err
 	}
-	if size <= 0 {
-		size = 10
-	}
+	size = normalizePageSize(size)
 	if page <= 0 {
 		page = 1
 	}
 	err := db.Order("created_at desc").Limit(size).Offset(size * (page - 1)).Find(&records).Error
 	return count, records, err
+}
+
+func (u *ScriptRecordRepo) List(opts ...DBOption) ([]model.ScriptRecord, error) {
+	var records []model.ScriptRecord
+	db := database.DB.Model(&model.ScriptRecord{})
+	for _, opt := range opts {
+		db = opt(db)
+	}
+	err := db.Find(&records).Error
+	return records, err
 }
 
 func (u *ScriptRecordRepo) Create(record *model.ScriptRecord) error {

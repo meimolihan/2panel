@@ -31,6 +31,11 @@ var scriptRunner = struct {
 	cancel map[string]context.CancelFunc
 }{cancel: make(map[string]context.CancelFunc)}
 
+// maxScriptRecords caps how many library run records (and their log files)
+// are kept, so frequent runs cannot exhaust the disk. Oldest entries are
+// pruned after each completed run.
+const maxScriptRecords = 200
+
 type ScriptService struct{}
 
 func (u *ScriptService) SearchWithPage(search dto.ScriptSearch) (int64, []dto.ScriptInfo, error) {
@@ -202,8 +207,28 @@ func (u *ScriptService) Run(id uint) (string, error) {
 			logWriter.Logf("script [%s] finished successfully, elapsed: %.2fs", record.ScriptName, time.Since(start).Seconds())
 		}
 		_ = scriptRecordRepo.Update(record.ID, vars)
+		pruneScriptRecords()
 	}()
 	return taskID, nil
+}
+
+// pruneScriptRecords removes the oldest script run records beyond
+// maxScriptRecords, along with their log files.
+func pruneScriptRecords() {
+	records, err := scriptRecordRepo.List(repo.WithOrderBy("created_at", "asc"))
+	if err != nil {
+		return
+	}
+	excess := len(records) - maxScriptRecords
+	if excess <= 0 {
+		return
+	}
+	for _, rec := range records[:excess] {
+		if len(rec.Records) != 0 {
+			_ = os.Remove(rec.Records)
+		}
+		_ = scriptRecordRepo.Delete(repo.WithByID(rec.ID))
+	}
 }
 
 func (u *ScriptService) runScript(taskID, script string, log *scheduler.LogWriter) error {

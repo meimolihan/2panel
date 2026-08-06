@@ -24,14 +24,20 @@ var (
 )
 
 const (
-	SettingInitialized      = "auth_initialized"
-	SettingUserName         = "UserName"
-	SettingPassword         = "Password"
-	SettingDefaultPassword  = "DefaultPassword"
+	SettingInitialized     = "auth_initialized"
+	SettingUserName        = "UserName"
+	SettingPassword        = "Password"
+	SettingDefaultPassword = "DefaultPassword"
 
 	defaultUserName = "admin"
 	tokenTTL        = 24 * time.Hour
 )
+
+// TokenTTLSeconds reports the lifetime of issued tokens, used by the HTTP
+// layer to size the auth cookie.
+func TokenTTLSeconds() int {
+	return int(tokenTTL.Seconds())
+}
 
 type AuthService struct{}
 

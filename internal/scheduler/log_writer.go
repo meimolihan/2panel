@@ -22,7 +22,7 @@ func NewLogWriter(path string) (*LogWriter, error) {
 	if err := os.MkdirAll(filepathDir(path), 0755); err != nil {
 		return nil, err
 	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		return nil, err
 	}

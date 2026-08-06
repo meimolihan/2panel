@@ -16,8 +16,8 @@ type ChangePassword struct {
 }
 
 type AuthStatus struct {
-	Initialized       bool   `json:"initialized"`
-	HasDefaultPasswd  bool   `json:"hasDefaultPasswd"`
-	DefaultPassword   string `json:"defaultPassword,omitempty"`
-	UserName          string `json:"userName"`
+	Initialized      bool   `json:"initialized"`
+	HasDefaultPasswd bool   `json:"hasDefaultPasswd"`
+	DefaultPassword  string `json:"defaultPassword,omitempty"`
+	UserName         string `json:"userName"`
 }
