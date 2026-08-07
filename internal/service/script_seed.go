@@ -2,13 +2,18 @@ package service
 
 import (
 	"log"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/2panel-dev/2panel/internal/model"
 	"github.com/2panel-dev/2panel/internal/repo"
 )
 
-// SettingScriptSeedVersion tracks whether the built-in scripts have been
-// inserted. Seeding runs only once so user deletions are respected.
+// SettingScriptSeedVersion stores the comma-separated names of built-in
+// scripts that have already been seeded. Only scripts missing from this list
+// are inserted, so new built-in scripts are picked up on existing installs
+// while scripts deleted by the user are never resurrected.
 const SettingScriptSeedVersion = "script_seed_version"
 
 type preseedScript struct {
@@ -627,26 +632,174 @@ main() {
 
 main "$@"
 `},
+	{
+		Name:        "安装 curl",
+		Description: "安装 curl 命令行工具（自动识别 Debian/RHEL/Alpine，已安装则跳过）",
+		Script: `
+#!/bin/bash
+set -euo pipefail
+
+check_os() {
+  [ -f /etc/debian_version ] && echo debian ||
+  [ -f /etc/redhat-release ] && echo rhel ||
+  [ -f /etc/alpine-release ] && echo alpine || echo unknown
 }
 
-// SeedScripts populates the script library with built-in install scripts on
-// the first run. The seed is tracked by a setting key so scripts deleted by
-// the user are never resurrected by later restarts.
-func SeedScripts() {
-	if _, err := settingRepo.Get(SettingScriptSeedVersion); err == nil {
+main() {
+  clear
+  echo
+  if command -v curl &>/dev/null; then
+    ver=$(curl --version | awk 'NR==1{print $2}')
+    echo "当前版本 $ver"
+    echo
+    exit 0
+  fi
+  os=$(check_os)
+  echo "检测系统 $os"
+  case "$os" in
+    debian) apt update -qq; apt install -y curl ;;
+    rhel)   command -v dnf &>/dev/null && dnf install -y curl || yum install -y curl ;;
+    alpine) apk update; apk add curl ;;
+    *)      echo "无法识别系统"; exit 1 ;;
+  esac
+  new_ver=$(curl --version | awk 'NR==1{print $2}')
+  echo "安装后版本 $new_ver"
+}
+
+main
+`},
+	{
+		Name:        "安装 rsync",
+		Description: "安装 rsync 文件同步工具（自动识别 Debian/RHEL/Alpine，已安装则跳过）",
+		Script: `
+#!/bin/bash
+set -euo pipefail
+
+check_os() {
+  [ -f /etc/debian_version ] && echo debian ||
+  [ -f /etc/redhat-release ] && echo rhel ||
+  [ -f /etc/alpine-release ] && echo alpine || echo unknown
+}
+
+main() {
+  clear
+  echo
+  if command -v rsync &>/dev/null; then
+    ver=$(rsync --version | awk 'NR==1{print $3}')
+    echo "当前版本 $ver"
+    echo
+    exit 0
+  fi
+  os=$(check_os)
+  echo "检测系统 $os"
+  case "$os" in
+    debian) apt update -qq; apt install -y rsync ;;
+    rhel)   command -v dnf &>/dev/null && dnf install -y rsync || yum install -y rsync ;;
+    alpine) apk update; apk add rsync ;;
+    *)      echo "无法识别系统"; exit 1 ;;
+  esac
+  new_ver=$(rsync --version | awk 'NR==1{print $3}')
+  echo "安装后版本 $new_ver"
+}
+
+main
+`},
+}
+
+// DefaultScriptGroup is the built-in default group name for the script library.
+const DefaultScriptGroup = "内置脚本"
+
+// SeedGroups creates the built-in default group for the script library on
+// first run. It only seeds when no script group exists yet, so groups created
+// by the user (or the leftover default) are never overwritten.
+func SeedGroups() {
+	if err := renameLegacyDefaultGroup(); err != nil {
+		log.Printf("rename legacy default script group failed: %v", err)
+	}
+	groups, err := groupRepo.GetList(repo.WithByType("script"))
+	if err == nil && len(groups) > 0 {
 		return
 	}
+	if err := groupRepo.Create(&model.Group{Name: DefaultScriptGroup, Type: "script", IsDefault: true}); err != nil {
+		log.Printf("seed default script group failed: %v", err)
+	}
+}
+
+// renameLegacyDefaultGroup renames the group seeded as "Default" by earlier
+// releases to the current built-in name, keeping its id and default flag so
+// scripts already referencing it stay intact.
+func renameLegacyDefaultGroup() error {
+	group, err := groupRepo.Get(repo.WithByType("script"), repo.WithByName("Default"))
+	if err != nil {
+		return nil
+	}
+	return groupRepo.Update(group.ID, map[string]interface{}{"name": DefaultScriptGroup})
+}
+
+// legacySeedScripts are the built-in scripts shipped by the first seed
+// version ("1"). When upgrading a database created by an older release, they
+// are treated as already seeded so scripts deleted by the user stay deleted
+// and only newly added built-in scripts are inserted.
+var legacySeedScripts = []string{
+	"安装 Docker",
+	"安装 ClamAV",
+	"安装 Fail2ban",
+	"安装 Pure-FTPd",
+	"安装 Supervisor",
+}
+
+// SeedScripts populates the script library with built-in install scripts. Each
+// seeded script name is persisted in the SettingScriptSeedVersion key, so only
+// new built-in scripts are added on later upgrades while scripts deleted by
+// the user stay deleted. Newly seeded scripts are attached to the default
+// script group when it exists.
+func SeedScripts() {
+	seeded := make(map[string]struct{})
+	if setting, err := settingRepo.Get(SettingScriptSeedVersion); err == nil {
+		if setting.Value == "1" {
+			for _, name := range legacySeedScripts {
+				seeded[name] = struct{}{}
+			}
+		} else {
+			for _, name := range strings.Split(setting.Value, ",") {
+				if len(name) != 0 {
+					seeded[name] = struct{}{}
+				}
+			}
+		}
+	}
+	defaultGroup := ""
+	if group, err := groupRepo.Get(repo.WithByType("script"), repo.WithByDefault(true)); err == nil {
+		defaultGroup = strconv.FormatUint(uint64(group.ID), 10)
+	}
+	changed := false
 	for _, s := range preseedScripts {
+		if _, ok := seeded[s.Name]; ok {
+			continue
+		}
 		if _, err := scriptLibraryRepo.Get(repo.WithByName(s.Name)); err == nil {
+			seeded[s.Name] = struct{}{}
+			changed = true
 			continue
 		}
 		if err := scriptLibraryRepo.Create(&model.ScriptLibrary{
 			Name:        s.Name,
 			Description: s.Description,
 			Script:      s.Script,
+			Groups:      defaultGroup,
 		}); err != nil {
 			log.Printf("seed script [%s] failed: %v", s.Name, err)
+		} else {
+			seeded[s.Name] = struct{}{}
+			changed = true
 		}
 	}
-	_ = settingRepo.Set(SettingScriptSeedVersion, "1")
+	if changed {
+		names := make([]string, 0, len(seeded))
+		for name := range seeded {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		_ = settingRepo.Set(SettingScriptSeedVersion, strings.Join(names, ","))
+	}
 }

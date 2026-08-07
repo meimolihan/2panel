@@ -264,6 +264,22 @@ td.ellipsis { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
   display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; line-height: 18px;
   background: var(--tag-shell-bg); color: var(--tag-shell-color);
 }
+.group-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.group-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border: 1px solid var(--border); border-radius: 14px;
+  cursor: pointer; font-size: 13px; color: var(--text-secondary); background: var(--bg-input);
+  user-select: none; transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+.group-chip:hover { border-color: var(--primary); color: var(--primary); }
+.group-chip.on { background: var(--tag-info-bg); color: var(--tag-info-color); border-color: var(--primary); }
+.group-tag {
+  display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; line-height: 18px;
+  background: var(--tag-info-bg); color: var(--tag-info-color); margin: 2px 4px 2px 0;
+}
+.group-tag.default { background: var(--tag-success-bg); color: var(--tag-success-color); }
+.group-edit-name { width: 100%; height: 30px; border: 1px solid var(--border); border-radius: 6px; padding: 0 8px; background: var(--bg-input); color: var(--text); outline: none; }
+.group-edit-name:focus { border-color: var(--primary); }
 
 /* 主题切换过渡动画 */
 body, .header, .card, .modal, .modal-head, .modal-foot, .btn, .tag, .toast,
@@ -932,8 +948,12 @@ tbody tr { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.02), 
   <div class="card">
     <div class="toolbar">
       <input type="text" id="scriptSearch" placeholder="搜索脚本名称/描述" onkeyup="if(event.key==='Enter')loadScriptList(1)">
+      <select id="scriptGroupFilter" onchange="loadScriptList(1)">
+        <option value="0">全部分组</option>
+      </select>
       <button class="btn" onclick="loadScriptList(currentScriptPage)">刷新</button>
       <div class="spacer"></div>
+      <button class="btn" onclick="openScriptGroups()">分组管理</button>
       <button class="btn" onclick="openScriptRecords()">执行记录</button>
       <button class="btn primary" onclick="openScriptCreate()">＋ 新增脚本</button>
     </div>
@@ -942,6 +962,7 @@ tbody tr { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.02), 
       <thead>
         <tr>
           <th style="width:200px">脚本名称</th>
+          <th style="width:160px">分组</th>
           <th>描述</th>
           <th style="width:150px">创建时间</th>
           <th style="width:180px">操作</th>
@@ -1091,6 +1112,11 @@ echo 'hello 2panel'"></textarea>
         </div>
       </div>
       <div class="form-row">
+        <label>所属分组</label>
+        <div class="group-chips" id="s_groups"></div>
+        <div class="hint">可多选；在「分组管理」中维护分组。</div>
+      </div>
+      <div class="form-row">
         <label>脚本内容</label>
         <textarea id="s_script" placeholder="#!/bin/bash
 echo 'hello 2panel'"></textarea>
@@ -1099,6 +1125,36 @@ echo 'hello 2panel'"></textarea>
     <div class="modal-foot">
       <button class="btn" onclick="closeScript()">取消</button>
       <button class="btn primary" onclick="saveScript()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- script group management modal -->
+<div class="modal-mask" id="scriptGroupMask">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>分组管理</h3>
+      <span class="close" onclick="closeScriptGroups()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="toolbar" style="margin-bottom:12px">
+        <div class="hint" style="margin:0">管理脚本库分组；被脚本使用的分组不可删除。</div>
+        <div class="spacer"></div>
+        <button class="btn primary" onclick="createScriptGroup()">＋ 新增分组</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>分组名称</th>
+            <th style="width:200px">操作</th>
+          </tr>
+        </thead>
+        <tbody id="scriptGroupTbody"></tbody>
+      </table>
+      <div class="empty" id="scriptGroupEmpty" style="display:none">暂无分组</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeScriptGroups()">关闭</button>
     </div>
   </div>
 </div>
@@ -1291,6 +1347,9 @@ let editingID = 0;
 let currentScriptPage = 1, scriptPageSize = 10;
 let editingScriptID = 0;
 let scriptOptionsCache = [];
+let scriptGroupOptions = [];
+let scriptFormGroupIDs = [];
+let editingScriptGroupID = 0;
 let scriptRunTaskID = '';
 let scriptRunTimer = null;
 let currentScriptRecordPage = 1, scriptRecordPageSize = 10;
@@ -1338,8 +1397,11 @@ function transSpecToObj(spec) {
   const o = { specType: 'perDay', week: 0, day: 1, hour: 0, minute: 0, second: 10 };
   const parts = spec.split(' ');
   if (parts.length === 2) {
-    if (parts[1].indexOf('m') !== -1) { o.specType = 'perNMinute'; o.minute = parseInt(parts[1].replace('m', '')) || 5; return o; }
-    o.specType = 'perNSecond'; o.second = parseInt(parts[1].replace('s', '')) || 10; return o;
+    const m = /^(\d+)m$/.exec(parts[1]);
+    if (m) { o.specType = 'perNMinute'; o.minute = parseInt(m[1], 10) || 5; return o; }
+    const s = /^(\d+)s$/.exec(parts[1]);
+    if (s) { o.specType = 'perNSecond'; o.second = parseInt(s[1], 10) || 10; return o; }
+    return null;
   }
   if (parts.length !== 5) return null;
   if (parts[0] === '*' || parts[0].indexOf('/') !== -1 || parts[0].indexOf(',') !== -1 || parts[0].indexOf('-') !== -1) return null;
@@ -1585,7 +1647,7 @@ function xterm256(n) {
 function ansiRgb(r, g, b) { return 'rgb(' + r + ',' + g + ',' + b + ')'; }
 function ansiToHtml(str) {
   const text = String(str == null ? '' : str);
-  const re = /\u001b\[([0-9;]*)m/g;
+  const re = /\u001b\[([0-9;?]*)([A-Za-z@-~])/g;
   let html = '';
   let last = 0;
   let fg = null, bg = null, bold = false, dim = false, italic = false, underline = false;
@@ -1603,37 +1665,41 @@ function ansiToHtml(str) {
   let openSpan = false;
   while ((m = re.exec(text)) !== null) {
     html += esc(text.slice(last, m.index));
-    const codes = m[1] ? m[1].split(';') : ['0'];
-    for (let i = 0; i < codes.length; i++) {
-      const n = parseInt(codes[i], 10);
-      if (n === 38 || n === 48) {
-        const isFg = n === 38;
-        if (codes[i + 1] === '5') { if (isFg) fg = xterm256(parseInt(codes[i + 2], 10)); else bg = xterm256(parseInt(codes[i + 2], 10)); i += 2; }
-        else if (codes[i + 1] === '2') { if (isFg) fg = ansiRgb(codes[i + 2], codes[i + 3], codes[i + 4]); else bg = ansiRgb(codes[i + 2], codes[i + 3], codes[i + 4]); i += 4; }
-        else if (codes[i + 1] === '0') { if (isFg) fg = null; else bg = null; i += 1; }
-        continue;
+    if (m[2] === 'm') {
+      const codes = m[1] ? m[1].split(';') : ['0'];
+      for (let i = 0; i < codes.length; i++) {
+        const n = parseInt(codes[i], 10);
+        if (n === 38 || n === 48) {
+          const isFg = n === 38;
+          if (codes[i + 1] === '5') { if (isFg) fg = xterm256(parseInt(codes[i + 2], 10)); else bg = xterm256(parseInt(codes[i + 2], 10)); i += 2; }
+          else if (codes[i + 1] === '2') { if (isFg) fg = ansiRgb(codes[i + 2], codes[i + 3], codes[i + 4]); else bg = ansiRgb(codes[i + 2], codes[i + 3], codes[i + 4]); i += 4; }
+          else if (codes[i + 1] === '0') { if (isFg) fg = null; else bg = null; i += 1; }
+          continue;
+        }
+        if (n === 0) { fg = bg = null; bold = dim = italic = underline = false; }
+        else if (n === 1) bold = true;
+        else if (n === 2) dim = true;
+        else if (n === 3) italic = true;
+        else if (n === 4) underline = true;
+        else if (n === 22) { bold = false; dim = false; }
+        else if (n === 23) italic = false;
+        else if (n === 24) underline = false;
+        else if (n === 39) fg = null;
+        else if (n === 49) bg = null;
+        else if (n >= 30 && n <= 37) fg = ansiPalette[n - 30];
+        else if (n >= 90 && n <= 97) fg = ansiPalette[n - 90 + 8];
+        else if (n >= 40 && n <= 47) bg = ansiPalette[n - 40];
+        else if (n >= 100 && n <= 107) bg = ansiPalette[n - 100 + 8];
       }
-      if (n === 0) { fg = bg = null; bold = dim = italic = underline = false; }
-      else if (n === 1) bold = true;
-      else if (n === 2) dim = true;
-      else if (n === 3) italic = true;
-      else if (n === 4) underline = true;
-      else if (n === 22) { bold = false; dim = false; }
-      else if (n === 23) italic = false;
-      else if (n === 24) underline = false;
-      else if (n === 39) fg = null;
-      else if (n === 49) bg = null;
-      else if (n >= 30 && n <= 37) fg = ansiPalette[n - 30];
-      else if (n >= 90 && n <= 97) fg = ansiPalette[n - 90 + 8];
-      else if (n >= 40 && n <= 47) bg = ansiPalette[n - 40];
-      else if (n >= 100 && n <= 107) bg = ansiPalette[n - 100 + 8];
+      const s = style();
+      if (openSpan) { html += '</span>'; openSpan = false; }
+      if (s) { html += '<span' + s + '>'; openSpan = true; }
+    } else {
+      if (m[2] === 'J' || m[2] === 'H') { if (html && html[html.length - 1] !== '\n') html += '\n'; }
     }
-    const s = style();
-    if (openSpan) { html += '</span>'; openSpan = false; }
-    if (s) { html += '<span' + s + '>'; openSpan = true; }
     last = re.lastIndex;
   }
-  html += esc(text.slice(last));
+  html += esc(text.slice(last).replace(/\u001b/g, ''));
   if (openSpan) html += '</span>';
   return html;
 }
@@ -1805,7 +1871,10 @@ function switchTab(tab) {
   document.getElementById('tabScript').className = 'tab' + (cron ? '' : ' active');
   document.getElementById('panelCron').style.display = cron ? 'block' : 'none';
   document.getElementById('panelScript').style.display = cron ? 'none' : 'block';
-  if (!cron) loadScriptList(currentScriptPage);
+  if (!cron) {
+    loadScriptGroupOptions();
+    loadScriptList(currentScriptPage);
+  }
 }
 
 async function exportCronjobs() {
@@ -1852,8 +1921,9 @@ async function loadScriptList(page) {
   currentScriptPage = page;
   try {
     const info = document.getElementById('scriptSearch').value.trim();
+    const groupID = Number(document.getElementById('scriptGroupFilter').value) || 0;
     const data = await request('/api/scripts/search', 'POST', {
-      page: currentScriptPage, pageSize: scriptPageSize, info
+      page: currentScriptPage, pageSize: scriptPageSize, info, groupID
     });
     renderScriptList(data.items || [], data.total);
   } catch (e) { toast(e.message, 'error'); }
@@ -1866,9 +1936,13 @@ function renderScriptList(items, total) {
   document.getElementById('scriptPager').style.display = total > scriptPageSize ? 'flex' : 'none';
   document.getElementById('scriptPageInfo').textContent = `共 ${total} 条 · 第 ${currentScriptPage}/${Math.ceil(total / scriptPageSize) || 1} 页`;
   for (const s of items) {
+    const groups = (s.groupBelong || []).map((g, i) =>
+      `<span class="group-tag${scriptGroupClass((s.groupList || [])[i])}">${esc(g)}</span>`).join('') ||
+      '<span style="color:var(--text-secondary)">-</span>';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="name" data-label="脚本名称">${esc(s.name)}</td>
+      <td data-label="分组" style="white-space:normal">${groups}</td>
       <td data-label="描述" style="white-space:normal;word-break:break-all;max-width:520px">${esc(s.description) || '<span style="color:var(--text-secondary)">-</span>'}</td>
       <td data-label="创建时间">${esc((s.createdAt || '').replace('T', ' ').slice(0, 19))}</td>
       <td data-label="操作">
@@ -1902,6 +1976,8 @@ function resetScriptForm() {
   document.getElementById('s_name').value = '';
   document.getElementById('s_desc').value = '';
   document.getElementById('s_script').value = '';
+  scriptFormGroupIDs = [];
+  renderScriptFormGroups();
 }
 
 function openScriptCreate() {
@@ -1917,6 +1993,8 @@ async function openScriptEdit(id) {
     document.getElementById('s_name').value = data.name || '';
     document.getElementById('s_desc').value = data.description || '';
     document.getElementById('s_script').value = data.script || '';
+    scriptFormGroupIDs = (data.groups || '').split(',').map(x => Number(x.trim())).filter(x => x > 0);
+    renderScriptFormGroups();
     document.getElementById('scriptTitle').textContent = '编辑脚本';
     document.getElementById('scriptMask').classList.add('show');
   } catch (e) { toast(e.message, 'error'); }
@@ -1934,6 +2012,7 @@ async function saveScript() {
     name,
     description: document.getElementById('s_desc').value.trim(),
     script: document.getElementById('s_script').value,
+    groups: scriptFormGroupIDs.join(','),
   };
   try {
     if (editingScriptID) {
@@ -1953,6 +2032,158 @@ function removeScript(id) {
   if (!confirm('确定要删除该脚本吗？引用它的计划任务执行时将找不到脚本。')) return;
   request('/api/scripts/del', 'POST', { ids: [id] })
     .then(() => { toast('脚本已删除', 'success'); loadScriptList(currentScriptPage); refreshScriptOptions(); })
+    .catch(e => toast(e.message, 'error'));
+}
+
+/* ---------- script groups ---------- */
+
+async function loadScriptGroupOptions() {
+  try {
+    scriptGroupOptions = (await request('/api/groups/search', 'POST', { type: 'script' })) || [];
+  } catch (e) {
+    scriptGroupOptions = [];
+  }
+  const sel = document.getElementById('scriptGroupFilter');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="0">全部分组</option>' + scriptGroupOptions
+    .map(g => `<option value="${g.id}">${esc(g.name)}${g.isDefault ? '（默认）' : ''}</option>`).join('');
+  if ([...sel.options].some(o => o.value === String(current))) sel.value = String(current);
+}
+
+function scriptGroupClass(id) {
+  const g = scriptGroupOptions.find(x => Number(x.id) === Number(id));
+  return g && g.isDefault ? ' default' : '';
+}
+
+function renderScriptFormGroups() {
+  const box = document.getElementById('s_groups');
+  if (!scriptGroupOptions.length) {
+    box.innerHTML = '<span style="color:var(--text-secondary);font-size:13px">暂无分组，可先在「分组管理」中创建。</span>';
+    return;
+  }
+  box.innerHTML = scriptGroupOptions.map(g => {
+    const on = scriptFormGroupIDs.includes(Number(g.id));
+    return `<span class="group-chip${on ? ' on' : ''}" onclick="toggleScriptFormGroup(${g.id}, this)">${esc(g.name)}</span>`;
+  }).join('');
+}
+
+function toggleScriptFormGroup(id, el) {
+  const idx = scriptFormGroupIDs.indexOf(Number(id));
+  if (idx === -1) {
+    scriptFormGroupIDs.push(Number(id));
+  } else {
+    scriptFormGroupIDs.splice(idx, 1);
+  }
+  el.classList.toggle('on', scriptFormGroupIDs.includes(Number(id)));
+}
+
+function openScriptGroups() {
+  loadScriptGroups();
+  document.getElementById('scriptGroupMask').classList.add('show');
+}
+
+function closeScriptGroups() {
+  document.getElementById('scriptGroupMask').classList.remove('show');
+}
+
+async function loadScriptGroups() {
+  try {
+    const groups = (await request('/api/groups/search', 'POST', { type: 'script' })) || [];
+    renderScriptGroups(groups);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function renderScriptGroups(groups) {
+  const tbody = document.getElementById('scriptGroupTbody');
+  tbody.innerHTML = '';
+  document.getElementById('scriptGroupEmpty').style.display = groups.length ? 'none' : 'block';
+  for (const g of groups) {
+    const tr = document.createElement('tr');
+    const defTag = g.isDefault ? ' <span class="tag success">默认</span>' : '';
+    const nameCell = g.id === editingScriptGroupID
+      ? `<input class="group-edit-name" id="scriptGroupNameInput" value="${escAttr(g.name)}" onkeydown="if(event.key==='Enter')saveScriptGroupName(${g.id})">`
+      : `<span class="name">${esc(g.name)}</span>${defTag}`;
+    const editBtn = g.id === editingScriptGroupID
+      ? `<button class="btn small primary" onclick="saveScriptGroupName(${g.id})">保存</button>
+         <button class="btn small" onclick="cancelScriptGroupEdit()">取消</button>`
+      : `<button class="btn small" onclick="editScriptGroupName(${g.id})">重命名</button>
+         ${g.isDefault ? '' : `<button class="btn small" onclick="setDefaultScriptGroup(${g.id})">设为默认</button>`}
+         <button class="btn small danger" ${g.isDefault ? 'disabled' : ''} onclick="removeScriptGroup(${g.id})">删除</button>`;
+    tr.innerHTML = `
+      <td class="name" data-label="分组名称">${nameCell}</td>
+      <td data-label="操作">${editBtn}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function createScriptGroup() {
+  const name = prompt('请输入新分组名称');
+  if (name === null) return;
+  const trimmed = name.trim();
+  if (!trimmed) return toast('分组名称不能为空', 'error');
+  request('/api/groups/create', 'POST', { name: trimmed, type: 'script' })
+    .then(() => {
+      toast('分组已创建', 'success');
+      loadScriptGroups();
+      loadScriptGroupOptions();
+      renderScriptFormGroups();
+    })
+    .catch(e => toast(e.message, 'error'));
+}
+
+function editScriptGroupName(id) {
+  editingScriptGroupID = Number(id);
+  loadScriptGroups();
+  setTimeout(() => {
+    const input = document.getElementById('scriptGroupNameInput');
+    if (input) { input.focus(); input.select(); }
+  }, 0);
+}
+
+function cancelScriptGroupEdit() {
+  editingScriptGroupID = 0;
+  loadScriptGroups();
+}
+
+async function saveScriptGroupName(id) {
+  const input = document.getElementById('scriptGroupNameInput');
+  const name = input ? input.value.trim() : '';
+  if (!name) return toast('分组名称不能为空', 'error');
+  try {
+    await request('/api/groups/update', 'POST', { id, name, type: 'script' });
+    editingScriptGroupID = 0;
+    toast('分组已更新', 'success');
+    loadScriptGroups();
+    loadScriptGroupOptions();
+    loadScriptList(currentScriptPage);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function setDefaultScriptGroup(id) {
+  if (!confirm('确定将该分组设为默认分组吗？')) return;
+  request('/api/groups/update', 'POST', { id, type: 'script', isDefault: true })
+    .then(() => {
+      toast('默认分组已更新', 'success');
+      loadScriptGroups();
+      loadScriptGroupOptions();
+      loadScriptList(currentScriptPage);
+    })
+    .catch(e => toast(e.message, 'error'));
+}
+
+function removeScriptGroup(id) {
+  const g = scriptGroupOptions.find(x => Number(x.id) === Number(id));
+  const name = g ? g.name : String(id);
+  if (!confirm(`确定要删除分组「${name}」吗？被脚本使用的分组无法删除。`)) return;
+  request('/api/groups/del', 'POST', { id })
+    .then(() => {
+      toast('分组已删除', 'success');
+      loadScriptGroups();
+      loadScriptGroupOptions();
+      loadScriptList(currentScriptPage);
+      renderScriptFormGroups();
+    })
     .catch(e => toast(e.message, 'error'));
 }
 

@@ -1,0 +1,57 @@
+package repo
+
+import (
+	"github.com/2panel-dev/2panel/internal/database"
+	"github.com/2panel-dev/2panel/internal/model"
+	"gorm.io/gorm"
+)
+
+type GroupRepo struct{}
+
+func WithByDefault(isDefault bool) DBOption {
+	return func(g *gorm.DB) *gorm.DB {
+		return g.Where("is_default = ?", isDefault)
+	}
+}
+
+func (u *GroupRepo) Get(opts ...DBOption) (model.Group, error) {
+	var group model.Group
+	db := database.DB
+	for _, opt := range opts {
+		db = opt(db)
+	}
+	err := db.First(&group).Error
+	return group, err
+}
+
+func (u *GroupRepo) GetList(opts ...DBOption) ([]model.Group, error) {
+	var groups []model.Group
+	db := database.DB.Model(&model.Group{})
+	for _, opt := range opts {
+		db = opt(db)
+	}
+	err := db.Find(&groups).Error
+	return groups, err
+}
+
+func (u *GroupRepo) Create(group *model.Group) error {
+	return database.DB.Create(group).Error
+}
+
+func (u *GroupRepo) Update(id uint, vars map[string]interface{}) error {
+	return database.DB.Model(&model.Group{}).Where("id = ?", id).Updates(vars).Error
+}
+
+func (u *GroupRepo) Delete(opts ...DBOption) error {
+	db := database.DB
+	for _, opt := range opts {
+		db = opt(db)
+	}
+	return db.Delete(&model.Group{}).Error
+}
+
+func (u *GroupRepo) CancelDefault(groupType string) error {
+	return database.DB.Model(&model.Group{}).
+		Where("is_default = ? AND type = ?", 1, groupType).
+		Updates(map[string]interface{}{"is_default": 0}).Error
+}

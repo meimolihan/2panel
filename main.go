@@ -76,6 +76,7 @@ func main() {
 	service.RestoreScriptRecords()
 
 	// seed built-in install scripts into an empty script library
+	service.SeedGroups()
 	service.SeedScripts()
 
 	addr := fmt.Sprintf(":%d", port)

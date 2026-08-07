@@ -41,7 +41,7 @@ func Init(dbPath string) error {
 	if err := os.Chmod(dbPath, 0600); err != nil {
 		return fmt.Errorf("chmod database failed: %v", err)
 	}
-	if err := DB.AutoMigrate(&model.Cronjob{}, &model.JobRecord{}, &model.Setting{}, &model.ScriptLibrary{}, &model.ScriptRecord{}); err != nil {
+	if err := DB.AutoMigrate(&model.Cronjob{}, &model.JobRecord{}, &model.Setting{}, &model.ScriptLibrary{}, &model.ScriptRecord{}, &model.Group{}); err != nil {
 		return fmt.Errorf("migrate database failed: %v", err)
 	}
 	return nil

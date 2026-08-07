@@ -18,6 +18,7 @@ func New(debug bool) http.Handler {
 	cronApi := handler.BaseApi.CronjobApi
 	authApi := handler.BaseApi.AuthApi
 	scriptApi := handler.BaseApi.ScriptApi
+	groupApi := handler.BaseApi.GroupApi
 	{
 		mux.HandleFunc("POST /api/auth/status", authApi.Status)
 		mux.HandleFunc("POST /api/auth/login", authApi.Login)
@@ -52,6 +53,11 @@ func New(debug bool) http.Handler {
 		mux.HandleFunc("POST /api/scripts/run/stop", handler.AuthMiddleware(scriptApi.StopRun))
 		mux.HandleFunc("POST /api/scripts/run/records", handler.AuthMiddleware(scriptApi.SearchRunRecords))
 		mux.HandleFunc("POST /api/scripts/run/log", handler.AuthMiddleware(scriptApi.RunLog))
+
+		mux.HandleFunc("POST /api/groups/search", handler.AuthMiddleware(groupApi.Search))
+		mux.HandleFunc("POST /api/groups/create", handler.AuthMiddleware(groupApi.Create))
+		mux.HandleFunc("POST /api/groups/update", handler.AuthMiddleware(groupApi.Update))
+		mux.HandleFunc("POST /api/groups/del", handler.AuthMiddleware(groupApi.Delete))
 	}
 
 	web, err := fs.Sub(webFS, "web")

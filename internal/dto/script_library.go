@@ -4,7 +4,8 @@ import "time"
 
 type ScriptSearch struct {
 	Page
-	Info string `json:"info"`
+	Info    string `json:"info"`
+	GroupID uint   `json:"groupID"`
 }
 
 type ScriptOperate struct {
@@ -12,6 +13,7 @@ type ScriptOperate struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Script      string `json:"script"`
+	Groups      string `json:"groups"`
 }
 
 type ScriptInfo struct {
@@ -19,6 +21,8 @@ type ScriptInfo struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	Script      string    `json:"script"`
+	GroupList   []uint    `json:"groupList"`
+	GroupBelong []string  `json:"groupBelong"`
 	CreatedAt   time.Time `json:"createdAt"`
 }
 

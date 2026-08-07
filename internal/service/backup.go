@@ -123,7 +123,7 @@ func RestoreZip(zipBytes []byte) error {
 		return err
 	}
 
-	cronjobs, records, settings, scripts, scriptRecords, err := readBackupDB(dbFile)
+	cronjobs, records, settings, scripts, scriptRecords, groups, err := readBackupDB(dbFile)
 	if err != nil {
 		return err
 	}
@@ -140,7 +140,7 @@ func RestoreZip(zipBytes []byte) error {
 
 	// swap data in a single transaction
 	err = database.DB.Transaction(func(tx *gorm.DB) error {
-		for _, m := range []interface{}{&model.Cronjob{}, &model.JobRecord{}, &model.Setting{}, &model.ScriptLibrary{}, &model.ScriptRecord{}} {
+		for _, m := range []interface{}{&model.Cronjob{}, &model.JobRecord{}, &model.Setting{}, &model.ScriptLibrary{}, &model.ScriptRecord{}, &model.Group{}} {
 			if err := tx.Where("1 = 1").Delete(m).Error; err != nil {
 				return err
 			}
@@ -167,6 +167,11 @@ func RestoreZip(zipBytes []byte) error {
 		}
 		if len(scriptRecords) > 0 {
 			if err := tx.Create(&scriptRecords).Error; err != nil {
+				return err
+			}
+		}
+		if len(groups) > 0 {
+			if err := tx.Create(&groups).Error; err != nil {
 				return err
 			}
 		}
@@ -226,33 +231,33 @@ func ensureIdle() error {
 
 // readBackupDB extracts 2panel.db from the archive into a temp file and reads
 // every row into memory.
-func readBackupDB(dbFile *zip.File) ([]model.Cronjob, []model.JobRecord, []model.Setting, []model.ScriptLibrary, []model.ScriptRecord, error) {
+func readBackupDB(dbFile *zip.File) ([]model.Cronjob, []model.JobRecord, []model.Setting, []model.ScriptLibrary, []model.ScriptRecord, []model.Group, error) {
 	tmp, err := os.CreateTemp("", "2panel-restore-*.db")
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	defer os.Remove(tmp.Name())
 
 	rc, err := dbFile.Open()
 	if err != nil {
 		tmp.Close()
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if _, err := io.Copy(tmp, rc); err != nil {
 		rc.Close()
 		tmp.Close()
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	rc.Close()
 	if err := tmp.Sync(); err != nil {
 		tmp.Close()
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	tmp.Close()
 
 	bdb, err := gorm.Open(sqlite.Open(tmp.Name()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {
-		return nil, nil, nil, nil, nil, fmt.Errorf("读取备份数据库失败: %v", err)
+		return nil, nil, nil, nil, nil, nil, fmt.Errorf("读取备份数据库失败: %v", err)
 	}
 	defer func() {
 		if sqlDB, e := bdb.DB(); e == nil {
@@ -265,22 +270,26 @@ func readBackupDB(dbFile *zip.File) ([]model.Cronjob, []model.JobRecord, []model
 	var settings []model.Setting
 	var scripts []model.ScriptLibrary
 	var scriptRecords []model.ScriptRecord
+	var groups []model.Group
 	if err := bdb.Find(&cronjobs).Error; err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := bdb.Find(&records).Error; err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := bdb.Find(&settings).Error; err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := bdb.Find(&scripts).Error; err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := bdb.Find(&scriptRecords).Error; err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
-	return cronjobs, records, settings, scripts, scriptRecords, nil
+	if err := bdb.Find(&groups).Error; err != nil {
+		return nil, nil, nil, nil, nil, nil, err
+	}
+	return cronjobs, records, settings, scripts, scriptRecords, groups, nil
 }
 
 // extractDataFiles writes log/ and task/ entries from the archive into the

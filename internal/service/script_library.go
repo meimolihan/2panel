@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -44,21 +45,41 @@ func (u *ScriptService) SearchWithPage(search dto.ScriptSearch) (int64, []dto.Sc
 		opts = append(opts, repo.WithByInfo(search.Info))
 	}
 	opts = append(opts, repo.WithOrderBy("created_at", "desc"))
-	total, scripts, err := scriptLibraryRepo.Page(search.Page.Page, search.Page.PageSize, opts...)
+	scripts, err := scriptLibraryRepo.List(opts...)
 	if err != nil {
 		return 0, nil, err
 	}
-	items := make([]dto.ScriptInfo, 0)
+	groupMap, err := loadScriptGroupMap()
+	if err != nil {
+		return 0, nil, err
+	}
+	all := make([]dto.ScriptInfo, 0, len(scripts))
 	for _, script := range scripts {
-		items = append(items, dto.ScriptInfo{
+		groupList, groupBelong := parseScriptGroups(script.Groups, groupMap)
+		if search.GroupID != 0 && !containsUint(groupList, search.GroupID) {
+			continue
+		}
+		all = append(all, dto.ScriptInfo{
 			ID:          script.ID,
 			Name:        script.Name,
 			Description: script.Description,
 			Script:      script.Script,
+			GroupList:   groupList,
+			GroupBelong: groupBelong,
 			CreatedAt:   script.CreatedAt,
 		})
 	}
-	return total, items, nil
+	total := len(all)
+	page, size := normalizePage(search.Page.Page, search.Page.PageSize)
+	start := (page - 1) * size
+	if start > total {
+		start = total
+	}
+	end := start + size
+	if end > total {
+		end = total
+	}
+	return int64(total), all[start:end], nil
 }
 
 func (u *ScriptService) LoadInfo(id uint) (dto.ScriptOperate, error) {
@@ -71,6 +92,7 @@ func (u *ScriptService) LoadInfo(id uint) (dto.ScriptOperate, error) {
 		Name:        script.Name,
 		Description: script.Description,
 		Script:      script.Script,
+		Groups:      script.Groups,
 	}, nil
 }
 
@@ -86,6 +108,7 @@ func (u *ScriptService) Create(req dto.ScriptOperate) error {
 		Name:        name,
 		Description: strings.TrimSpace(req.Description),
 		Script:      req.Script,
+		Groups:      normalizeScriptGroups(req.Groups),
 	}
 	return scriptLibraryRepo.Create(&script)
 }
@@ -106,6 +129,7 @@ func (u *ScriptService) Update(req dto.ScriptOperate) error {
 		"name":        name,
 		"description": strings.TrimSpace(req.Description),
 		"script":      req.Script,
+		"groups":      normalizeScriptGroups(req.Groups),
 	})
 }
 
@@ -343,4 +367,97 @@ func (u *ScriptService) LoadRunLog(taskID string) (dto.ScriptLog, error) {
 func RestoreScriptRecords() {
 	database.DB.Model(&model.ScriptRecord{}).Where("status IN ?", []string{model.StatusRunning, model.StatusWaiting}).
 		Updates(map[string]interface{}{"status": model.StatusFailed, "message": "interrupted by service restart"})
+}
+
+// loadScriptGroupMap returns a map of script-group id -> name used to resolve
+// the human-readable group names attached to library scripts.
+func loadScriptGroupMap() (map[uint]string, error) {
+	groups, err := groupRepo.GetList(repo.WithByType("script"))
+	if err != nil {
+		return nil, err
+	}
+	groupMap := make(map[uint]string, len(groups))
+	for _, group := range groups {
+		groupMap[group.ID] = group.Name
+	}
+	return groupMap, nil
+}
+
+// parseScriptGroups splits a comma-separated group id list into the sorted id
+// slice and its matching names, ignoring unknown/empty entries.
+func parseScriptGroups(groups string, groupMap map[uint]string) ([]uint, []string) {
+	var groupList []uint
+	var groupBelong []string
+	for _, idItem := range strings.Split(groups, ",") {
+		id := parseUint(idItem)
+		if id == 0 {
+			continue
+		}
+		groupList = append(groupList, id)
+		if name, ok := groupMap[id]; ok {
+			groupBelong = append(groupBelong, name)
+		}
+	}
+	return groupList, groupBelong
+}
+
+// normalizeScriptGroups keeps only the ids that still exist as script groups,
+// producing a clean comma-separated string for storage.
+func normalizeScriptGroups(groups string) string {
+	groupMap, err := loadScriptGroupMap()
+	if err != nil {
+		return strings.Trim(groups, ",")
+	}
+	seen := make(map[uint]struct{})
+	var ids []string
+	for _, idItem := range strings.Split(groups, ",") {
+		id := parseUint(idItem)
+		if id == 0 {
+			continue
+		}
+		if _, ok := groupMap[id]; !ok {
+			continue
+		}
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, idItem)
+	}
+	return strings.Join(ids, ",")
+}
+
+func parseUint(s string) uint {
+	id, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil {
+		return 0
+	}
+	if id <= 0 {
+		return 0
+	}
+	return uint(id)
+}
+
+func containsUint(list []uint, id uint) bool {
+	for _, item := range list {
+		if item == id {
+			return true
+		}
+	}
+	return false
+}
+
+// normalizePage clamps a page/size pair into safe values for in-memory
+// pagination, mirroring the repo package's normalizePageSize.
+func normalizePage(page, size int) (int, int) {
+	if page <= 0 {
+		page = 1
+	}
+	if size <= 0 {
+		size = 10
+	}
+	if size > 200 {
+		size = 200
+	}
+	return page, size
 }
