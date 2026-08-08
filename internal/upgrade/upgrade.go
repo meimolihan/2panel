@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
@@ -111,6 +112,20 @@ func Check() (*dto.UpdateInfo, error) {
 }
 
 func fetchLatestRelease() (*release, error) {
+	// 优先 GitHub API（可识别草稿与预发布）；被限流（403/429）或网络失败时
+	// 自动降级到 releases.atom 订阅源（不受 API 限流影响）。
+	r, err := fetchLatestReleaseAPI()
+	if err == nil {
+		return r, nil
+	}
+	ra, aerr := fetchLatestReleaseAtom()
+	if aerr != nil {
+		return nil, fmt.Errorf("%v（Atom 降级读取也失败：%v）", err, aerr)
+	}
+	return ra, nil
+}
+
+func fetchLatestReleaseAPI() (*release, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", GitHubOwner, GitHubRepo)
 	resp, err := get(url, 15*time.Second)
 	if err != nil {
@@ -122,7 +137,7 @@ func fetchLatestRelease() (*release, error) {
 		return &release{}, nil
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("检查更新失败：GitHub API 返回 %d", resp.StatusCode)
+		return nil, fmt.Errorf("GitHub API 返回 %d", resp.StatusCode)
 	}
 	var raw struct {
 		TagName     string `json:"tag_name"`
@@ -139,6 +154,59 @@ func fetchLatestRelease() (*release, error) {
 		return &release{}, nil
 	}
 	return &release{Tag: raw.TagName, Body: raw.Body, PublishedAt: raw.PublishedAt}, nil
+}
+
+func fetchLatestReleaseAtom() (*release, error) {
+	url := fmt.Sprintf("https://github.com/%s/%s/releases.atom", GitHubOwner, GitHubRepo)
+	resp, err := get(url, 15*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GitHub Atom 返回 %d", resp.StatusCode)
+	}
+	var feed struct {
+		Entries []struct {
+			Title     string `xml:"title"`
+			Published string `xml:"published"`
+			Content   string `xml:"content"`
+			Link      struct {
+				Href string `xml:"href,attr"`
+			} `xml:"link"`
+		} `xml:"entry"`
+	}
+	if err := xml.NewDecoder(resp.Body).Decode(&feed); err != nil {
+		return nil, err
+	}
+	if len(feed.Entries) == 0 {
+		return &release{}, nil
+	}
+	e := feed.Entries[0]
+	tag := strings.TrimSpace(e.Title)
+	if href := e.Link.Href; href != "" {
+		// https://github.com/owner/repo/releases/tag/v1.2.3
+		if i := strings.Index(href, "/releases/tag/"); i >= 0 {
+			tag = strings.TrimSpace(href[i+len("/releases/tag/"):])
+		}
+	}
+	return &release{Tag: tag, Body: stripHTML(e.Content), PublishedAt: e.Published}, nil
+}
+
+func stripHTML(s string) string {
+	var b strings.Builder
+	in := false
+	for _, r := range s {
+		switch {
+		case r == '<':
+			in = true
+		case r == '>':
+			in = false
+		case !in:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // ---------------------------------------------------------------------------
