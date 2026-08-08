@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# 2Panel - Scheduled Task Manager
+# 2Panel - 定时任务管理器
 # One-line remote installer.
 #
 # Usage:

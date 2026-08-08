@@ -92,7 +92,7 @@ systemctl stop 2panel 2>/dev/null; pkill -f '^./2panel'; sleep 1
 # 创建服务文件（粘贴后按 Ctrl+D 结束）
 tee /etc/systemd/system/2panel.service <<'EOF'
 [Unit]
-Description=2Panel - Scheduled Task Manager
+Description=2Panel - 定时任务管理器
 After=network.target
 
 [Service]
