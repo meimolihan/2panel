@@ -13,6 +13,7 @@ import (
 	"github.com/2panel-dev/2panel/internal/scheduler"
 	"github.com/2panel-dev/2panel/internal/server"
 	"github.com/2panel-dev/2panel/internal/service"
+	"github.com/2panel-dev/2panel/internal/upgrade"
 )
 
 var (
@@ -57,6 +58,7 @@ func main() {
 		}
 		dataDir = filepath.Join(filepath.Dir(exe), "data")
 	}
+	upgrade.SetVersion(version, build)
 	for _, dir := range []string{dataDir, filepath.Join(dataDir, "log"), filepath.Join(dataDir, "task")} {
 		if err := os.MkdirAll(dir, 0700); err != nil {
 			log.Fatalf("create data dir %s failed: %v", dir, err)

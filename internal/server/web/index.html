@@ -1247,6 +1247,30 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
 @media (prefers-reduced-motion: reduce) {
   .soon-dot { animation: none; }
 }
+
+/* --- 版本更新弹窗 --- */
+.upd-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; font-size: 14px;
+}
+.upd-row .upd-key { color: var(--text-secondary); }
+.upd-row code { font-size: 13px; }
+.upd-changelog {
+  margin-top: 10px; padding: 10px 12px; max-height: 200px; overflow: auto;
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px;
+  font-size: 12px; line-height: 1.7; white-space: pre-wrap; color: var(--text);
+}
+.upd-status {
+  margin-top: 10px; padding: 10px 12px; max-height: 180px; overflow: auto;
+  background: var(--tag-info-bg); color: var(--tag-info-color); border-radius: 8px;
+  font-size: 12px; line-height: 1.8; white-space: pre-wrap;
+}
+.upd-status.error { background: var(--tag-error-bg); color: var(--tag-error-color); }
+.upd-badge {
+  margin-left: auto; font-size: 11px; padding: 1px 7px; border-radius: 999px;
+  background: var(--tag-warning-bg); color: var(--tag-warning-color);
+  font-weight: 600;
+}
 </style>
 </head>
 <body>
@@ -1316,6 +1340,10 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
         <div class="dropdown-item" onclick="closeUserMenu();openBackup()">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           备份还原
+        </div>
+        <div class="dropdown-item" onclick="closeUserMenu();openUpdate()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          版本更新 <span class="upd-badge" id="updateBadge" style="display:none"></span>
         </div>
         <div class="dropdown-item danger" onclick="closeUserMenu();doLogout()">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
@@ -1768,6 +1796,27 @@ echo 'hello 2panel'"></textarea>
 
 <div class="toast-wrap" id="toastWrap"></div>
 
+<!-- upgrade modal -->
+<div class="modal-mask" id="updateMask">
+  <div class="modal sm">
+    <div class="modal-head">
+      <h3>版本更新</h3>
+      <span class="close" onclick="closeUpdate()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="upd-row"><span class="upd-key">当前版本</span><code id="updCurrent">-</code></div>
+      <div class="upd-row"><span class="upd-key">最新版本</span><code id="updLatest">-</code></div>
+      <div class="upd-row"><span class="upd-key">发布时间</span><span id="updDate">-</span></div>
+      <div class="upd-changelog" id="updChangelog" style="display:none"></div>
+      <div class="upd-status" id="updStatus" style="display:none"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="updCheckBtn" onclick="checkUpdate()">检查更新</button>
+      <button class="btn primary" id="updGoBtn" onclick="doUpgrade()" style="display:none">立即升级</button>
+    </div>
+  </div>
+</div>
+
 <!-- unified confirm / prompt dialog -->
 <div class="dialog-mask" id="dialogMask" onclick="if(event.target===this)closeDialog()">
   <div class="dialog-box">
@@ -2113,6 +2162,133 @@ function showPromptBox(opts) {
   return new Promise(resolve => { dialogResolve = resolve; openDialog(Object.assign({ prompt: true }, opts)); });
 }
 
+/* ---------- 版本更新（OTA） ---------- */
+let updatePollTimer = null;
+
+function setUpdateBadge(text) {
+  const b = document.getElementById('updateBadge');
+  if (text) { b.textContent = text; b.style.display = ''; } else { b.style.display = 'none'; }
+}
+
+function openUpdate() {
+  document.getElementById('updateMask').classList.add('show');
+  document.getElementById('updGoBtn').style.display = 'none';
+  document.getElementById('updStatus').style.display = 'none';
+  const cur = document.getElementById('updCurrent');
+  if (!cur.textContent || cur.textContent === '-') {
+    request('/api/version', 'POST', {}).then(v => {
+      cur.textContent = v.version + (v.build && v.build !== 'dev' ? ' (' + v.build + ')' : '');
+    }).catch(() => {});
+  }
+  checkUpdate();
+}
+
+function closeUpdate() {
+  stopUpdatePoll();
+  document.getElementById('updateMask').classList.remove('show');
+}
+
+async function checkUpdate() {
+  const btn = document.getElementById('updCheckBtn');
+  const status = document.getElementById('updStatus');
+  setBtnLoading('updCheckBtn', true);
+  status.style.display = 'none';
+  try {
+    const data = await request('/api/upgrade/check', 'POST', {});
+    const cur = document.getElementById('updCurrent');
+    if (!cur.textContent || cur.textContent === '-') cur.textContent = data.current || '-';
+    document.getElementById('updLatest').textContent = data.latest || '-';
+    document.getElementById('updDate').textContent = data.publishedAt || '-';
+    const cl = document.getElementById('updChangelog');
+    if (data.changelog) { cl.textContent = data.changelog; cl.style.display = ''; } else { cl.style.display = 'none'; }
+    const go = document.getElementById('updGoBtn');
+    if (data.hasUpdate && data.updatable) {
+      go.style.display = '';
+      setUpdateBadge(data.latest);
+      toast('发现新版本 ' + data.latest, 'success');
+    } else {
+      go.style.display = 'none';
+      if (!data.updatable) {
+        status.className = 'upd-status';
+        status.textContent = '当前为开发构建（build=dev），不支持在线升级，请手动重新部署。';
+        status.style.display = '';
+      } else {
+        toast('已是最新版本', 'success');
+      }
+    }
+  } catch (e) {
+    status.className = 'upd-status error';
+    status.textContent = '检查更新失败：' + e.message + '\n请确认服务器可以访问 GitHub。';
+    status.style.display = '';
+  } finally {
+    setBtnLoading('updCheckBtn', false);
+  }
+}
+
+async function doUpgrade() {
+  const ok = await showConfirmBox({
+    title: '确认升级',
+    message: '将下载并替换服务二进制，升级完成后服务会自动重启，重启期间计划任务不会执行。是否继续？',
+    danger: true,
+  });
+  if (!ok) return;
+  const go = document.getElementById('updGoBtn');
+  setBtnLoading('updGoBtn', true);
+  try {
+    await request('/api/upgrade', 'POST', {});
+    go.textContent = '升级中…';
+    go.disabled = true;
+    startUpdatePoll();
+  } catch (e) {
+    setBtnLoading('updGoBtn', false);
+    showUpdError(e.message);
+  }
+}
+
+function startUpdatePoll() {
+  stopUpdatePoll();
+  updatePollTimer = setInterval(pollUpgrade, 1500);
+  pollUpgrade();
+}
+
+function stopUpdatePoll() {
+  if (updatePollTimer) { clearInterval(updatePollTimer); updatePollTimer = null; }
+}
+
+function showUpdError(msg) {
+  const status = document.getElementById('updStatus');
+  status.className = 'upd-status error';
+  status.textContent = msg;
+  status.style.display = '';
+}
+
+async function pollUpgrade() {
+  const status = document.getElementById('updStatus');
+  status.style.display = '';
+  try {
+    const s = await request('/api/upgrade/status', 'POST', {});
+    status.className = 'upd-status' + (s.state === 'error' ? ' error' : '');
+    status.textContent = '状态：' + s.state + (s.newVersion ? '（升级到 ' + s.newVersion + '）' : '') + '\n'
+      + (s.log || []).join('\n');
+    if (s.state === 'error') {
+      stopUpdatePoll();
+      const go = document.getElementById('updGoBtn');
+      go.classList.remove('loading');
+      go.textContent = '立即升级';
+      go.disabled = false;
+    } else if (s.state === 'restarting' || s.state === 'done') {
+      stopUpdatePoll();
+      status.textContent += '\n\n升级完成，服务正在重启，页面即将刷新…';
+      setTimeout(() => location.reload(), 3500);
+    }
+  } catch (e) {
+    // 服务已重启导致连接中断，视为升级成功
+    stopUpdatePoll();
+    status.textContent += '\n\n服务已重启，页面即将刷新…';
+    setTimeout(() => location.reload(), 2000);
+  }
+}
+
 document.getElementById('dialogInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); submitDialog(); }
 });
@@ -2178,7 +2354,7 @@ function renderStatusTags(item) {
 }
 
 /* ---------- 弹窗打开时锁定背景滚动（MutationObserver 自动同步） ---------- */
-const modalRootIds = ['editMask', 'recordMask', 'logMask', 'pwdMask', 'scriptMask', 'scriptGroupMask', 'scriptRunMask', 'scriptRecordMask', 'backupMask', 'dialogMask'];
+const modalRootIds = ['editMask', 'recordMask', 'logMask', 'pwdMask', 'scriptMask', 'scriptGroupMask', 'scriptRunMask', 'scriptRecordMask', 'backupMask', 'dialogMask', 'updateMask'];
 function syncBodyLock() {
   const open = modalRootIds.some(id => {
     const el = document.getElementById(id);
@@ -3175,7 +3351,7 @@ async function copyLog() {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeEdit(); closeRecords(); closeLog(); closeScript(); closeScriptRun(); closeScriptRecords(); closePwd(); closeBackup(); }
+  if (e.key === 'Escape') { closeEdit(); closeRecords(); closeLog(); closeScript(); closeScriptRun(); closeScriptRecords(); closePwd(); closeBackup(); closeUpdate(); }
 });
 ['editMask', 'recordMask', 'logMask', 'pwdMask', 'scriptMask', 'scriptRunMask', 'scriptRecordMask', 'backupMask'].forEach(id => {
   document.getElementById(id).addEventListener('click', function (e) {
@@ -3283,6 +3459,10 @@ function enterApp() {
   document.getElementById('userInfo').style.display = '';
   document.getElementById('userMenu').style.display = '';
   loadList(1);
+  // 静默检查更新，有新版时在账户菜单展示徽章
+  request('/api/upgrade/check', 'POST', {})
+    .then(d => { if (d.hasUpdate && d.updatable) setUpdateBadge(d.latest); })
+    .catch(() => {});
 }
 
 async function doLogin() {

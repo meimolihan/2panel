@@ -5,6 +5,7 @@ type ApiGroup struct {
 	AuthApi    AuthApi
 	ScriptApi  ScriptApi
 	GroupApi   GroupApi
+	UpgradeApi UpgradeApi
 }
 
 var BaseApi = ApiGroup{
@@ -12,4 +13,5 @@ var BaseApi = ApiGroup{
 	AuthApi:    AuthApi{},
 	ScriptApi:  ScriptApi{},
 	GroupApi:   GroupApi{},
+	UpgradeApi: UpgradeApi{},
 }
