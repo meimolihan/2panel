@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -40,6 +41,35 @@ func (u *CronjobService) SearchWithPage(search dto.SearchCronjob) (int64, []dto.
 		items = append(items, item)
 	}
 	return total, items, nil
+}
+
+// Stats aggregates dashboard numbers: total / enabled / executing cronjobs and
+// today's execution success rate.
+func (u *CronjobService) Stats() (dto.CronjobStats, error) {
+	stats := dto.CronjobStats{}
+	if total, err := cronjobRepo.Count(); err != nil {
+		return stats, err
+	} else {
+		stats.Total = total
+	}
+	if enabled, err := cronjobRepo.Count(repo.WithByStatus(model.StatusEnable)); err != nil {
+		return stats, err
+	} else {
+		stats.Enabled = enabled
+	}
+	if executing, err := cronjobRepo.Count(repo.WithIsExecuting(true)); err != nil {
+		return stats, err
+	} else {
+		stats.Executing = executing
+	}
+	now := time.Now()
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	stats.TodaySuccess, _ = cronjobRepo.CountRecords(repo.WithByStatus(model.StatusSuccess), repo.WithStartTimeAfter(start))
+	stats.TodayFailed, _ = cronjobRepo.CountRecords(repo.WithByStatus(model.StatusFailed), repo.WithStartTimeAfter(start))
+	if done := stats.TodaySuccess + stats.TodayFailed; done > 0 {
+		stats.TodayRate = math.Round(float64(stats.TodaySuccess)/float64(done)*1000) / 10
+	}
+	return stats, nil
 }
 
 func (u *CronjobService) LoadInfo(id uint) (dto.CronjobOperate, error) {

@@ -131,3 +131,14 @@ type ScriptOption struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`
 }
+
+// CronjobStats aggregates lightweight dashboard numbers shown at the top of
+// the cronjob list: totals, running count and today's success rate.
+type CronjobStats struct {
+	Total        int64   `json:"total"`
+	Enabled      int64   `json:"enabled"`
+	Executing    int64   `json:"executing"`
+	TodaySuccess int64   `json:"todaySuccess"`
+	TodayFailed  int64   `json:"todayFailed"`
+	TodayRate    float64 `json:"todayRate"`
+}

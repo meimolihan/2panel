@@ -30,6 +30,7 @@ func New(debug bool) http.Handler {
 
 		mux.HandleFunc("POST "+cronjobs, handler.AuthMiddleware(cronApi.Create))
 		mux.HandleFunc("POST "+cronjobs+"/search", handler.AuthMiddleware(cronApi.Search))
+		mux.HandleFunc("POST "+cronjobs+"/stats", handler.AuthMiddleware(cronApi.Stats))
 		mux.HandleFunc("POST "+cronjobs+"/load/info", handler.AuthMiddleware(cronApi.LoadInfo))
 		mux.HandleFunc("POST "+cronjobs+"/update", handler.AuthMiddleware(cronApi.Update))
 		mux.HandleFunc("POST "+cronjobs+"/del", handler.AuthMiddleware(cronApi.Delete))

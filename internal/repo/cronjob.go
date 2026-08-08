@@ -2,6 +2,7 @@ package repo
 
 import (
 	"errors"
+	"time"
 
 	"github.com/2panel-dev/2panel/internal/database"
 	"github.com/2panel-dev/2panel/internal/model"
@@ -44,6 +45,20 @@ func WithByType(typ string) DBOption {
 func WithByStatus(status string) DBOption {
 	return func(g *gorm.DB) *gorm.DB {
 		return g.Where("status = ?", status)
+	}
+}
+
+func WithIsExecuting(v bool) DBOption {
+	return func(g *gorm.DB) *gorm.DB {
+		return g.Where("is_executing = ?", v)
+	}
+}
+
+// WithStartTimeAfter filters job records that started at or after the given
+// time, used for per-day dashboard stats.
+func WithStartTimeAfter(t time.Time) DBOption {
+	return func(g *gorm.DB) *gorm.DB {
+		return g.Where("start_time >= ?", t)
 	}
 }
 
@@ -119,6 +134,17 @@ func (u *CronjobRepo) List(opts ...DBOption) ([]model.Cronjob, error) {
 	return cronjobs, err
 }
 
+// Count returns the number of cronjobs matching the given options.
+func (u *CronjobRepo) Count(opts ...DBOption) (int64, error) {
+	db := database.DB.Model(&model.Cronjob{})
+	for _, opt := range opts {
+		db = opt(db)
+	}
+	var count int64
+	err := db.Count(&count).Error
+	return count, err
+}
+
 func (u *CronjobRepo) Create(cronjob *model.Cronjob) error {
 	return database.DB.Create(cronjob).Error
 }
@@ -177,6 +203,17 @@ func (u *CronjobRepo) ListRecords(opts ...DBOption) ([]model.JobRecord, error) {
 	}
 	err := db.Find(&records).Error
 	return records, err
+}
+
+// CountRecords returns the number of job records matching the given options.
+func (u *CronjobRepo) CountRecords(opts ...DBOption) (int64, error) {
+	db := database.DB.Model(&model.JobRecord{})
+	for _, opt := range opts {
+		db = opt(db)
+	}
+	var count int64
+	err := db.Count(&count).Error
+	return count, err
 }
 
 func (u *CronjobRepo) CreateRecord(record *model.JobRecord) error {

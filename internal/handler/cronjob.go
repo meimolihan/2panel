@@ -69,6 +69,15 @@ func (a *CronjobApi) Search(w http.ResponseWriter, r *http.Request) {
 	SuccessWithData(w, dto.PageResult{Items: list, Total: total})
 }
 
+func (a *CronjobApi) Stats(w http.ResponseWriter, r *http.Request) {
+	stats, err := cronjobService.Stats()
+	if err != nil {
+		InternalServer(w, err)
+		return
+	}
+	SuccessWithData(w, stats)
+}
+
 func (a *CronjobApi) LoadInfo(w http.ResponseWriter, r *http.Request) {
 	var req dto.OperateByID
 	if err := decode(&req, w, r); err != nil {

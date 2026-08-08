@@ -372,6 +372,7 @@ echo y | 2panel restore /root/backup.zip && systemctl start 2panel
 | POST | `/api/auth/restore` | 上传 zip 还原数据（multipart 字段 `file`） |
 | POST | `/api/cronjobs` | 创建任务 |
 | POST | `/api/cronjobs/search` | 分页查询任务 |
+| POST | `/api/cronjobs/stats` | 概览统计（总数 / 已启用 / 执行中 / 今日成功率） |
 | POST | `/api/cronjobs/load/info` | 加载单个任务 |
 | POST | `/api/cronjobs/update` | 更新任务 |
 | POST | `/api/cronjobs/del` | 批量删除 |
