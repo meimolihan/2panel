@@ -1168,23 +1168,27 @@ body.modal-open { overflow: hidden; }
   }
 }
 
-/* --- 三、表格行状态强化：执行中行黄色流光边框 --- */
+/* --- 三、表格行状态强化：执行中行黄色霓虹光晕 --- */
 tbody tr.row-running {
   background-color: var(--row-hover-bg);
   background-image:
-    repeating-linear-gradient(90deg, #fbbf24 0 16px, #fff7cc 16px 22px, #fbbf24 22px 24px),
-    repeating-linear-gradient(90deg, #fbbf24 0 16px, #fff7cc 16px 22px, #fbbf24 22px 24px),
-    repeating-linear-gradient(180deg, #fbbf24 0 16px, #fff7cc 16px 22px, #fbbf24 22px 24px),
-    repeating-linear-gradient(180deg, #fbbf24 0 16px, #fff7cc 16px 22px, #fbbf24 22px 24px);
+    linear-gradient(#fbbf24, #fbbf24),
+    linear-gradient(#fbbf24, #fbbf24),
+    linear-gradient(#fbbf24, #fbbf24),
+    linear-gradient(#fbbf24, #fbbf24),
+    linear-gradient(180deg, rgba(251, 191, 36, 0.35), rgba(251, 191, 36, 0)),
+    linear-gradient(0deg, rgba(251, 191, 36, 0.35), rgba(251, 191, 36, 0)),
+    linear-gradient(90deg, rgba(251, 191, 36, 0.35), rgba(251, 191, 36, 0)),
+    linear-gradient(270deg, rgba(251, 191, 36, 0.35), rgba(251, 191, 36, 0));
   background-repeat: no-repeat;
-  background-size: 100% 2px, 100% 2px, 2px 100%, 2px 100%;
-  background-position: 0 0, 0 100%, 0 0, 100% 0;
-  animation: row-flow-yellow 2s linear infinite;
+  background-size: 100% 2px, 100% 2px, 2px 100%, 2px 100%, 100% 12px, 100% 12px, 12px 100%, 12px 100%;
+  background-position: 0 0, 0 100%, 0 0, 100% 0, 0 0, 0 100%, 0 0, 100% 0;
+  animation: row-glow-yellow 3.5s ease-in-out infinite;
 }
 tbody tr.row-running:hover { background-color: var(--row-hover-bg); }
-@keyframes row-flow-yellow {
-  from { background-position: 0 0, 0 100%, 0 0, 100% 0; }
-  to   { background-position: 24px 0, -24px 100%, 0 -24px, 100% 24px; }
+@keyframes row-glow-yellow {
+  0%, 100% { background-size: 100% 2px, 100% 2px, 2px 100%, 2px 100%, 100% 12px, 100% 12px, 12px 100%, 12px 100%; }
+  50%      { background-size: 100% 2px, 100% 2px, 2px 100%, 2px 100%, 100% 26px, 100% 26px, 26px 100%, 26px 100%; }
 }
 td.name.failed { color: var(--danger); }
 .name-err {
