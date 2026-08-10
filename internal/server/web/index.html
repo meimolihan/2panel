@@ -1288,7 +1288,13 @@ td.name.failed { color: var(--danger); }
 .empty .btn { margin-top: 16px; }
 .modal-head-actions { display: flex; align-items: center; gap: 10px; }
 .modal-head-actions .btn { height: 28px; }
+.modal-icon {
+  width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--tag-info-bg); color: var(--tag-info-color);
+}
 .modal-icon svg { display: block; }
+#backupMask .modal-head h3 { display: inline-flex; align-items: center; gap: 8px; }
 @media (max-width: 767px) {
   .empty .btn { height: 42px; padding: 0 22px; }
 }
