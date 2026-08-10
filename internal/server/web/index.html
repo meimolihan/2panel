@@ -325,6 +325,9 @@ th, td, .code {
   td:last-child { border-bottom: none; }
   td::before { content: attr(data-label); color: var(--text-secondary); font-size: 12px; flex: 0 0 auto; }
   td > span, td > code { text-align: right; }
+  td > span.tag-group { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+  td[data-label="上次执行"] .last-wrap { display: inline-flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+  td[data-label="上次执行"] .last-time { margin-top: 0; }
   td.ellipsis { max-width: none; overflow: visible; text-overflow: clip; }
   td.name { font-weight: 600; }
   td[data-label="操作"] { flex-wrap: wrap; justify-content: flex-start; gap: 8px; padding-top: 9px; }
@@ -2390,9 +2393,9 @@ function jumpPage(kind) {
 
 function renderStatusTags(item) {
   const t = statusText[item.status] || esc(item.status);
-  let html = `<span class="tag ${escAttr(item.status)}">${t}</span>`;
-  if (item.isExecuting) html += ' <span class="tag running">执行中</span>';
-  return html;
+  let tags = `<span class="tag ${escAttr(item.status)}">${t}</span>`;
+  if (item.isExecuting) tags += '<span class="tag running">执行中</span>';
+  return `<span class="tag-group">${tags}</span>`;
 }
 
 /* ---------- 弹窗打开时锁定背景滚动（MutationObserver 自动同步） ---------- */
