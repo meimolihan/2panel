@@ -206,6 +206,7 @@ td.ellipsis { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 .tag.unexecuted { background: var(--tag-warning-bg); color: var(--tag-warning-color); }
 .tag.shell { background: var(--tag-shell-bg); color: var(--tag-shell-color); }
 .tag.curl { background: var(--tag-curl-bg); color: var(--tag-curl-color); }
+.tag-group { display: inline-flex; align-items: center; gap: 4px; }
 .empty { text-align: center; color: var(--text-secondary); padding: 48px 0; }
 .pager { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 16px; }
 .pager .info { color: var(--text-secondary); font-size: 13px; }
@@ -905,9 +906,10 @@ tbody tr { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.02), 
 
 /* --- 二、表头吸顶（桌面端；移动端 thead 已隐藏，不受影响） --- */
 thead th { position: sticky; top: 0; z-index: 2; }
-/* 顶栏吸顶后表头需让出顶栏高度（56px），否则滚动时被顶栏盖住 */
+/* 顶栏吸顶后页面主表头需让出顶栏高度（56px），否则滚动时被顶栏盖住；
+   仅作用于 .card 直系表格；弹窗内表格保持 top:0，避免表头在弹窗滚动区悬空偏移 */
 @media (min-width: 769px) {
-  thead th { top: 56px; }
+  .card > table thead th { top: 56px; }
 }
 
 /* --- 三、空状态：图标 + 文案垂直居中 --- */
@@ -1264,7 +1266,7 @@ td.name.failed { color: var(--danger); }
   flex: 0 0 auto;
 }
 .last-wrap { display: inline-block; text-align: inherit; }
-.last-time { font-size: 12px; color: var(--text-secondary); margin-top: 3px; text-align: inherit; }
+.last-time { font-size: 12px; color: var(--text-secondary); margin-top: 3px; text-align: inherit; font-variant-numeric: tabular-nums; }
 
 /* 移动端：统计卡片两列 */
 @media (max-width: 767px) {
@@ -1275,12 +1277,14 @@ td.name.failed { color: var(--danger); }
   .stat-value { font-size: 19px; }
 }
 
-/* --- 四、移动端操作区：开关置顶右对齐，四个操作按钮单行等宽 --- */
+/* --- 四、移动端操作区：开关右对齐（与标签分行两端排布，不重叠），四个操作按钮单行等宽 --- */
 @media (max-width: 767px) {
   td[data-label="操作"], td[data-label="任务开关"] { position: relative; }
-  td[data-label="操作"] .switch, td[data-label="任务开关"] .switch {
-    position: absolute; top: 9px; right: 0; z-index: 2;
+  td[data-label="任务开关"] {
+    min-height: 44px;
+    justify-content: space-between;
   }
+  td[data-label="任务开关"]::before { flex-basis: auto; }
   td[data-label="操作"] .op-group, td[data-label="任务开关"] .op-group {
     flex-wrap: nowrap;
     gap: 6px;
@@ -1507,14 +1511,14 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
     <table>
       <thead>
         <tr>
-          <th style="width:200px" class="sortable" data-sort="name" onclick="sortBy('name')">任务名称</th>
-          <th style="width:80px">任务开关</th>
-          <th style="width:80px" class="sortable" data-sort="type" onclick="sortBy('type')">任务类型</th>
-          <th style="width:80px" class="sortable" data-sort="status" onclick="sortBy('status')">任务状态</th>
+          <th style="width:220px" class="sortable" data-sort="name" onclick="sortBy('name')">任务名称</th>
+          <th style="width:120px">任务开关</th>
+          <th style="width:90px" class="sortable" data-sort="type" onclick="sortBy('type')">任务类型</th>
+          <th style="width:110px" class="sortable" data-sort="status" onclick="sortBy('status')">任务状态</th>
           <th>执行频率</th>
-          <th style="width:200px">上次执行</th>
-          <th style="width:150px">下次执行</th>
-          <th style="width:340px"></th>
+          <th style="width:170px">上次执行</th>
+          <th style="width:140px">下次执行</th>
+          <th style="width:320px"></th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -2661,7 +2665,7 @@ function renderList(items, total) {
       ? `<span class="last-wrap"><span class="tag ${escAttr(item.lastRecordStatus)}">${statusText[item.lastRecordStatus] || esc(item.lastRecordStatus)}</span><div class="last-time">${esc(item.lastRecordTime || '-')}</div></span>`
       : esc(item.lastRecordTime || '-');
     tr.innerHTML = `
-      <td class="name${lastFailed ? ' failed' : ''}" data-label="任务名称" title="${escAttr(item.name)}">${lastFailed ? '<span class="name-err"></span>' : ''}${esc(item.name)}</td>
+      <td class="name ellipsis${lastFailed ? ' failed' : ''}" data-label="任务名称" title="${escAttr(item.name)}">${lastFailed ? '<span class="name-err"></span>' : ''}${esc(item.name)}</td>
       <td data-label="任务开关" style="text-align:right">
         <label class="switch" title="${item.status === 'enabled' ? '停用任务' : '启用任务'}">
           <input type="checkbox" ${item.status === 'enabled' ? 'checked' : ''} onchange="toggleStatus(${item.id}, this.checked)">
