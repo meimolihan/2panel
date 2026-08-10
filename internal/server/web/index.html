@@ -1168,13 +1168,24 @@ body.modal-open { overflow: hidden; }
   }
 }
 
-/* --- 三、表格行状态强化 --- */
+/* --- 三、表格行状态强化：执行中行黄色流光边框 --- */
 tbody tr.row-running {
-  background: var(--row-hover-bg);
-  background-image: none;
-  box-shadow: inset 3px 0 0 var(--primary);
+  background-color: var(--row-hover-bg);
+  background-image:
+    repeating-linear-gradient(90deg, #fbbf24 0 16px, #fff7cc 16px 22px, #fbbf24 22px 24px),
+    repeating-linear-gradient(90deg, #fbbf24 0 16px, #fff7cc 16px 22px, #fbbf24 22px 24px),
+    repeating-linear-gradient(180deg, #fbbf24 0 16px, #fff7cc 16px 22px, #fbbf24 22px 24px),
+    repeating-linear-gradient(180deg, #fbbf24 0 16px, #fff7cc 16px 22px, #fbbf24 22px 24px);
+  background-repeat: no-repeat;
+  background-size: 100% 2px, 100% 2px, 2px 100%, 2px 100%;
+  background-position: 0 0, 0 100%, 0 0, 100% 0;
+  animation: row-flow-yellow 2s linear infinite;
 }
-tbody tr.row-running:hover { background: var(--row-hover-bg); background-image: none; }
+tbody tr.row-running:hover { background-color: var(--row-hover-bg); }
+@keyframes row-flow-yellow {
+  from { background-position: 0 0, 0 100%, 0 0, 100% 0; }
+  to   { background-position: 24px 0, -24px 100%, 0 -24px, 100% 24px; }
+}
 td.name.failed { color: var(--danger); }
 .name-err {
   display: inline-block; width: 8px; height: 8px; margin-right: 7px;
@@ -1336,6 +1347,10 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
         <div class="dropdown-item" onclick="closeUserMenu();openPwd()">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
           修改密码
+        </div>
+        <div class="dropdown-item" onclick="closeUserMenu();restartApp()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+          重新启动
         </div>
         <div class="dropdown-item" onclick="closeUserMenu();openBackup()">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -2289,6 +2304,29 @@ async function pollUpgrade() {
   }
 }
 
+async function restartApp() {
+  const ok = await showConfirmBox({
+    title: '确认重启',
+    message: '将重启 2Panel 服务，重启期间面板暂时无法访问，重启完成后页面自动刷新。是否继续？',
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    await request('/api/system/restart', 'POST', {});
+    toast('服务正在重启，请稍候…', 'success');
+  } catch (e) {
+    toast('重启失败：' + e.message, 'error');
+    return;
+  }
+  let down = false, tries = 0;
+  const check = () => {
+    fetch('/api/auth/status', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+      .then(() => { if (down) location.reload(); else setTimeout(check, 1000); })
+      .catch(() => { down = true; if (++tries > 40) return location.reload(); setTimeout(check, 1000); });
+  };
+  setTimeout(check, 1000);
+}
+
 document.getElementById('dialogInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); submitDialog(); }
 });
@@ -2369,13 +2407,20 @@ modalRootIds.forEach(id => {
 });
 
 /* ---------- 列表静默自动刷新（30s，登录态 + 前台 + 无弹窗时） ---------- */
-setInterval(() => {
-  if (document.documentElement.getAttribute('data-authed') !== '1') return;
-  if (document.hidden) return;
-  if (document.body.classList.contains('modal-open')) return;
-  if (document.getElementById('panelCron').style.display === 'none') return;
-  loadList(currentPage, true);
-}, 30000);
+let autoRefreshTimer = null;
+function scheduleAutoRefresh() {
+  const hasRunning = !!document.querySelector('tbody tr.row-running');
+  autoRefreshTimer = setTimeout(tickAutoRefresh, hasRunning ? 3000 : 30000);
+}
+async function tickAutoRefresh() {
+  if (document.documentElement.getAttribute('data-authed') !== '1') return scheduleAutoRefresh();
+  if (document.hidden) return scheduleAutoRefresh();
+  if (document.body.classList.contains('modal-open')) return scheduleAutoRefresh();
+  if (document.getElementById('panelCron').style.display === 'none') return scheduleAutoRefresh();
+  try { await loadList(currentPage, true); } catch (e) {}
+  scheduleAutoRefresh();
+}
+scheduleAutoRefresh();
 
 function toggleTheme() {
   const target = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
@@ -2482,7 +2527,8 @@ function renderList(items, total) {
   totalPages = Math.ceil(total / pageSize) || 1;
   setPagerState('pager', 'pageInput', 'prevPageBtn', 'nextPageBtn', currentPage, totalPages);
   document.getElementById('pageInfo').textContent = `共 ${total} 条 · 第 ${currentPage}/${totalPages} 页`;
-  for (const item of items) {
+  const sorted = items.slice().sort((a, b) => (b.isExecuting ? 1 : 0) - (a.isExecuting ? 1 : 0));
+  for (const item of sorted) {
     const tr = document.createElement('tr');
     tr.className = item.isExecuting ? 'row-running' : '';
     const lastFailed = item.lastRecordStatus === 'failed';

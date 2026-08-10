@@ -4,7 +4,12 @@
 # One-line remote installer.
 #
 # Usage:
-#   bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)"
+#   交互式安装:
+#     bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)"
+#   参数静默安装（-p 端口 / -d 数据目录）:
+#     bash <(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh) -p 8080 -d /var/lib/2panel
+#     curl -fsSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh -o /tmp/2panel-install.sh \
+#       && bash /tmp/2panel-install.sh -p 8080 -d /var/lib/2panel
 #
 # Requires a GitHub Release containing the binaries built by scripts/build-release.sh.
 
@@ -16,6 +21,38 @@ GITHUB_REPO="2Panel"                  # GitHub repository name
 DEFAULT_PORT=8080
 DEFAULT_DATA_DIR="/var/lib/2panel"
 # ==================================================
+
+# ---- parse command-line args (silent install) ----
+# 用法: bash install.sh [-p|--port PORT] [-d|--data DIR] [-h|--help]
+# 示例: bash install.sh -p 8080 -d /var/lib/2panel
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -p|--port)
+      shift
+      [ -n "${1:-}" ] || { echo "缺少 -p/--port 的值" >&2; exit 1; }
+      PORT="$1"
+      ;;
+    -d|--data)
+      shift
+      [ -n "${1:-}" ] || { echo "缺少 -d/--data 的值" >&2; exit 1; }
+      DATA_DIR="$1"
+      ;;
+    -h|--help)
+      echo "2Panel - 计划任务管理工具 安装脚本"
+      echo "用法: bash install.sh [-p PORT] [-d DATA_DIR]"
+      echo "  -p, --port   监听端口（默认 ${DEFAULT_PORT}）"
+      echo "  -d, --data   数据目录（默认 ${DEFAULT_DATA_DIR}）"
+      echo "  -h, --help   显示本帮助"
+      echo "指定任意参数即进入静默安装；不带参数则为交互式安装。"
+      exit 0
+      ;;
+    *)
+      echo "未知参数: $1（使用 -h 查看帮助）" >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 API_BASE="https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}"
 
@@ -62,6 +99,10 @@ print_banner() {
 
 break_end() {
     echo -e "${gl_lv}操作完成${gl_bai}"
+    if [ "${SILENT:-n}" = "y" ] || [ ! -t 0 ]; then
+        echo ""
+        return
+    fi
     echo -e "${gl_bai}按任意键继续 ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}\c"
     read -r -n 1 -s -r -p ""
     echo ""
@@ -116,7 +157,7 @@ open_firewall_port() {
 }
 
 # ---- preflight ----
-[ "$(id -u)" != "0" ] && error "请以 root 身份运行（例如 sudo bash -c \"$(curl -sSL ...)\"）"
+[ "$(id -u)" != "0" ] && error "请以 root 身份运行（例如 sudo bash <(curl -sSL ...) -p 8080）"
 
 command -v curl >/dev/null 2>&1 || error "请先安装 curl（apt install curl / yum install curl）"
 
@@ -134,24 +175,49 @@ printf "  %-14s %s\n" "${gl_lan}系统${reset}" "$(uname -s) $(uname -m)"
 printf "  %-14s %s\n" "${gl_lan}架构${reset}" "${ARCH}"
 sep_line
 
+# ---- silent install detection ----
+# 通过命令行参数（-p/-d）或环境变量（PORT/DATA_DIR）跳过交互提示，实现静默安装：
+#   bash install.sh -p 8080 -d /var/lib/2panel
+#   PORT=8080 DATA_DIR=/var/lib/2panel bash install.sh
+SILENT="n"
+if [ -n "${PORT}" ]; then
+  case "${PORT}" in
+    ''|*[!0-9]*) error "环境变量 PORT 无效（需为 1-65535 的数字）: ${PORT}" ;;
+    *) [ "${PORT}" -ge 1 ] && [ "${PORT}" -le 65535 ] || error "环境变量 PORT 超出范围（1-65535）: ${PORT}" ;;
+  esac
+  SILENT="y"
+fi
+if [ -n "${DATA_DIR}" ]; then
+  SILENT="y"
+fi
+
 # ---- prompt: listen port ----
 section "配置参数"
-while :; do
-  read -r -p "${gl_bai}请输入监听端口${reset} ${gl_hui}[默认: ${DEFAULT_PORT}]${reset}: " PORT
-  PORT="${PORT:-$DEFAULT_PORT}"
-  case "$PORT" in
-    ''|*[!0-9]*) printf "  %s\n" "${gl_huang}端口无效，请重新输入。${reset}" ;;
-    *)
-      if [ "$PORT" -ge 1 ] && [ "$PORT" -le 65535 ]; then
-        break
-      fi
-      printf "  %s\n" "${gl_huang}端口超出范围（1-65535），请重新输入。${reset}"
-      ;;
-  esac
-done
+if [ -z "${PORT}" ]; then
+  while :; do
+    read -r -p "${gl_bai}请输入监听端口${reset} ${gl_hui}[默认: ${DEFAULT_PORT}]${reset}: " PORT
+    PORT="${PORT:-$DEFAULT_PORT}"
+    case "$PORT" in
+      ''|*[!0-9]*) printf "  %s\n" "${gl_huang}端口无效，请重新输入。${reset}" ;;
+      *)
+        if [ "$PORT" -ge 1 ] && [ "$PORT" -le 65535 ]; then
+          break
+        fi
+        printf "  %s\n" "${gl_huang}端口超出范围（1-65535），请重新输入。${reset}"
+        ;;
+    esac
+  done
+else
+  printf "  %-14s %s\n" "${gl_lan}监听端口${reset}" "${gl_bai}${PORT}${reset}（参数指定）"
+fi
+PORT="${PORT:-$DEFAULT_PORT}"
 
 # ---- prompt: data directory ----
-read -r -p "${gl_bai}请输入数据目录${reset} ${gl_hui}[默认: ${DEFAULT_DATA_DIR}]${reset}: " DATA_DIR
+if [ -z "${DATA_DIR}" ]; then
+  read -r -p "${gl_bai}请输入数据目录${reset} ${gl_hui}[默认: ${DEFAULT_DATA_DIR}]${reset}: " DATA_DIR
+else
+  printf "  %-14s %s\n" "${gl_lan}数据目录${reset}" "${gl_bai}${DATA_DIR}${reset}（参数指定）"
+fi
 DATA_DIR="${DATA_DIR:-$DEFAULT_DATA_DIR}"
 
 # ---- systemd: auto-configure (preferred) ----

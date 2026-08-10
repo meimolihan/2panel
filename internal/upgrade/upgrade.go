@@ -297,6 +297,33 @@ func Perform() error {
 	return nil
 }
 
+// Restart 手动重启服务（systemd 或 nohup 后台模式）。
+// 与升级互斥：升级进行中拒绝重启，手动重启挂起时也拒绝升级。
+func Restart() error {
+	st.mu.Lock()
+	if st.running {
+		st.mu.Unlock()
+		return fmt.Errorf("升级正在进行中，无法重启，请稍候")
+	}
+	if st.status == "restarting" {
+		st.mu.Unlock()
+		return fmt.Errorf("服务正在重启中，请稍候")
+	}
+	st.status = "restarting"
+	st.mu.Unlock()
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logf("重启异常终止：%v", r)
+			}
+		}()
+		logf("收到手动重启请求")
+		restartService()
+	}()
+	return nil
+}
+
 func doUpgrade() error {
 	info, err := Check()
 	if err != nil {

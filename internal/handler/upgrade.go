@@ -41,3 +41,12 @@ func (a *UpgradeApi) Upgrade(w http.ResponseWriter, r *http.Request) {
 func (a *UpgradeApi) Status(w http.ResponseWriter, r *http.Request) {
 	SuccessWithData(w, upgrade.Status())
 }
+
+// Restart restarts the 2Panel service.
+func (a *UpgradeApi) Restart(w http.ResponseWriter, r *http.Request) {
+	if err := upgrade.Restart(); err != nil {
+		Error(w, http.StatusBadRequest, err)
+		return
+	}
+	SuccessWithData(w, upgrade.Status())
+}

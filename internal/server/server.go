@@ -25,6 +25,7 @@ func New(debug bool) http.Handler {
 		mux.HandleFunc("POST /api/upgrade/check", handler.AuthMiddleware(upgradeApi.Check))
 		mux.HandleFunc("POST /api/upgrade", handler.AuthMiddleware(upgradeApi.Upgrade))
 		mux.HandleFunc("POST /api/upgrade/status", handler.AuthMiddleware(upgradeApi.Status))
+		mux.HandleFunc("POST /api/system/restart", handler.AuthMiddleware(upgradeApi.Restart))
 
 		mux.HandleFunc("POST /api/auth/status", authApi.Status)
 		mux.HandleFunc("POST /api/auth/login", authApi.Login)
