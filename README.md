@@ -121,8 +121,10 @@ curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/
 
 | 操作 | 命令 |
 | --- | --- |
-| 查看状态 | `systemctl status 2panel` |
-| 停止 / 启动 / 重启 | `systemctl stop 2panel` / `systemctl start 2panel` / `systemctl restart 2panel` |
+| 启动 | `systemctl start 2panel` |
+| 关闭 | `systemctl stop 2panel` |
+| 重启 | `systemctl restart 2panel` |
+| 状态 | `systemctl status 2panel` |
 | 查看实时日志 | `journalctl -u 2panel -f` |
 | 查看最近 30 行日志 | `journalctl -u 2panel -n 30 --no-pager` |
 | 关闭开机自启 | `systemctl disable 2panel` |
