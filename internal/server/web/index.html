@@ -1785,7 +1785,7 @@ echo 'hello 2panel'"></textarea>
       </div>
       <table>
         <thead>
-          <tr><th style="width:170px">开始时间</th><th style="width:90px">状态</th><th>日志</th><th style="width:160px">耗时</th><th style="width:100px">操作</th></tr>
+          <tr><th style="width:170px">开始时间</th><th style="width:90px">状态</th><th>日志</th><th style="width:160px">耗时</th><th style="width:100px"></th></tr>
         </thead>
         <tbody id="recordTbody"></tbody>
       </table>
@@ -2662,7 +2662,7 @@ function renderList(items, total) {
       : esc(item.lastRecordTime || '-');
     tr.innerHTML = `
       <td class="name${lastFailed ? ' failed' : ''}" data-label="任务名称" title="${escAttr(item.name)}">${lastFailed ? '<span class="name-err"></span>' : ''}${esc(item.name)}</td>
-      <td data-label="任务开关" style="text-align:center">
+      <td data-label="任务开关" style="text-align:right">
         <label class="switch" title="${item.status === 'enabled' ? '停用任务' : '启用任务'}">
           <input type="checkbox" ${item.status === 'enabled' ? 'checked' : ''} onchange="toggleStatus(${item.id}, this.checked)">
           <span class="track"></span><span class="knob"></span>
