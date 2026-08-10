@@ -22,6 +22,7 @@ const (
 	StyleWhite  = "\x1b[38;5;15m"
 	StylePurple = "\x1b[38;5;13m"
 	StyleCyan   = "\x1b[38;5;14m"
+	StyleBold   = "\x1b[1m"
 	StyleReset  = "\x1b[0m"
 )
 
@@ -36,6 +37,12 @@ func ColorEnabled() bool {
 		color = stdoutIsTTY()
 	})
 	return color
+}
+
+// StdoutTTY reports whether stdout is attached to a real terminal. It is used
+// by CLI progress spinners, which should stay silent when output is piped.
+func StdoutTTY() bool {
+	return stdoutIsTTY()
 }
 
 // Paint colorizes s with style when stdout is a terminal; otherwise s is

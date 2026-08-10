@@ -35,10 +35,10 @@ func cmdUninstall() int {
 		cliErr("请以 root 身份运行：sudo 2panel uninstall")
 		return 1
 	}
-	printUninstallBanner()
+	cliBanner("卸载")
 
 	reader := bufio.NewReader(os.Stdin)
-	if !uninstallConfirm(reader, "卸载将停止并移除 2Panel 服务与程序，是否继续？[y/N]: ", false) {
+	if !uninstallConfirm(reader, "卸载将停止并移除 2Panel 服务与程序，是否继续？", false) {
 		fmt.Println(cliPaint("已取消卸载。", styleYellow))
 		return 0
 	}
@@ -49,7 +49,22 @@ func cmdUninstall() int {
 	closeFirewallPort(port)
 	remove2panelBinary()
 
-	if uninstallConfirm(reader, fmt.Sprintf("是否删除数据目录 %s（完全卸载）？[Y/n]: ", dataDir), true) {
+	if info, err := os.Stat(dataDir); err == nil && info.IsDir() {
+		if size, err := dirSize(dataDir); err == nil {
+			cliOK("检测到数据目录: %s（约 %s）", dataDir, humanSize(size))
+		} else {
+			cliOK("检测到数据目录: %s", dataDir)
+		}
+	} else {
+		cliOK("未检测到数据目录 %s，跳过删除。", dataDir)
+		_ = os.Remove(uninstallConfigFile)
+		_ = os.Remove(filepath.Dir(uninstallConfigFile))
+		cliSuccessBox("2Panel 卸载完成")
+		fmt.Println(cliPaint("如需重新安装，请再次运行 install.sh 安装脚本。", styleGrey))
+		return 0
+	}
+
+	if uninstallConfirm(reader, fmt.Sprintf("是否删除数据目录 %s（完全卸载）？", dataDir), true) {
 		if err := os.RemoveAll(dataDir); err != nil {
 			cliWarn("删除数据目录失败: %v", err)
 		} else {
@@ -58,7 +73,6 @@ func cmdUninstall() int {
 	} else {
 		cliOK("已保留数据目录 %s", dataDir)
 	}
-
 	// remove the installation record written by install.sh
 	if _, err := os.Stat(uninstallConfigFile); err == nil {
 		if err := os.Remove(uninstallConfigFile); err != nil {
@@ -69,25 +83,16 @@ func cmdUninstall() int {
 		_ = os.Remove(filepath.Dir(uninstallConfigFile))
 	}
 
-	fmt.Println("")
-	cliDone("2Panel 已卸载完成。如需重新安装，请再次运行 install.sh 安装脚本。")
+	cliSuccessBox("2Panel 卸载完成")
+	fmt.Println(cliPaint("如需重新安装，请再次运行 install.sh 安装脚本。", styleGrey))
 	return 0
 }
 
-func printUninstallBanner() {
-	fmt.Println(cliPaint(` ____  ____                  _
-|___ \|  _ \ __ _ _ __   ___| |
-  __) | |_) / _`+"`"+` | '_ \ / _ \ |
- / __/|  __/ (_| | | | |  __/ |
-|_____|_|   \__,_|_| |_|\___|_|`, stylePurple))
-	fmt.Println(cliPaint("2Panel - 卸载", styleWhite))
-	fmt.Println("")
-}
-
 // uninstallConfirm asks a y/n question; defYes makes Enter answer yes.
-func uninstallConfirm(reader *bufio.Reader, prompt string, defYes bool) bool {
+func uninstallConfirm(reader *bufio.Reader, msg string, defYes bool) bool {
+	prompt := cliConfirmPrompt(msg, defYes) + " "
 	for {
-		fmt.Print(cliPaint(prompt, styleYellow))
+		fmt.Print(prompt)
 		line, err := reader.ReadString('\n')
 		if err != nil && line == "" {
 			return defYes

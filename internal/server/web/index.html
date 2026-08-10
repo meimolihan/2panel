@@ -975,7 +975,7 @@ thead th { position: sticky; top: 0; z-index: 2; }
 .dialog-head h3 { font-size: 15px; }
 .dialog-head .close { cursor: pointer; color: var(--text-secondary); font-size: 18px; padding: 4px; }
 .dialog-body { padding: 20px; }
-.dialog-msg { font-size: 14px; line-height: 1.6; color: var(--text); word-break: break-word; }
+.dialog-msg { font-size: 14px; line-height: 1.7; color: var(--text); word-break: break-word; white-space: pre-line; }
 .dialog-field { margin-top: 16px; }
 .dialog-field input {
   width: 100%; height: 38px; border: 1px solid var(--border); border-radius: 6px;
@@ -1369,9 +1369,81 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
   background: var(--tag-warning-bg); color: var(--tag-warning-color);
   font-weight: 600;
 }
+
+/* ===== 页脚 ===== */
+.footer {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding: 22px 24px 30px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.9;
+}
+.footer a { color: var(--text-secondary); text-decoration: none; transition: color 0.2s ease; }
+.footer a:hover { color: var(--primary); }
+.footer .foot-ver { font-variant-numeric: tabular-nums; }
+
+/* ===== 返回顶部悬浮按钮 ===== */
+.back-top {
+  position: fixed; right: 24px; bottom: 28px; z-index: 60;
+  width: 42px; height: 42px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  box-shadow: var(--shadow-md);
+  opacity: 0; transform: translateY(12px); pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease, color 0.25s ease, border-color 0.25s ease;
+}
+.back-top.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.back-top:hover { color: var(--primary); border-color: var(--primary); }
+.back-top svg { display: block; }
+@media (hover: hover) and (pointer: fine) {
+  .back-top.show:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+}
+@media (max-width: 767px) {
+  .back-top { right: 14px; bottom: 16px; width: 40px; height: 40px; }
+}
+
+/* ===== 首屏加载 Splash ===== */
+#splash {
+  position: fixed; inset: 0; z-index: 5000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  background: var(--bg);
+  background-image:
+    radial-gradient(560px 400px at 30% 20%, var(--bg-glow-a), transparent 60%),
+    radial-gradient(520px 380px at 70% 80%, var(--bg-glow-b), transparent 60%);
+  transition: opacity 0.35s ease;
+}
+#splash.hide { opacity: 0; pointer-events: none; }
+#splash.remove { display: none; }
+.splash-logo { width: 56px; height: 56px; display: block; animation: splash-float 2.4s ease-in-out infinite; }
+.splash-title { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+.splash-spinner {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 3px solid var(--border); border-top-color: var(--primary);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes splash-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@media (prefers-reduced-motion: reduce) {
+  .splash-logo { animation: none; }
+  .splash-spinner { animation-duration: 1.6s; }
+}
 </style>
 </head>
 <body>
+<div id="splash">
+  <svg class="splash-logo" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M79.560165 259.855802v503.572017l435.09465 250.73251 434.041152-250.73251-1.053498-502.518519-432.987654-250.73251-435.09465 249.679012z" fill="#005EFD"/>
+    <path d="M93.255638 268.283786v486.716049l422.452675 241.251029 419.292181-242.304527v-485.662551l-421.399177-242.304527-420.345679 242.304527z" fill="#FFFFFF"/>
+    <path d="M139.609547 294.621235l95.868313 56.888888 371.884774-218.074074-93.761317-53.728395-373.99177 214.913581z" fill="#005EFD"/>
+    <path d="M139.609547 293.567737v435.09465l243.358025 139.061728 92.707819-55.835391-241.251029-140.115226 1.053498-320.263375-95.868313-57.942386zM791.269663 350.096329v321.780412l95.269925 55.732148V294.364181L645.749992 154.506008 551.527243 210.238156l239.74242 139.858173z" fill="#0854C1"/>
+    <path d="M420.893498 886.470058l93.339918 56.052411 372.306172-214.692346-94.387094-57.110123L420.893498 886.470058z" fill="#005EFD"/>
+    <path d="M406 444 h212 v72 h-212 z M406 562 h212 v72 h-212 z" fill="#005EFD"/>
+    <path d="M618 444 l31.6 -16.8 v72 l-31.6 16.8 z M618 562 l31.6 -16.8 v72 l-31.6 16.8 z" fill="#0854C1"/>
+  </svg>
+  <div class="splash-title"><span style="color:var(--primary)">2Panel</span></div>
+  <div class="splash-spinner"></div>
+</div>
 <div id="loginPage">
   <div class="login-card">
     <div class="login-brand">
@@ -1405,7 +1477,7 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
     <button class="btn primary login-btn" id="loginBtn" onclick="doLogin()">登 录</button>
     <div class="default-pwd" id="defaultPwdBox" style="display:none">
       <div class="dp-label">首次登录默认密码</div>
-      <div class="dp-val"><code id="defaultPwdVal"></code><button class="btn small" onclick="copyDefaultPwd()">复制</button></div>
+      <div class="dp-val"><code id="defaultPwdVal"></code><button class="btn small" onclick="copyDefaultPwd(this)">复制</button></div>
       <div class="dp-note">登录后请在右上角「修改密码」中更换初始密码。</div>
     </div>
   </div>
@@ -1499,7 +1571,7 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
   </div>
   <div class="card">
     <div class="toolbar">
-      <input type="text" id="searchInput" placeholder="搜索任务名称" onkeyup="if(event.key==='Enter')loadList(1)">
+      <input type="text" id="searchInput" placeholder="搜索任务名称" oninput="scheduleSearch()" onkeyup="if(event.key==='Enter'){flushSearch()}">
       <div class="spacer"></div>
       <button class="btn" onclick="loadList(currentPage)" title="刷新"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>刷新</button>
       <button class="btn" onclick="exportCronjobs()" title="导出"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>导出</button>
@@ -1544,7 +1616,7 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
   <div class="card">
     <div class="toolbar">
       <div class="search-filter">
-        <input type="text" id="scriptSearch" placeholder="搜索脚本名称/描述" onkeyup="if(event.key==='Enter')loadScriptList(1)">
+        <input type="text" id="scriptSearch" placeholder="搜索脚本名称/描述" oninput="scheduleScriptSearch()" onkeyup="if(event.key==='Enter'){flushScriptSearch()}">
         <select id="scriptGroupFilter" onchange="loadScriptList(1)">
           <option value="0">全部分组</option>
         </select>
@@ -1585,6 +1657,16 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
   </div>
   </div>
 </div>
+
+<footer class="footer">
+  <div>© 2026 <span style="color:var(--primary)">2Panel</span> 计划任务管理工具</div>
+  <div class="foot-ver">版本 <span id="footVersion">-</span></div>
+  <div><a href="https://github.com/meimolihan/2Panel" target="_blank" rel="noopener">GitHub</a></div>
+</footer>
+
+<button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="返回顶部" aria-label="返回顶部">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+</button>
 
 <!-- create/edit modal -->
 <div class="modal-mask" id="editMask">
@@ -1816,7 +1898,7 @@ echo 'hello 2panel'"></textarea>
     <div class="modal-head">
       <h3>执行日志：<span id="logTitle"></span></h3>
       <div class="modal-head-actions">
-        <button class="btn small" onclick="copyLog()">复制日志</button>
+        <button class="btn small" onclick="copyLog(this)">复制日志</button>
         <span class="close" onclick="closeLog()">✕</span>
       </div>
     </div>
@@ -2528,6 +2610,26 @@ async function tickAutoRefresh() {
 }
 scheduleAutoRefresh();
 
+/* ---------- 搜索防抖：输入 300ms 自动搜索，Enter 立即触发 ---------- */
+let searchTimer = null;
+function scheduleSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadList(1), 300);
+}
+function flushSearch() {
+  clearTimeout(searchTimer);
+  loadList(1);
+}
+let scriptSearchTimer = null;
+function scheduleScriptSearch() {
+  clearTimeout(scriptSearchTimer);
+  scriptSearchTimer = setTimeout(() => loadScriptList(1), 300);
+}
+function flushScriptSearch() {
+  clearTimeout(scriptSearchTimer);
+  loadScriptList(1);
+}
+
 function toggleTheme() {
   const target = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
   const commit = () => {
@@ -2550,6 +2652,24 @@ function toggleTheme() {
 }
 
 const statusText = { enabled: '已启用', disabled: '已禁用', success: '成功', failed: '失败', running: '执行中', waiting: '等待中', unexecuted: '未执行' };
+
+/* ---------- 相对时间：7 天内显示「x 分钟前」，悬浮显示绝对时间 ---------- */
+function relTime(t) {
+  if (!t) return '-';
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(t);
+  if (!m) return t;
+  const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+  const diff = Date.now() - d.getTime();
+  if (diff < 0) return t;
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return '刚刚';
+  if (min < 60) return min + ' 分钟前';
+  const h = Math.floor(min / 60);
+  if (h < 24) return h + ' 小时前';
+  const days = Math.floor(h / 24);
+  if (days < 7) return days + ' 天前';
+  return t;
+}
 
 function formatInterval(ms, status) {
   const v = Number(ms);
@@ -2581,7 +2701,24 @@ async function loadList(page, silent) {
   } catch (e) { if (!silent) toast(e.message, 'error'); }
 }
 
-let sortState = { col: 'created_at', dir: 'desc' };
+let sortState = (function () {
+  try {
+    const s = JSON.parse(localStorage.getItem('sortState'));
+    if (s && ['name', 'type', 'status', 'created_at'].includes(s.col) && (s.dir === 'asc' || s.dir === 'desc')) {
+      return { col: s.col, dir: s.dir };
+    }
+  } catch (e) {}
+  return { col: 'created_at', dir: 'desc' };
+})();
+
+function applySortIndicators() {
+  document.querySelectorAll('#panelCron thead th.sortable').forEach(th => {
+    const active = th.dataset.sort === sortState.col;
+    th.classList.toggle('sort-active', active);
+    th.classList.toggle('sort-asc', active && sortState.dir === 'asc');
+    th.classList.toggle('sort-desc', active && sortState.dir === 'desc');
+  });
+}
 function sortBy(col) {
   if (sortState.col === col) {
     sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
@@ -2589,14 +2726,11 @@ function sortBy(col) {
     sortState.col = col;
     sortState.dir = 'asc';
   }
-  document.querySelectorAll('#panelCron thead th.sortable').forEach(th => {
-    const active = th.dataset.sort === col;
-    th.classList.toggle('sort-active', active);
-    th.classList.toggle('sort-asc', active && sortState.dir === 'asc');
-    th.classList.toggle('sort-desc', active && sortState.dir === 'desc');
-  });
+  try { localStorage.setItem('sortState', JSON.stringify(sortState)); } catch (e) {}
+  applySortIndicators();
   loadList(1);
 }
+applySortIndicators();
 
 function nextRunSoon(t) {
   if (!t) return false;
@@ -2662,8 +2796,8 @@ function renderList(items, total) {
     tr.className = item.isExecuting ? 'row-running' : '';
     const lastFailed = item.lastRecordStatus === 'failed';
     const lastTime = item.lastRecordStatus
-      ? `<span class="last-wrap"><span class="tag ${escAttr(item.lastRecordStatus)}">${statusText[item.lastRecordStatus] || esc(item.lastRecordStatus)}</span><div class="last-time">${esc(item.lastRecordTime || '-')}</div></span>`
-      : esc(item.lastRecordTime || '-');
+      ? `<span class="last-wrap"><span class="tag ${escAttr(item.lastRecordStatus)}">${statusText[item.lastRecordStatus] || esc(item.lastRecordStatus)}</span><div class="last-time" title="${escAttr(item.lastRecordTime || '')}">${esc(relTime(item.lastRecordTime))}</div></span>`
+      : `<span title="${escAttr(item.lastRecordTime || '')}">${esc(relTime(item.lastRecordTime))}</span>`;
     tr.innerHTML = `
       <td class="name ellipsis${lastFailed ? ' failed' : ''}" data-label="任务名称" title="${escAttr(item.name)}">${lastFailed ? '<span class="name-err"></span>' : ''}${esc(item.name)}</td>
       <td data-label="任务开关" style="text-align:right">
@@ -2980,8 +3114,15 @@ async function importCronjobs(input) {
     if (!Array.isArray(data)) data = data.data || data.cronjobs;
     if (!Array.isArray(data)) return toast('导入失败：未找到任务数组', 'error');
     const res = await request(API + '/import', 'POST', { data });
-    toast(`导入完成：新增 ${res.created} 个，跳过 ${res.skipped} 个，失败 ${res.failed} 个`, res.failed ? 'error' : 'success');
     loadList(1);
+    if (!res.skipped && !res.failed) {
+      toast(`导入完成：新增 ${res.created} 个`, 'success');
+      return;
+    }
+    const lines = [`新增 ${res.created} 个任务`];
+    if (res.skipped) lines.push(`跳过（名称已存在）${res.skipped} 个：${(res.skippedItems || []).join('、') || '—'}`);
+    if (res.failed) lines.push(`导入失败 ${res.failed} 个：${(res.failedItems || []).join('、') || '—'}`);
+    showConfirmBox({ title: '导入结果', message: lines.join('\n'), cancel: false });
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -3022,12 +3163,12 @@ function renderScriptList(items, total) {
       <td class="name" data-label="脚本名称" title="${escAttr(s.name)}">${esc(s.name)}</td>
       <td data-label="分组名称" style="white-space:normal">${groups}</td>
       <td data-label="描述信息" style="white-space:normal;word-break:break-all;max-width:520px">${esc(s.description) || '<span style="color:var(--text-secondary)">-</span>'}</td>
-      <td data-label="创建时间">${esc((s.createdAt || '').replace('T', ' ').slice(0, 19))}</td>
+      <td data-label="创建时间" title="${escAttr((s.createdAt || '').replace('T', ' ').slice(0, 19))}">${esc(relTime((s.createdAt || '').replace('T', ' ').slice(0, 19)))}</td>
       <td data-label="操作">
         <div class="op-group">
           <button class="btn small" onclick="runScript(${s.id})" title="立即执行"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>执行</button>
           <button class="btn small" onclick="openScriptEdit(${s.id})" title="编辑"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>编辑</button>
-          <button class="btn small" onclick="copyScript(${s.id})" title="复制内容"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>复制</button>
+          <button class="btn small" onclick="copyScript(${s.id}, this)" title="复制内容"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>复制</button>
           <button class="btn small danger" onclick="removeScript(${s.id})" title="删除"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>删除</button>
         </div>
       </td>`;
@@ -3035,18 +3176,14 @@ function renderScriptList(items, total) {
   }
 }
 
-async function copyScript(id) {
+async function copyScript(id, btn) {
+  const done = () => flashCopied(btn, '复制');
   try {
     const data = await request('/api/scripts/load/info', 'POST', { id });
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(data.script || '').then(() => toast('脚本内容已复制', 'success')).catch(() => {});
+      navigator.clipboard.writeText(data.script || '').then(done).catch(() => fallbackCopy(data.script || '', done));
     } else {
-      const ta = document.createElement('textarea');
-      ta.value = data.script || '';
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand('copy'); toast('脚本内容已复制', 'success'); } catch (e) {}
-      document.body.removeChild(ta);
+      fallbackCopy(data.script || '', done);
     }
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -3519,15 +3656,16 @@ function closeLog() {
   document.getElementById('logMask').classList.remove('show');
 }
 
-async function copyLog() {
+async function copyLog(btn) {
   const view = document.getElementById('logView');
   const text = (view.textContent || '').trim();
   if (!text) return toast('暂无日志内容可复制', 'error');
+  const done = () => flashCopied(btn, '复制日志');
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    try { await navigator.clipboard.writeText(text); toast('日志已复制', 'success'); }
-    catch (e) { fallbackCopy(text); }
+    try { await navigator.clipboard.writeText(text); done(); }
+    catch (e) { fallbackCopy(text, done); }
   } else {
-    fallbackCopy(text);
+    fallbackCopy(text, done);
   }
 }
 
@@ -3643,6 +3781,13 @@ function enterApp() {
   document.getElementById('userInfo').style.display = '';
   document.getElementById('userMenu').style.display = '';
   loadList(1);
+  // 页脚显示当前版本
+  request('/api/version', 'POST', {})
+    .then(v => {
+      const fv = document.getElementById('footVersion');
+      if (fv) fv.textContent = v.version + (v.build && v.build !== 'dev' ? ' (' + v.build + ')' : '');
+    })
+    .catch(() => {});
   // 静默检查更新，有新版时在账户菜单展示徽章
   request('/api/upgrade/check', 'POST', {})
     .then(d => { if (d.hasUpdate && d.updatable) setUpdateBadge(d.latest); })
@@ -3684,21 +3829,30 @@ function togglePwd(id, el) {
   el.classList.toggle('show', show);
 }
 
-function copyDefaultPwd() {
+function copyDefaultPwd(btn) {
   const v = document.getElementById('defaultPwdVal').textContent;
+  const done = () => flashCopied(btn, '复制');
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(v).then(() => toast('已复制', 'success')).catch(() => fallbackCopy(v));
-  } else fallbackCopy(v);
+    navigator.clipboard.writeText(v).then(done).catch(() => fallbackCopy(v, done));
+  } else fallbackCopy(v, done);
 }
 
-function fallbackCopy(text) {
+/* 复制成功：按钮内联「✓ 已复制」反馈（1.6s 后恢复） */
+function flashCopied(btn, oldText) {
+  if (!btn) return;
+  btn.textContent = '✓ 已复制';
+  btn.disabled = true;
+  setTimeout(() => { btn.textContent = oldText; btn.disabled = false; }, 1600);
+}
+
+function fallbackCopy(text, done) {
   const ta = document.createElement('textarea');
   ta.value = text;
   ta.style.position = 'fixed';
   ta.style.opacity = '0';
   document.body.appendChild(ta);
   ta.select();
-  try { document.execCommand('copy'); toast('已复制', 'success'); } catch (e) {}
+  try { document.execCommand('copy'); if (done) done(); else toast('已复制', 'success'); } catch (e) {}
   document.body.removeChild(ta);
 }
 
@@ -3827,12 +3981,28 @@ document.getElementById('loginPwd').addEventListener('keydown', e => {
 
 document.getElementById('f_spec').addEventListener('input', e => calcNext(e.target.value));
 
+/* ---------- 返回顶部按钮：滚动超过阈值后浮现 ---------- */
+(function () {
+  const btn = document.getElementById('backTop');
+  if (!btn) return;
+  const onScroll = () => btn.classList.toggle('show', window.scrollY > 300);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+
 (function boot() {
   // Verify the session cookie server-side; a leftover token in localStorage
   // is no longer trusted.
   request(AUTH_API + '/me', 'POST', {})
     .then(() => { enterApp(); refreshScriptOptions(); })
     .catch(() => {});
+  // 首屏至少展示 300ms，避免闪屏；随后淡出移除
+  setTimeout(() => {
+    const s = document.getElementById('splash');
+    if (!s) return;
+    s.classList.add('hide');
+    setTimeout(() => s.classList.add('remove'), 400);
+  }, 300);
 })();
 </script>
 </body>

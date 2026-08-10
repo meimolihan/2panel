@@ -20,6 +20,8 @@ const backupDBName = "2panel.db"
 // cmdBackup packs the data dir (SQLite db + log/task) into a zip archive.
 // Usage: 2panel [-data /path] backup [输出.zip]
 func cmdBackup(args []string, flagData string) int {
+	cliBanner("备份")
+
 	dataDir := flagData
 	if dataDir == "" {
 		dataDir = detectDataDir()
@@ -38,6 +40,10 @@ func cmdBackup(args []string, flagData string) int {
 		dest = fmt.Sprintf("2panel-backup-%s.zip", time.Now().Format("20060102-150405"))
 	}
 
+	cliSection("备份数据目录")
+	cliKV("数据目录", dataDir)
+	cliKV("目标文件", dest)
+
 	if abs, err := filepath.Abs(dest); err == nil {
 		parent := filepath.Dir(abs)
 		if parent == dataDir || strings.HasPrefix(parent, dataDir+string(os.PathSeparator)) {
@@ -46,11 +52,15 @@ func cmdBackup(args []string, flagData string) int {
 		}
 	}
 
+	running := false
 	for _, p := range running2panelProcs() {
 		if p.data == dataDir {
-			cliHint("检测到 2panel 正在使用数据目录 %s（PID %d），\n        将通过数据库快照保证备份一致性。", dataDir, p.pid)
+			running = true
 			break
 		}
+	}
+	if running {
+		cliHint("检测到 2panel 正在使用数据目录，将通过数据库快照保证备份一致性。")
 	}
 
 	// Snapshot the database so the archive stays consistent even while the
@@ -58,6 +68,7 @@ func cmdBackup(args []string, flagData string) int {
 	dbPath := filepath.Join(dataDir, backupDBName)
 	snapName := ""
 	if _, err := os.Stat(dbPath); err == nil {
+		cliHint("正在生成数据库快照 ...")
 		snap, cErr := os.CreateTemp("", "2panel-backup-*.db")
 		if cErr != nil {
 			cliErr("创建临时文件失败: %v", cErr)
@@ -72,14 +83,25 @@ func cmdBackup(args []string, flagData string) int {
 		}
 	}
 
-	if err := zipDir(dataDir, dest, snapName); err != nil {
+	done := make(chan struct{})
+	go cliSpinner(done, "正在打包数据 ...")
+	files, err := zipDir(dataDir, dest, snapName)
+	close(done)
+	if err != nil {
 		cliErr("备份失败: %v", err)
 		return 1
 	}
 	if abs, err := filepath.Abs(dest); err == nil {
 		dest = abs
 	}
-	cliOK("备份完成: %s", dest)
+	var size int64
+	if st, err := os.Stat(dest); err == nil {
+		size = st.Size()
+	}
+	cliSuccessBox("备份完成")
+	cliKV("备份文件", dest)
+	cliKV("文件大小", humanSize(size))
+	cliKV("文件数", fmt.Sprintf("%d 个", files))
 	return 0
 }
 
@@ -106,12 +128,18 @@ func cmdRestore(args []string, flagData string) int {
 		return 1
 	}
 
+	cliBanner("还原")
+	cliSection("还原备份")
+	cliKV("备份文件", backupFile)
+	cliKV("数据目录", dataDir)
+
 	reader := bufio.NewReader(os.Stdin)
-	if !uninstallConfirm(reader, fmt.Sprintf("还原将覆盖数据目录 %s 中的现有数据，是否继续？[y/N]: ", dataDir), false) {
+	if !uninstallConfirm(reader, fmt.Sprintf("还原将覆盖数据目录 %s 中的现有数据，是否继续？", dataDir), false) {
 		fmt.Println(cliPaint("已取消还原。", styleYellow))
 		return 0
 	}
 
+	cliSection("停止服务")
 	// 停掉 systemd 服务防止自动重启，再兜底终止使用该数据目录的进程。
 	if _, err := os.Stat(uninstallServiceFile); err == nil {
 		cliOK("正在停止 2panel systemd 服务 ...")
@@ -131,14 +159,21 @@ func cmdRestore(args []string, flagData string) int {
 		cliErr("创建数据目录失败: %v", err)
 		return 1
 	}
-	if err := unzipDir(backupFile, dataDir); err != nil {
+
+	cliSection("还原数据")
+	done := make(chan struct{})
+	go cliSpinner(done, "正在还原数据 ...")
+	files, err := unzipDir(backupFile, dataDir)
+	close(done)
+	if err != nil {
 		cliErr("还原失败: %v", err)
 		if backupPath != dataDir && isDir(backupPath) {
 			cliHint("原数据已回退到 %s，可手动恢复。", backupPath)
 		}
 		return 1
 	}
-	cliOK("还原完成。请启动 2panel：systemctl start 2panel")
+	cliSuccessBox(fmt.Sprintf("还原完成（共 %d 个文件）", files))
+	cliKV("启动命令", "systemctl start 2panel")
 	return 0
 }
 
@@ -168,17 +203,18 @@ func stopInstanceUsingDataDir(dataDir string) {
 
 // zipDir archives src into dest, storing paths relative to src. When
 // dbSnapshot is non-empty the entry for 2panel.db is served from that file
-// instead of the live database.
-func zipDir(src, dest, dbSnapshot string) error {
+// instead of the live database. It returns the number of files archived.
+func zipDir(src, dest, dbSnapshot string) (int, error) {
 	out, err := os.Create(dest)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer out.Close()
 	zw := zip.NewWriter(out)
 	defer zw.Close()
 
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+	files := 0
+	err = filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -221,8 +257,13 @@ func zipDir(src, dest, dbSnapshot string) error {
 		}
 		_, cErr := io.Copy(w, f)
 		f.Close()
-		return cErr
+		if cErr != nil {
+			return cErr
+		}
+		files++
+		return nil
 	})
+	return files, err
 }
 
 // checkZip validates that path is a zip archive containing a 2panel.db.
@@ -240,18 +281,20 @@ func checkZip(path string) error {
 	return fmt.Errorf("压缩包中未找到 %s，可能不是 2Panel 备份", backupDBName)
 }
 
-// unzipDir extracts the archive into dest, guarding against zip-slip.
-func unzipDir(src, dest string) error {
+// unzipDir extracts the archive into dest, guarding against zip-slip. It
+// returns the number of files extracted.
+func unzipDir(src, dest string) (int, error) {
 	r, err := zip.OpenReader(src)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer r.Close()
 
+	files := 0
 	for _, f := range r.File {
 		name := filepath.Clean(filepath.FromSlash(f.Name))
 		if name == ".." || strings.HasPrefix(name, ".."+string(os.PathSeparator)) || filepath.IsAbs(name) {
-			return fmt.Errorf("压缩包中包含非法路径: %s", f.Name)
+			return 0, fmt.Errorf("压缩包中包含非法路径: %s", f.Name)
 		}
 		if strings.HasPrefix(name, backupDBName+"-") {
 			// stale WAL/SHM/journal files would corrupt the restored database
@@ -259,20 +302,20 @@ func unzipDir(src, dest string) error {
 		}
 		target := filepath.Join(dest, name)
 		if !strings.HasPrefix(target, dest) {
-			return fmt.Errorf("压缩包路径越界: %s", f.Name)
+			return 0, fmt.Errorf("压缩包路径越界: %s", f.Name)
 		}
 		if f.FileInfo().IsDir() {
 			if err := os.MkdirAll(target, 0755); err != nil {
-				return err
+				return 0, err
 			}
 			continue
 		}
 		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-			return err
+			return 0, err
 		}
 		rc, err := f.Open()
 		if err != nil {
-			return err
+			return 0, err
 		}
 		mode := f.Mode() & 0777
 		if mode == 0 {
@@ -281,16 +324,17 @@ func unzipDir(src, dest string) error {
 		w, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 		if err != nil {
 			rc.Close()
-			return err
+			return 0, err
 		}
 		_, cErr := io.Copy(w, rc)
 		rc.Close()
 		w.Close()
 		if cErr != nil {
-			return cErr
+			return 0, cErr
 		}
+		files++
 	}
-	return nil
+	return files, nil
 }
 
 func isDir(path string) bool {

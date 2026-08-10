@@ -46,7 +46,7 @@ sep_line() {
 
 VERSION="${VERSION:-v0.1.1}"
 BUILD="$(date -u +%Y%m%d%H%M%S)"
-LDFLAGS="-s -w -X main.version=${VERSION} -X main.build=${BUILD}"
+LDFLAGS="-s -w -X main.version=${VERSION} -X main.build=${BUILD} -X main.buildTime=${BUILD}"
 
 # ---- minisign signing (optional, 方案 D) ----
 SIGNING="n"

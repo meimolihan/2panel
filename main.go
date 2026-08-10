@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/2panel-dev/2panel/internal/database"
@@ -17,8 +18,9 @@ import (
 )
 
 var (
-	version = "v1.0.0"
-	build   = "dev"
+	version   = "v1.0.0"
+	build     = "dev"
+	buildTime = "unknown"
 )
 
 func init() {
@@ -46,7 +48,7 @@ func main() {
 	flag.StringVar(&dataDir, "data", "", "数据目录（数据库、日志、脚本）")
 	flag.IntVar(&port, "port", 8080, "http 监听端口")
 	flag.BoolVar(&debug, "debug", false, "启用 gin debug 模式")
-	flag.BoolVar(&showVer, "version", false, "显示版本号")
+	flag.BoolVar(&showVer, "version", false, "显示版本信息")
 	flag.Parse()
 
 	// subcommands: 2panel uninstall|backup|restore ...
@@ -62,7 +64,11 @@ func main() {
 	}
 
 	if showVer {
-		fmt.Printf("%s %s\n", cliPaint("2Panel", styleCyan), cliPaint(fmt.Sprintf("%s (%s)", version, build), styleWhite))
+		cliBanner("版本信息")
+		cliKV("版本", fmt.Sprintf("%s (%s)", version, build))
+		cliKV("Go 版本", runtime.Version())
+		cliKV("平台", fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH))
+		cliKV("编译时间", buildTime)
 		os.Exit(0)
 	}
 
@@ -97,7 +103,8 @@ func main() {
 	service.SeedScripts()
 
 	addr := fmt.Sprintf(":%d", port)
-	fmt.Printf("%s %s %s\n",
+	fmt.Printf("%s %s %s %s\n",
+		cliPaint(time.Now().Format("2006-01-02 15:04:05"), styleGrey),
 		cliPaint("2Panel", styleCyan),
 		cliPaint(fmt.Sprintf("%s (%s)", version, build), styleWhite),
 		cliPaint(fmt.Sprintf("listening on %s, data dir: %s", addr, dataDir), styleGrey))

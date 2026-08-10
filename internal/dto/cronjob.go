@@ -121,9 +121,11 @@ type CronjobImport struct {
 }
 
 type CronjobImportResult struct {
-	Created int `json:"created"`
-	Skipped int `json:"skipped"`
-	Failed  int `json:"failed"`
+	Created      int      `json:"created"`
+	Skipped      int      `json:"skipped"`
+	Failed       int      `json:"failed"`
+	SkippedItems []string `json:"skippedItems"`
+	FailedItems  []string `json:"failedItems"`
 }
 
 // ScriptOption is a lightweight entry for the cronjob editor's library select.

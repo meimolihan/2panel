@@ -538,6 +538,7 @@ func (u *CronjobService) Import(req dto.CronjobImport) (dto.CronjobImportResult,
 	for _, item := range req.Data {
 		if _, err := cronjobRepo.Get(repo.WithByName(item.Name)); err == nil {
 			result.Skipped++
+			result.SkippedItems = append(result.SkippedItems, item.Name)
 			continue
 		}
 		if item.Type == "" {
@@ -552,6 +553,7 @@ func (u *CronjobService) Import(req dto.CronjobImport) (dto.CronjobImportResult,
 		item.ID = 0
 		if err := u.Create(item); err != nil {
 			result.Failed++
+			result.FailedItems = append(result.FailedItems, item.Name)
 			continue
 		}
 		result.Created++

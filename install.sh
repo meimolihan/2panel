@@ -248,7 +248,15 @@ SHA_URL="${BIN_URL}.sha256"
 sep_line
 section "安装程序"
 ok "正在下载 ${gl_bai}2panel${reset} (${gl_lan}${ARCH}${reset}) ..."
-curl -fSL --progress-bar --retry 3 -o "${BIN_PATH}.download" "${BIN_URL}" || error "下载失败，请检查 GITHUB_OWNER 与 GitHub Release 附件"
+SIZE=$(curl -sIL --retry 2 "${BIN_URL}" 2>/dev/null | awk 'BEGIN{IGNORECASE=1} /^content-length:/{v=$2} END{print v}')
+if [ -n "${SIZE}" ] && command -v pv >/dev/null 2>&1; then
+  # 单行实时进度条：百分比 + 速度 + 剩余时间（仅安装 pv 时启用）
+  if ! ( set -o pipefail; curl -fsSL --retry 3 "${BIN_URL}" | pv -p -t -e -b -s "${SIZE}" -o "${BIN_PATH}.download" ); then
+    error "下载失败，请检查 GITHUB_OWNER 与 GitHub Release 附件"
+  fi
+else
+  curl -fSL --progress-bar --retry 3 -o "${BIN_PATH}.download" "${BIN_URL}" || error "下载失败，请检查 GITHUB_OWNER 与 GitHub Release 附件"
+fi
 ok "下载完成，正在校验并安装..."
 
 # ---- verify checksum ----
