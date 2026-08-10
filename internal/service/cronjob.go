@@ -380,18 +380,18 @@ func (u *CronjobService) HandleJob(cronjob *model.Cronjob) {
 	go func() {
 		defer logWriter.Close()
 		defer u.removeExpiredLog(cronjobItem)
-		logWriter.Logf("start cronjob [%s] %s", cronjobItem.Type, cronjobItem.Name)
+		logWriter.Logf("开始执行任务 [%s] %s", cronjobItem.Type, cronjobItem.Name)
 		start := time.Now()
 		runJob := cronjobItem
 		u.resolveScriptContent(&runJob)
 		err := scheduler.GetRunner().RunJob(&runJob, &record, logWriter)
 		if err != nil {
 			cronjobRepo.EndRecord(record, model.StatusFailed, err.Error(), logPath)
-			logWriter.Logf("cronjob [%s] finished failed, elapsed: %.2fs, err: %v", cronjobItem.Name, time.Since(start).Seconds(), err)
+			logWriter.LogLevelf("错误", "任务 [%s] 执行失败，耗时 %.2fs，错误: %v", cronjobItem.Name, time.Since(start).Seconds(), err)
 			return
 		}
 		cronjobRepo.EndRecord(record, model.StatusSuccess, "", logPath)
-		logWriter.Logf("cronjob [%s] finished successfully, elapsed: %.2fs", cronjobItem.Name, time.Since(start).Seconds())
+		logWriter.LogLevelf("成功", "任务 [%s] 执行成功，耗时 %.2fs", cronjobItem.Name, time.Since(start).Seconds())
 	}()
 }
 

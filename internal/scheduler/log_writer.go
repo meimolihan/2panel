@@ -47,7 +47,12 @@ func (w *LogWriter) Write(p []byte) (int, error) {
 }
 
 func (w *LogWriter) Logf(format string, args ...interface{}) {
-	msg := fmt.Sprintf("%s [%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), "INFO", fmt.Sprintf(format, args...))
+	w.LogLevelf("信息", format, args...)
+}
+
+// LogLevelf writes a log line tagged with level (信息 / 成功 / 错误 etc.).
+func (w *LogWriter) LogLevelf(level, format string, args ...interface{}) {
+	msg := fmt.Sprintf("%s [%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), level, fmt.Sprintf(format, args...))
 	_, _ = w.Write([]byte(msg))
 }
 

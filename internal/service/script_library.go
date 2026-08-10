@@ -214,7 +214,7 @@ func (u *ScriptService) Run(id uint) (string, error) {
 			"status":  model.StatusRunning,
 			"records": logPath,
 		})
-		logWriter.Logf("start script [%s]", record.ScriptName)
+		logWriter.Logf("开始执行脚本 [%s]", record.ScriptName)
 		start := time.Now()
 		err := u.runScript(taskID, script.Script, logWriter)
 		vars := map[string]interface{}{
@@ -225,10 +225,10 @@ func (u *ScriptService) Run(id uint) (string, error) {
 		if err != nil {
 			vars["status"] = model.StatusFailed
 			vars["message"] = err.Error()
-			logWriter.Logf("script [%s] finished failed, elapsed: %.2fs, err: %v", record.ScriptName, time.Since(start).Seconds(), err)
+			logWriter.LogLevelf("错误", "脚本 [%s] 执行失败，耗时 %.2fs，错误: %v", record.ScriptName, time.Since(start).Seconds(), err)
 		} else {
 			vars["status"] = model.StatusSuccess
-			logWriter.Logf("script [%s] finished successfully, elapsed: %.2fs", record.ScriptName, time.Since(start).Seconds())
+			logWriter.LogLevelf("成功", "脚本 [%s] 执行成功，耗时 %.2fs", record.ScriptName, time.Since(start).Seconds())
 		}
 		_ = scriptRecordRepo.Update(record.ID, vars)
 		pruneScriptRecords()

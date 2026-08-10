@@ -6,6 +6,10 @@
 
 # runtime data
 /data/
+*.pre-restore-*.db
+
+# lint scratch
+lint.log
 
 # build cache
 *.exe
