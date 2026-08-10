@@ -190,23 +190,31 @@ fi
 if [ -n "${DATA_DIR}" ]; then
   SILENT="y"
 fi
+# stdin 非终端（管道 / 非交互 / 无参数）时强制静默，避免 read 挂起或卡住
+if [ ! -t 0 ]; then
+  SILENT="y"
+fi
 
 # ---- prompt: listen port ----
 section "配置参数"
 if [ -z "${PORT}" ]; then
-  while :; do
-    read -r -p "${gl_bai}请输入监听端口${reset} ${gl_hui}[默认: ${DEFAULT_PORT}]${reset}: " PORT
-    PORT="${PORT:-$DEFAULT_PORT}"
-    case "$PORT" in
-      ''|*[!0-9]*) printf "  %s\n" "${gl_huang}端口无效，请重新输入。${reset}" ;;
-      *)
-        if [ "$PORT" -ge 1 ] && [ "$PORT" -le 65535 ]; then
-          break
-        fi
-        printf "  %s\n" "${gl_huang}端口超出范围（1-65535），请重新输入。${reset}"
-        ;;
-    esac
-  done
+  if [ -t 0 ]; then
+    while :; do
+      read -r -p "${gl_bai}请输入监听端口${reset} ${gl_hui}[默认: ${DEFAULT_PORT}]${reset}: " PORT
+      PORT="${PORT:-$DEFAULT_PORT}"
+      case "$PORT" in
+        ''|*[!0-9]*) printf "  %s\n" "${gl_huang}端口无效，请重新输入。${reset}" ;;
+        *)
+          if [ "$PORT" -ge 1 ] && [ "$PORT" -le 65535 ]; then
+            break
+          fi
+          printf "  %s\n" "${gl_huang}端口超出范围（1-65535），请重新输入。${reset}"
+          ;;
+      esac
+    done
+  else
+    PORT="${DEFAULT_PORT}"
+  fi
 else
   printf "  %-14s %s\n" "${gl_lan}监听端口${reset}" "${gl_bai}${PORT}${reset}（参数指定）"
 fi
@@ -214,7 +222,11 @@ PORT="${PORT:-$DEFAULT_PORT}"
 
 # ---- prompt: data directory ----
 if [ -z "${DATA_DIR}" ]; then
-  read -r -p "${gl_bai}请输入数据目录${reset} ${gl_hui}[默认: ${DEFAULT_DATA_DIR}]${reset}: " DATA_DIR
+  if [ -t 0 ]; then
+    read -r -p "${gl_bai}请输入数据目录${reset} ${gl_hui}[默认: ${DEFAULT_DATA_DIR}]${reset}: " DATA_DIR
+  else
+    DATA_DIR="${DEFAULT_DATA_DIR}"
+  fi
 else
   printf "  %-14s %s\n" "${gl_lan}数据目录${reset}" "${gl_bai}${DATA_DIR}${reset}（参数指定）"
 fi
