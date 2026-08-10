@@ -157,7 +157,21 @@ body {
   height: 34px; border: 1px solid var(--border); border-radius: 6px; padding: 0 10px; background: var(--bg-card); color: var(--text); font-size: 14px; outline: none;
 }
 .toolbar input[type=text]:focus, .toolbar select:focus { border-color: var(--primary); }
+.search-filter { display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0; }
+.search-filter input[type=text] {
+  flex: 1 1 50%;
+  min-width: 0;
+  transition: border-color 0.2s ease;
+}
+.search-filter select {
+  flex: 1 1 50%;
+  min-width: 0;
+}
+.search-filter:focus-within input,
+.search-filter:focus-within select { border-color: var(--primary); }
+.search-filter:focus-within input { box-shadow: inset 0 1px 2px rgba(0,0,0,0.16); }
 .spacer { flex: 1; }
+.spacer.slim { flex: 0 0 24px; }
 .btn {
   height: 34px; padding: 0 16px; border-radius: 6px; border: 1px solid var(--border);
   background: var(--bg-card); color: var(--text); font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
@@ -199,6 +213,7 @@ td.ellipsis { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
   position: fixed; inset: 0; background: var(--bg-overlay); display: none; align-items: flex-start; justify-content: center; z-index: 100; overflow: auto;
 }
 .modal-mask.show { display: flex; }
+.modal-mask#logMask { z-index: 150; }
 .modal {
   background: var(--bg-card); border-radius: 15px; margin-top: 8vh; width: 640px; max-width: calc(100vw - 32px);
   box-shadow: 0 8px 32px rgba(0,0,0,0.18);
@@ -308,6 +323,9 @@ th, td, .code {
   .toolbar { gap: 8px; }
   .toolbar input[type=text] { flex: 1 1 100%; height: 38px; }
   .toolbar select { flex: 1 1 0; height: 38px; }
+  .toolbar .search-filter { flex: 1 1 100%; }
+  .toolbar .search-filter input[type=text] { flex: 1 1 50%; width: auto; max-width: none; }
+  .toolbar .search-filter select { flex: 1 1 50%; min-width: 0; margin: 0; }
   .toolbar .spacer { display: none; }
   .toolbar .btn { height: 38px; }
   .btn { -webkit-tap-highlight-color: transparent; }
@@ -379,10 +397,36 @@ th, td, .code {
   background: var(--bg-input); color: var(--text); font-size: 14px; outline: none;
 }
 .login-field input:focus { border-color: var(--primary); }
-.pwd-wrap { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-input); }
-.pwd-wrap:focus-within { border-color: var(--primary); }
-.pwd-wrap input { border: none; background: transparent; flex: 1; height: 38px; color: var(--text); }
-.pwd-wrap .eye { cursor: pointer; color: var(--text-secondary); font-size: 13px; padding: 0 10px; user-select: none; white-space: nowrap; }
+.pwd-wrap {
+  display: flex; align-items: center;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg-input);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.pwd-wrap .pwd-icon {
+  flex: 0 0 auto; width: 15px; height: 15px; margin-left: 12px;
+  color: var(--text-secondary); opacity: 0.75;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+.pwd-wrap input {
+  border: none; outline: none; background: transparent; flex: 1; min-width: 0;
+  height: 42px; padding: 0 10px; color: var(--text); font-size: 14px;
+}
+.pwd-wrap input::placeholder { color: var(--text-secondary); opacity: 0.7; }
+.pwd-wrap:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--focus-ring); }
+.pwd-wrap:focus-within .pwd-icon { color: var(--primary); opacity: 1; }
+.pwd-wrap .eye {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; margin-right: 4px; border-radius: 8px;
+  cursor: pointer; color: var(--text-secondary); background: transparent; border: none;
+  padding: 0; user-select: none; white-space: nowrap;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.pwd-wrap .eye:hover { color: var(--primary); background: rgba(127, 127, 127, 0.12); }
+.pwd-wrap .eye svg { width: 17px; height: 17px; display: block; }
+.pwd-wrap .eye .eye-off { display: none; }
+.pwd-wrap .eye.show .eye-on { display: none; }
+.pwd-wrap .eye.show .eye-off { display: block; }
 .login-err { color: var(--danger); font-size: 13px; min-height: 18px; margin-bottom: 8px; }
 .login-btn { width: 100%; height: 40px; justify-content: center; font-size: 15px; }
 .default-pwd {
@@ -408,10 +452,12 @@ th, td, .code {
   background: linear-gradient(180deg, #e8f3ff, #dcecff);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 2px rgba(47, 111, 237, 0.15);
 }
-.pwd-form-row { margin-bottom: 16px; }
-.pwd-form-row label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 13px; }
+.pwd-form-row { margin-bottom: 18px; }
+.pwd-form-row label { display: block; margin-bottom: 7px; color: var(--text-secondary); font-size: 13px; font-weight: 500; }
 .pwd-form-row .pwd-wrap { background: var(--bg-input); }
 .pwd-form-row .pwd-wrap:focus-within { background: var(--bg-card); }
+.pwd-wrap.invalid { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.15); }
+.pwd-wrap.invalid:focus-within { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.18); }
 .pwd-meter { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
 .meter-bar {
   flex: 1; height: 5px; border-radius: 3px;
@@ -1322,8 +1368,12 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
     <div class="login-field">
       <label>密码</label>
       <div class="pwd-wrap">
+        <svg class="pwd-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
         <input type="password" id="loginPwd" placeholder="请输入密码" autocomplete="current-password">
-        <span class="eye" onclick="togglePwd('loginPwd', this)">显示</span>
+        <button type="button" class="eye" onclick="togglePwd('loginPwd', this)" aria-label="显示/隐藏密码">
+          <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+        </button>
       </div>
     </div>
     <div class="login-err" id="loginErr"></div>
@@ -1467,15 +1517,17 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
   <div id="panelScript" style="display:none">
   <div class="card">
     <div class="toolbar">
-      <input type="text" id="scriptSearch" placeholder="搜索脚本名称/描述" onkeyup="if(event.key==='Enter')loadScriptList(1)">
-      <select id="scriptGroupFilter" onchange="loadScriptList(1)">
-        <option value="0">全部分组</option>
-      </select>
-      <button class="btn" onclick="loadScriptList(currentScriptPage)">刷新</button>
-      <div class="spacer"></div>
-      <button class="btn" onclick="openScriptGroups()">分组管理</button>
-      <button class="btn" onclick="openScriptRecords()">执行记录</button>
-      <button class="btn primary" onclick="openScriptCreate()">＋ 新增脚本</button>
+      <div class="search-filter">
+        <input type="text" id="scriptSearch" placeholder="搜索脚本名称/描述" onkeyup="if(event.key==='Enter')loadScriptList(1)">
+        <select id="scriptGroupFilter" onchange="loadScriptList(1)">
+          <option value="0">全部分组</option>
+        </select>
+      </div>
+      <div class="spacer slim"></div>
+      <button class="btn" onclick="loadScriptList(currentScriptPage)" title="刷新"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>刷新</button>
+      <button class="btn" onclick="openScriptGroups()" title="分组管理"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>管理</button>
+      <button class="btn" onclick="openScriptRecords()" title="执行记录"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>记录</button>
+      <button class="btn primary" onclick="openScriptCreate()" title="新增脚本"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>新增</button>
     </div>
 
     <table>
@@ -1485,7 +1537,7 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
           <th style="width:160px">分组</th>
           <th>描述</th>
           <th style="width:150px">创建时间</th>
-          <th style="width:180px">操作</th>
+          <th style="width:320px">操作</th>
         </tr>
       </thead>
       <tbody id="scriptTbody"></tbody>
@@ -1493,7 +1545,7 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
     <div class="empty" id="scriptEmpty" style="display:none">
       <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
       <p>暂无脚本，快创建第一个吧</p>
-      <button class="btn primary" id="scriptEmptyCreateBtn" onclick="openScriptCreate()">＋ 新增脚本</button>
+      <button class="btn primary" id="scriptEmptyCreateBtn" onclick="openScriptCreate()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>新增</button>
     </div>
     <div class="pager" id="scriptPager" style="display:none">
       <span class="info" id="scriptPageInfo"></span>
@@ -1759,15 +1811,23 @@ echo 'hello 2panel'"></textarea>
       <div class="pwd-form-row">
         <label for="p_old">当前密码</label>
         <div class="pwd-wrap">
+          <svg class="pwd-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
           <input type="password" id="p_old" placeholder="请输入当前密码" autocomplete="current-password">
-          <span class="eye" onclick="togglePwd('p_old', this)">显示</span>
+          <button type="button" class="eye" onclick="togglePwd('p_old', this)" aria-label="显示/隐藏密码">
+            <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+          </button>
         </div>
       </div>
       <div class="pwd-form-row">
         <label for="p_new">新密码</label>
         <div class="pwd-wrap">
+          <svg class="pwd-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
           <input type="password" id="p_new" placeholder="至少 8 位" autocomplete="new-password">
-          <span class="eye" onclick="togglePwd('p_new', this)">显示</span>
+          <button type="button" class="eye" onclick="togglePwd('p_new', this)" aria-label="显示/隐藏密码">
+            <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+          </button>
         </div>
         <div class="pwd-meter" id="pwdMeter">
           <div class="meter-bar"><span id="meterFill"></span></div>
@@ -1777,8 +1837,12 @@ echo 'hello 2panel'"></textarea>
       <div class="pwd-form-row">
         <label for="p_confirm">确认新密码</label>
         <div class="pwd-wrap">
+          <svg class="pwd-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
           <input type="password" id="p_confirm" placeholder="再次输入新密码" autocomplete="new-password">
-          <span class="eye" onclick="togglePwd('p_confirm', this)">显示</span>
+          <button type="button" class="eye" onclick="togglePwd('p_confirm', this)" aria-label="显示/隐藏密码">
+            <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+          </button>
         </div>
       </div>
       <div class="pwd-tip" id="pwdTip">密码需至少 8 位，建议混合大小写字母、数字与符号。</div>
@@ -2909,10 +2973,12 @@ function renderScriptList(items, total) {
       <td data-label="描述" style="white-space:normal;word-break:break-all;max-width:520px">${esc(s.description) || '<span style="color:var(--text-secondary)">-</span>'}</td>
       <td data-label="创建时间">${esc((s.createdAt || '').replace('T', ' ').slice(0, 19))}</td>
       <td data-label="操作">
-        <button class="btn small" onclick="runScript(${s.id})">执行</button>
-        <button class="btn small" onclick="openScriptEdit(${s.id})">编辑</button>
-        <button class="btn small" onclick="copyScript(${s.id})">复制内容</button>
-        <button class="btn small danger" onclick="removeScript(${s.id})">删除</button>
+        <div class="op-group">
+          <button class="btn small" onclick="runScript(${s.id})" title="立即执行"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>执行</button>
+          <button class="btn small" onclick="openScriptEdit(${s.id})" title="编辑"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>编辑</button>
+          <button class="btn small" onclick="copyScript(${s.id})" title="复制内容"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>复制</button>
+          <button class="btn small danger" onclick="removeScript(${s.id})" title="删除"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>删除</button>
+        </div>
       </td>`;
     tbody.appendChild(tr);
   }
@@ -3554,7 +3620,7 @@ function togglePwd(id, el) {
   const input = document.getElementById(id);
   const show = input.type === 'password';
   input.type = show ? 'text' : 'password';
-  el.textContent = show ? '隐藏' : '显示';
+  el.classList.toggle('show', show);
 }
 
 function copyDefaultPwd() {
@@ -3588,9 +3654,18 @@ function closeUserMenu() {
 document.addEventListener('click', () => closeUserMenu());
 
 function openPwd() {
-  ['p_old', 'p_new', 'p_confirm'].forEach(id => document.getElementById(id).value = '');
+  ['p_old', 'p_new', 'p_confirm'].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = '';
+    el.type = 'password';
+    const wrap = el.closest('.pwd-wrap');
+    wrap.classList.remove('invalid');
+    const eye = wrap.querySelector('.eye');
+    if (eye) eye.classList.remove('show');
+  });
   document.getElementById('meterFill').style.width = '0';
   document.getElementById('meterText').textContent = '';
+  document.getElementById('pwdTip').style.borderColor = 'transparent';
   document.getElementById('pwdSubmit').disabled = false;
   document.getElementById('pwdMask').classList.add('show');
   setTimeout(() => document.getElementById('p_old').focus(), 120);
@@ -3635,18 +3710,26 @@ function validatePwd() {
   const confirm = document.getElementById('p_confirm').value;
   const tip = document.getElementById('pwdTip');
   const submit = document.getElementById('pwdSubmit');
+  const newWrap = document.getElementById('p_new').closest('.pwd-wrap');
+  const confirmWrap = document.getElementById('p_confirm').closest('.pwd-wrap');
   if (pwd.length > 0 && pwd.length < 8) {
     tip.textContent = '新密码长度不足 8 位。';
     tip.style.borderColor = 'var(--danger)';
+    newWrap.classList.add('invalid');
+    confirmWrap.classList.remove('invalid');
     submit.disabled = true;
     return false;
   }
   if (confirm.length > 0 && pwd !== confirm) {
     tip.textContent = '两次输入的新密码不一致。';
     tip.style.borderColor = 'var(--danger)';
+    confirmWrap.classList.add('invalid');
+    newWrap.classList.remove('invalid');
     submit.disabled = true;
     return false;
   }
+  newWrap.classList.remove('invalid');
+  confirmWrap.classList.remove('invalid');
   tip.textContent = '密码需至少 8 位，建议混合大小写字母、数字与符号。';
   tip.style.borderColor = 'transparent';
   submit.disabled = false;
