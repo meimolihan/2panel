@@ -350,10 +350,10 @@ th, td, .code {
   td[data-label="上次执行"] .last-time { margin-top: 0; }
   td.ellipsis { max-width: none; overflow: visible; text-overflow: clip; }
   td.name { font-weight: 600; }
-  td[data-label="操作"] { flex-wrap: wrap; justify-content: flex-start; gap: 8px; padding-top: 9px; }
-  td[data-label="操作"]::before { flex-basis: 100%; }
-  td[data-label="操作"] .op-group { flex: 1 1 100%; gap: 6px; }
-  td[data-label="操作"] .op-group .btn { flex: 1 1 0; min-width: 0; justify-content: center; height: 36px; margin: 0; padding: 0 6px; }
+  td[data-label="操作"], td[data-label="任务操作"] { flex-wrap: wrap; justify-content: flex-start; gap: 8px; padding-top: 9px; }
+  td[data-label="操作"]::before, td[data-label="任务操作"]::before { flex-basis: 100%; }
+  td[data-label="操作"] .op-group, td[data-label="任务操作"] .op-group { flex: 1 1 100%; gap: 6px; }
+  td[data-label="操作"] .op-group .btn, td[data-label="任务操作"] .op-group .btn { flex: 1 1 0; min-width: 0; justify-content: center; height: 36px; margin: 0; padding: 0 6px; }
 
   .pager { justify-content: center; flex-wrap: wrap; }
   .pager .btn { flex: 1 1 40%; justify-content: center; }
@@ -1081,7 +1081,7 @@ thead th { position: sticky; top: 0; z-index: 2; }
   .modal-body { padding: 12px 14px; }
   .toolbar { gap: 8px; margin-bottom: 12px; }
   .toolbar .btn, .toolbar input[type=text], .toolbar select,
-  td[data-label="操作"] .btn, .pager .btn, .modal-foot .btn { height: 44px; }
+  td[data-label="操作"] .btn, td[data-label="任务操作"] .btn, .pager .btn, .modal-foot .btn { height: 44px; }
   .login-card h2 { font-size: 20px; }
   .tabs { margin-bottom: 10px; }
 }
@@ -1169,7 +1169,7 @@ body.modal-open { overflow: hidden; }
 /* --- 移动端收尾 --- */
 @media (max-width: 767px) {
   td.name { max-width: none; white-space: normal; overflow: visible; text-overflow: clip; }
-  td[data-label="操作"] .switch { flex: 0 0 auto; }
+  td[data-label="操作"] .switch, td[data-label="任务操作"] .switch { flex: 0 0 auto; }
   .pager-jump { flex: 1 1 100%; justify-content: center; }
   .pager-jump .btn { flex: 0 1 auto; }
 }
@@ -1277,15 +1277,15 @@ td.name.failed { color: var(--danger); }
 
 /* --- 四、移动端操作区：开关置顶右对齐，四个操作按钮单行等宽 --- */
 @media (max-width: 767px) {
-  td[data-label="操作"] { position: relative; }
-  td[data-label="操作"] .switch {
+  td[data-label="操作"], td[data-label="任务操作"] { position: relative; }
+  td[data-label="操作"] .switch, td[data-label="任务操作"] .switch {
     position: absolute; top: 9px; right: 0; z-index: 2;
   }
-  td[data-label="操作"] .op-group {
+  td[data-label="操作"] .op-group, td[data-label="任务操作"] .op-group {
     flex-wrap: nowrap;
     gap: 6px;
   }
-  td[data-label="操作"] .op-group .btn {
+  td[data-label="操作"] .op-group .btn, td[data-label="任务操作"] .op-group .btn {
     flex: 1 1 0;
     min-width: 0;
     justify-content: center;
@@ -1508,12 +1508,12 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
       <thead>
         <tr>
           <th style="width:200px" class="sortable" data-sort="name" onclick="sortBy('name')">任务名称</th>
-          <th style="width:80px" class="sortable" data-sort="type" onclick="sortBy('type')">类型</th>
+          <th style="width:340px">任务操作</th>
+          <th style="width:80px" class="sortable" data-sort="type" onclick="sortBy('type')">任务类型</th>
+          <th style="width:80px" class="sortable" data-sort="status" onclick="sortBy('status')">任务状态</th>
           <th>执行频率</th>
-          <th style="width:80px" class="sortable" data-sort="status" onclick="sortBy('status')">状态</th>
           <th style="width:200px">上次执行</th>
           <th style="width:150px">下次执行</th>
-          <th style="width:340px">操作</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -1555,10 +1555,9 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
       <thead>
         <tr>
           <th style="width:200px">脚本名称</th>
-          <th style="width:160px">分组</th>
-          <th>描述</th>
+          <th style="width:160px">分组名称</th>
+          <th>描述信息</th>
           <th style="width:150px">创建时间</th>
-          <th style="width:320px">操作</th>
         </tr>
       </thead>
       <tbody id="scriptTbody"></tbody>
@@ -2661,14 +2660,7 @@ function renderList(items, total) {
       : esc(item.lastRecordTime || '-');
     tr.innerHTML = `
       <td class="name${lastFailed ? ' failed' : ''}" data-label="任务名称" title="${escAttr(item.name)}">${lastFailed ? '<span class="name-err"></span>' : ''}${esc(item.name)}</td>
-      <td data-label="类型"><span class="tag ${escAttr(item.type)}">${item.type === 'shell' ? 'shell 脚本' : 'curl 请求'}</span></td>
-      <td class="ellipsis" data-label="执行频率" title="${escAttr(item.spec)}"><span class="code">${esc(item.spec)}</span></td>
-      <td data-label="状态">${renderStatusTags(item)}</td>
-      <td data-label="上次执行">${lastTime}</td>
-      <td data-label="下次执行">${nextRunSoon(item.nextRunTime)
-        ? `<span class="next-run soon">${esc(item.nextRunTime)}<span class="soon-dot" title="即将执行"></span></span>`
-        : esc(item.nextRunTime || '-')}</td>
-      <td data-label="操作">
+      <td data-label="任务操作">
         <div class="op-group">
           <button class="btn small" onclick="openEdit(${item.id})" title="编辑"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>编辑</button>
           <button class="btn small" onclick="handleOnce(${item.id})" title="立即执行"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>执行</button>
@@ -2679,7 +2671,14 @@ function renderList(items, total) {
           <button class="btn small" onclick="openRecords(${item.id}, '${escAttr(item.name)}')" title="执行记录"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>记录</button>
           <button class="btn small danger" onclick="removeJob(${item.id})" title="删除"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>删除</button>
         </div>
-      </td>`;
+      </td>
+      <td data-label="任务类型"><span class="tag ${escAttr(item.type)}">${item.type === 'shell' ? 'shell 脚本' : 'curl 请求'}</span></td>
+      <td data-label="任务状态">${renderStatusTags(item)}</td>
+      <td class="ellipsis" data-label="执行频率" title="${escAttr(item.spec)}"><span class="code">${esc(item.spec)}</span></td>
+      <td data-label="上次执行">${lastTime}</td>
+      <td data-label="下次执行">${nextRunSoon(item.nextRunTime)
+        ? `<span class="next-run soon">${esc(item.nextRunTime)}<span class="soon-dot" title="即将执行"></span></span>`
+        : esc(item.nextRunTime || '-')}</td>`;
     tbody.appendChild(tr);
   }
 }
@@ -3013,17 +3012,9 @@ function renderScriptList(items, total) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="name" data-label="脚本名称" title="${escAttr(s.name)}">${esc(s.name)}</td>
-      <td data-label="分组" style="white-space:normal">${groups}</td>
-      <td data-label="描述" style="white-space:normal;word-break:break-all;max-width:520px">${esc(s.description) || '<span style="color:var(--text-secondary)">-</span>'}</td>
-      <td data-label="创建时间">${esc((s.createdAt || '').replace('T', ' ').slice(0, 19))}</td>
-      <td data-label="操作">
-        <div class="op-group">
-          <button class="btn small" onclick="runScript(${s.id})" title="立即执行"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>执行</button>
-          <button class="btn small" onclick="openScriptEdit(${s.id})" title="编辑"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>编辑</button>
-          <button class="btn small" onclick="copyScript(${s.id})" title="复制内容"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>复制</button>
-          <button class="btn small danger" onclick="removeScript(${s.id})" title="删除"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>删除</button>
-        </div>
-      </td>`;
+      <td data-label="分组名称" style="white-space:normal">${groups}</td>
+      <td data-label="描述信息" style="white-space:normal;word-break:break-all;max-width:520px">${esc(s.description) || '<span style="color:var(--text-secondary)">-</span>'}</td>
+      <td data-label="创建时间">${esc((s.createdAt || '').replace('T', ' ').slice(0, 19))}</td>`;
     tbody.appendChild(tr);
   }
 }
