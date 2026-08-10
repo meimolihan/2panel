@@ -32,14 +32,14 @@ const (
 
 func cmdUninstall() int {
 	if os.Geteuid() != 0 {
-		fmt.Println("[错误] 请以 root 身份运行：sudo 2panel uninstall")
+		cliErr("请以 root 身份运行：sudo 2panel uninstall")
 		return 1
 	}
 	printUninstallBanner()
 
 	reader := bufio.NewReader(os.Stdin)
 	if !uninstallConfirm(reader, "卸载将停止并移除 2Panel 服务与程序，是否继续？[y/N]: ", false) {
-		fmt.Println("已取消卸载。")
+		fmt.Println(cliPaint("已取消卸载。", styleYellow))
 		return 0
 	}
 
@@ -51,43 +51,43 @@ func cmdUninstall() int {
 
 	if uninstallConfirm(reader, fmt.Sprintf("是否删除数据目录 %s（完全卸载）？[Y/n]: ", dataDir), true) {
 		if err := os.RemoveAll(dataDir); err != nil {
-			fmt.Printf("[警告] 删除数据目录失败: %v\n", err)
+			cliWarn("删除数据目录失败: %v", err)
 		} else {
-			fmt.Printf(">>> 已删除数据目录 %s\n", dataDir)
+			cliOK("已删除数据目录 %s", dataDir)
 		}
 	} else {
-		fmt.Printf(">>> 已保留数据目录 %s\n", dataDir)
+		cliOK("已保留数据目录 %s", dataDir)
 	}
 
 	// remove the installation record written by install.sh
 	if _, err := os.Stat(uninstallConfigFile); err == nil {
 		if err := os.Remove(uninstallConfigFile); err != nil {
-			fmt.Printf("[警告] 删除安装记录 %s 失败: %v\n", uninstallConfigFile, err)
+			cliWarn("删除安装记录 %s 失败: %v", uninstallConfigFile, err)
 		} else {
-			fmt.Printf(">>> 已删除安装记录 %s\n", uninstallConfigFile)
+			cliOK("已删除安装记录 %s", uninstallConfigFile)
 		}
 		_ = os.Remove(filepath.Dir(uninstallConfigFile))
 	}
 
 	fmt.Println("")
-	fmt.Println("2Panel 已卸载完成。如需重新安装，请再次运行 install.sh 安装脚本。")
+	cliDone("2Panel 已卸载完成。如需重新安装，请再次运行 install.sh 安装脚本。")
 	return 0
 }
 
 func printUninstallBanner() {
-	fmt.Println(` ____  ____                  _
+	fmt.Println(cliPaint(` ____  ____                  _
 |___ \|  _ \ __ _ _ __   ___| |
-  __) | |_) / _` + "`" + ` | '_ \ / _ \ |
+  __) | |_) / _`+"`"+` | '_ \ / _ \ |
  / __/|  __/ (_| | | | |  __/ |
-|_____|_|   \__,_|_| |_|\___|_|`)
-	fmt.Println("2Panel - 卸载")
+|_____|_|   \__,_|_| |_|\___|_|`, stylePurple))
+	fmt.Println(cliPaint("2Panel - 卸载", styleWhite))
 	fmt.Println("")
 }
 
 // uninstallConfirm asks a y/n question; defYes makes Enter answer yes.
 func uninstallConfirm(reader *bufio.Reader, prompt string, defYes bool) bool {
 	for {
-		fmt.Print(prompt)
+		fmt.Print(cliPaint(prompt, styleYellow))
 		line, err := reader.ReadString('\n')
 		if err != nil && line == "" {
 			return defYes
@@ -101,7 +101,7 @@ func uninstallConfirm(reader *bufio.Reader, prompt string, defYes bool) bool {
 		case "":
 			return defYes
 		default:
-			fmt.Println("  输入无效，请输入 y 或 n。")
+			fmt.Println(cliPaint("  输入无效，请输入 y 或 n。", styleYellow))
 		}
 	}
 }
@@ -229,7 +229,7 @@ func isNumeric(s string) bool {
 
 func stop2panelService() {
 	if _, err := os.Stat(uninstallServiceFile); err == nil {
-		fmt.Println(">>> 正在停止并移除 systemd 服务 2panel ...")
+		cliOK("正在停止并移除 systemd 服务 2panel ...")
 		runQuiet("systemctl", "stop", uninstallServiceName)
 		runQuiet("systemctl", "disable", uninstallServiceName)
 		_ = os.Remove(uninstallServiceFile)
@@ -306,7 +306,7 @@ func stopOtherInstances() {
 	for _, p := range procs {
 		pids = append(pids, p.pid)
 	}
-	fmt.Printf(">>> 正在停止 2panel 进程: %v ...\n", pids)
+	cliOK("正在停止 2panel 进程: %v ...", pids)
 	for _, pid := range pids {
 		_ = syscall.Kill(pid, syscall.SIGTERM)
 	}
@@ -326,7 +326,7 @@ func closeFirewallPort(port int) {
 		if strings.TrimSpace(string(out)) == "running" {
 			runQuiet("firewall-cmd", "--permanent", "--remove-port="+portStr+"/tcp")
 			runQuiet("firewall-cmd", "--reload")
-			fmt.Printf(">>> 已通过 firewalld 关闭端口 %s/tcp\n", portStr)
+			cliOK("已通过 firewalld 关闭端口 %s/tcp", portStr)
 			return
 		}
 	}
@@ -334,13 +334,13 @@ func closeFirewallPort(port int) {
 		out, _ := exec.Command("ufw", "status").Output()
 		if strings.Contains(string(out), "Status: active") {
 			runQuiet("ufw", "delete", "allow", portStr+"/tcp")
-			fmt.Printf(">>> 已通过 ufw 关闭端口 %s/tcp\n", portStr)
+			cliOK("已通过 ufw 关闭端口 %s/tcp", portStr)
 			return
 		}
 	}
 	if _, err := exec.LookPath("iptables"); err == nil {
 		if err := exec.Command("iptables", "-D", "INPUT", "-p", "tcp", "--dport", portStr, "-j", "ACCEPT").Run(); err == nil {
-			fmt.Printf(">>> 已通过 iptables 关闭端口 %s/tcp\n", portStr)
+			cliOK("已通过 iptables 关闭端口 %s/tcp", portStr)
 		}
 	}
 }
@@ -358,9 +358,9 @@ func remove2panelBinary() {
 			continue
 		}
 		if err := os.Remove(p); err != nil {
-			fmt.Printf("[警告] 删除二进制文件 %s 失败: %v\n", p, err)
+			cliWarn("删除二进制文件 %s 失败: %v", p, err)
 		} else {
-			fmt.Printf(">>> 已删除二进制文件 %s\n", p)
+			cliOK("已删除二进制文件 %s", p)
 		}
 	}
 }

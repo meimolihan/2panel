@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/2panel-dev/2panel/internal/console"
 	"github.com/2panel-dev/2panel/internal/dto"
 	"github.com/2panel-dev/2panel/internal/repo"
 )
@@ -68,6 +69,7 @@ func InitAuth() {
 		return
 	}
 	log.Printf("admin account initialized, default password: %s (please change it after first login)", pwd)
+	fmt.Printf("  %s\n", console.Paint("⚠ 默认密码 "+pwd+"，首次登录后请立即修改。", console.StyleYellow))
 }
 
 func (u *AuthService) Initialized() (bool, error) {

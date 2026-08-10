@@ -21,6 +21,21 @@ var (
 	build   = "dev"
 )
 
+func init() {
+	flag.Usage = func() {
+		fmt.Printf("%s\n", cliPaint("2Panel - 计划任务管理工具", styleCyan))
+		fmt.Printf("  %s %s\n", cliPaint("用法:", styleGreen), cliPaint("2panel [选项] [backup|restore|uninstall]", styleWhite))
+		fmt.Println()
+		fmt.Printf("  %s\n", cliPaint("子命令:", styleYellow))
+		fmt.Printf("    %-30s%s\n", cliPaint("backup [输出.zip]", styleWhite), cliPaint("备份数据目录为 zip", styleGrey))
+		fmt.Printf("    %-30s%s\n", cliPaint("restore <备份.zip>", styleWhite), cliPaint("从备份 zip 还原数据目录", styleGrey))
+		fmt.Printf("    %-30s%s\n", cliPaint("uninstall", styleWhite), cliPaint("卸载 2Panel 并（可选）删除数据", styleGrey))
+		fmt.Println()
+		fmt.Printf("  %s\n", cliPaint("选项:", styleYellow))
+		flag.PrintDefaults()
+	}
+}
+
 func main() {
 	var (
 		dataDir string
@@ -28,10 +43,10 @@ func main() {
 		debug   bool
 		showVer bool
 	)
-	flag.StringVar(&dataDir, "data", "", "data directory (db, logs, scripts)")
-	flag.IntVar(&port, "port", 8080, "http listen port")
-	flag.BoolVar(&debug, "debug", false, "enable gin debug mode")
-	flag.BoolVar(&showVer, "version", false, "show version")
+	flag.StringVar(&dataDir, "data", "", "数据目录（数据库、日志、脚本）")
+	flag.IntVar(&port, "port", 8080, "http 监听端口")
+	flag.BoolVar(&debug, "debug", false, "启用 gin debug 模式")
+	flag.BoolVar(&showVer, "version", false, "显示版本号")
 	flag.Parse()
 
 	// subcommands: 2panel uninstall|backup|restore ...
@@ -47,7 +62,7 @@ func main() {
 	}
 
 	if showVer {
-		fmt.Printf("2Panel %s (%s)\n", version, build)
+		fmt.Printf("%s %s\n", cliPaint("2Panel", styleCyan), cliPaint(fmt.Sprintf("%s (%s)", version, build), styleWhite))
 		os.Exit(0)
 	}
 
@@ -82,7 +97,10 @@ func main() {
 	service.SeedScripts()
 
 	addr := fmt.Sprintf(":%d", port)
-	log.Printf("2Panel %s (%s) listening on %s, data dir: %s", version, build, addr, dataDir)
+	fmt.Printf("%s %s %s\n",
+		cliPaint("2Panel", styleCyan),
+		cliPaint(fmt.Sprintf("%s (%s)", version, build), styleWhite),
+		cliPaint(fmt.Sprintf("listening on %s, data dir: %s", addr, dataDir), styleGrey))
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           server.New(debug),

@@ -270,6 +270,8 @@ systemctl restart 2panel   # systemd 模式
 
 `2panel` 支持若干子命令，统一由二进制入口分发，与 systemd 服务解耦，可在任意机器上对目标数据目录操作。
 
+> **关于输出颜色**：`install.sh` / `uninstall.sh` / `2panel` 的 CLI 输出统一使用同一套终端配色（`>>>` 绿色、`[错误]` 红色、`[警告]` 黄色、`[提示]` 青色）。输出被重定向/管道化时自动去掉颜色，日志仍可 grep。
+
 ### 1. `2panel`（默认）— 启动服务
 
 ```bash

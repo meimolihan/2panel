@@ -15,47 +15,6 @@
 
 set -e
 
-# ================== customize me ==================
-GITHUB_OWNER="meimolihan"             # your GitHub username
-GITHUB_REPO="2Panel"                  # GitHub repository name
-DEFAULT_PORT=8080
-DEFAULT_DATA_DIR="/var/lib/2panel"
-# ==================================================
-
-# ---- parse command-line args (silent install) ----
-# 用法: bash install.sh [-p|--port PORT] [-d|--data DIR] [-h|--help]
-# 示例: bash install.sh -p 8080 -d /var/lib/2panel
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    -p|--port)
-      shift
-      [ -n "${1:-}" ] || { echo "缺少 -p/--port 的值" >&2; exit 1; }
-      PORT="$1"
-      ;;
-    -d|--data)
-      shift
-      [ -n "${1:-}" ] || { echo "缺少 -d/--data 的值" >&2; exit 1; }
-      DATA_DIR="$1"
-      ;;
-    -h|--help)
-      echo "2Panel - 计划任务管理工具 安装脚本"
-      echo "用法: bash install.sh [-p PORT] [-d DATA_DIR]"
-      echo "  -p, --port   监听端口（默认 ${DEFAULT_PORT}）"
-      echo "  -d, --data   数据目录（默认 ${DEFAULT_DATA_DIR}）"
-      echo "  -h, --help   显示本帮助"
-      echo "指定任意参数即进入静默安装；不带参数则为交互式安装。"
-      exit 0
-      ;;
-    *)
-      echo "未知参数: $1（使用 -h 查看帮助）" >&2
-      exit 1
-      ;;
-  esac
-  shift
-done
-
-API_BASE="https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}"
-
 # ================== terminal colors ==================
 list_color_init() {
     export gl_hui=$'\033[38;5;59m'
@@ -110,6 +69,46 @@ break_end() {
 }
 
 error() { printf "  %s %s\n" "${gl_hong}[错误]${reset}" "$1" >&2; exit 1; }
+
+# ================== customize me ==================
+GITHUB_OWNER="meimolihan"             # your GitHub username
+GITHUB_REPO="2Panel"                  # GitHub repository name
+DEFAULT_PORT=8080
+DEFAULT_DATA_DIR="/var/lib/2panel"
+# ==================================================
+
+# ---- parse command-line args (silent install) ----
+# 用法: bash install.sh [-p|--port PORT] [-d|--data DIR] [-h|--help]
+# 示例: bash install.sh -p 8080 -d /var/lib/2panel
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -p|--port)
+      shift
+      [ -n "${1:-}" ] || error "缺少 -p/--port 的值"
+      PORT="$1"
+      ;;
+    -d|--data)
+      shift
+      [ -n "${1:-}" ] || error "缺少 -d/--data 的值"
+      DATA_DIR="$1"
+      ;;
+    -h|--help)
+      printf "%s\n" "${gl_lan}2Panel${reset} - ${gl_bai}计划任务管理工具 安装脚本${reset}"
+      printf "  %-13s %s\n" "${gl_bai}用法:${reset}" "bash install.sh [-p PORT] [-d DATA_DIR]"
+      printf "  %-13s %s\n" "${gl_bai}-p, --port${reset}" "监听端口（默认 ${gl_lan}${DEFAULT_PORT}${reset}）"
+      printf "  %-13s %s\n" "${gl_bai}-d, --data${reset}" "数据目录（默认 ${gl_lan}${DEFAULT_DATA_DIR}${reset}）"
+      printf "  %-13s %s\n" "${gl_bai}-h, --help${reset}" "显示本帮助"
+      printf "%s\n" "${gl_hui}指定任意参数即进入静默安装；不带参数则为交互式安装。${reset}"
+      exit 0
+      ;;
+    *)
+      error "未知参数: $1（使用 -h 查看帮助）"
+      ;;
+  esac
+  shift
+done
+
+API_BASE="https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}"
 
 # ---- firewall: automatically open the listen port ----
 FW_OPENED="n"
@@ -238,7 +237,7 @@ if command -v systemctl >/dev/null 2>&1; then
 else
   USE_SYSTEMD="n"
   printf "  %s\n" "${gl_huang}[警告]${reset} 未检测到 systemd（容器或受限环境）。"
-  printf "  %s\n" "    已回退为后台运行模式，重启或崩溃后服务不会自动恢复。"
+  printf "  %s\n" "${gl_hui}    已回退为后台运行模式，重启或崩溃后服务不会自动恢复。${reset}"
 fi
 
 BIN_DIR="/usr/local/bin"
@@ -249,7 +248,8 @@ SHA_URL="${BIN_URL}.sha256"
 sep_line
 section "安装程序"
 ok "正在下载 ${gl_bai}2panel${reset} (${gl_lan}${ARCH}${reset}) ..."
-curl -fSL --retry 3 -o "${BIN_PATH}.download" "${BIN_URL}" || error "下载失败，请检查 GITHUB_OWNER 与 GitHub Release 附件"
+curl -fSL --progress-bar --retry 3 -o "${BIN_PATH}.download" "${BIN_URL}" || error "下载失败，请检查 GITHUB_OWNER 与 GitHub Release 附件"
+ok "下载完成，正在校验并安装..."
 
 # ---- verify checksum ----
 if command -v sha256sum >/dev/null 2>&1; then
@@ -356,7 +356,7 @@ else
   printf "  %-14s %s\n" "${gl_lan}防火墙状态${reset}" "$FW_STATUS"
   printf "  %-14s %s\n" "${gl_lan}运行模式${reset}" "${gl_huang}后台运行${reset}"
   printf "  %s\n" "  ${gl_huang}注意：${reset}后台运行模式在系统重启后不会自动恢复。"
-  printf "  %s\n" "    如需开机自启 / 崩溃自动重启 / journald 日志，请在安装 systemd 后重新运行本脚本。"
+  printf "  %s\n" "${gl_hui}    如需开机自启 / 崩溃自动重启 / journald 日志，请在安装 systemd 后重新运行本脚本。${reset}"
 fi
 sep_line
 break_end

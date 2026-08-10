@@ -428,6 +428,21 @@ th, td, .code {
 .pwd-wrap .eye.show .eye-on { display: none; }
 .pwd-wrap .eye.show .eye-off { display: block; }
 .login-err { color: var(--danger); font-size: 13px; min-height: 18px; margin-bottom: 8px; }
+/* 登录失败反馈：卡片抖动 + 密码框红色描边 + 错误信息淡入 */
+.login-card.shake { animation: login-shake 0.5s ease; }
+.login-card.shake .pwd-wrap { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.15); }
+.login-card.shake .pwd-wrap:focus-within { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.18); }
+.login-err.in-msg { animation: login-err-in 0.22s ease; }
+@keyframes login-shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-6px); }
+  40%, 60% { transform: translateX(6px); }
+}
+@keyframes login-err-in { from { opacity: 0; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) {
+  .login-card.shake { animation: none; }
+}
 .login-btn { width: 100%; height: 40px; justify-content: center; font-size: 15px; }
 .default-pwd {
   margin-top: 18px; padding: 12px 14px; border: 1px dashed var(--warning); border-radius: 8px;
@@ -1466,7 +1481,7 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
     <div class="stat-card">
       <div class="stat-icon stat-icon-running"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></div>
       <div>
-        <div class="stat-value" id="statRunningVal">-<span class="live-dot" id="statRunningDot"></span></div>
+        <div class="stat-value" id="statRunningVal"><span id="statRunningNum">-</span><span class="live-dot" id="statRunningDot"></span></div>
         <div class="stat-label">执行中</div>
       </div>
     </div>
@@ -2590,15 +2605,38 @@ function nextRunSoon(t) {
 async function loadStats() {
   try {
     const s = await request(API + '/stats', 'POST', {});
-    document.getElementById('statTotalVal').textContent = s.total || 0;
-    document.getElementById('statEnabledVal').textContent = s.enabled || 0;
+    animateCount(document.getElementById('statTotalVal'), s.total || 0);
+    animateCount(document.getElementById('statEnabledVal'), s.enabled || 0);
     const running = s.executing || 0;
-    const runVal = document.getElementById('statRunningVal');
-    runVal.firstChild.textContent = running;
+    animateCount(document.getElementById('statRunningNum'), running);
     document.getElementById('statRunningDot').classList.toggle('show', running > 0);
     const done = (s.todaySuccess || 0) + (s.todayFailed || 0);
-    document.getElementById('statTodayVal').textContent = done > 0 ? (s.todayRate || 0) + '%' : '暂无';
+    const todayEl = document.getElementById('statTodayVal');
+    if (done > 0) {
+      animateCount(todayEl, s.todayRate || 0, '%');
+    } else {
+      todayEl.textContent = '暂无';
+      todayEl._count = 0;
+    }
   } catch (e) {}
+}
+
+/* ---------- 统计卡片数字滚动动画（从当前值滚到新值，尊重 reduced-motion） ---------- */
+function animateCount(el, target, suffix) {
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const to = Number(target) || 0;
+  if (reduce) { el.textContent = to + (suffix || ''); el._count = to; return; }
+  const from = el._count || 0;
+  el._count = to;
+  const dur = 650;
+  const start = performance.now();
+  const step = now => {
+    const p = Math.min((now - start) / dur, 1);
+    const eased = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(from + (to - from) * eased) + (suffix || '');
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 function renderList(items, total) {
@@ -3573,6 +3611,9 @@ function showLogin() {
   document.documentElement.removeAttribute('data-authed');
   document.getElementById('loginPwd').value = '';
   document.getElementById('loginErr').textContent = '';
+  document.getElementById('loginErr').classList.remove('in-msg');
+  const card = document.querySelector('.login-card');
+  if (card) card.classList.remove('shake');
   document.getElementById('loginBtn').disabled = false;
   document.getElementById('loginBtn').classList.remove('loading');
   refreshDefaultPwd();
@@ -3605,13 +3646,20 @@ async function doLogin() {
   const name = document.getElementById('loginName').value.trim();
   const pwd = document.getElementById('loginPwd').value;
   const err = document.getElementById('loginErr');
+  const card = document.querySelector('.login-card');
   setBtnLoading('loginBtn', true);
   err.textContent = '';
+  err.classList.remove('in-msg');
+  card.classList.remove('shake');
   try {
     await request(AUTH_API + '/login', 'POST', { name, password: pwd });
     enterApp();
   } catch (e) {
     err.textContent = e.message;
+    void err.offsetWidth;
+    err.classList.add('in-msg');
+    void card.offsetWidth;
+    card.classList.add('shake');
     setBtnLoading('loginBtn', false);
   }
 }

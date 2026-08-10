@@ -26,7 +26,7 @@ func cmdBackup(args []string, flagData string) int {
 	}
 	info, err := os.Stat(dataDir)
 	if err != nil || !info.IsDir() {
-		fmt.Printf("[错误] 数据目录不存在: %s\n", dataDir)
+		cliErr("数据目录不存在: %s", dataDir)
 		return 1
 	}
 
@@ -41,15 +41,14 @@ func cmdBackup(args []string, flagData string) int {
 	if abs, err := filepath.Abs(dest); err == nil {
 		parent := filepath.Dir(abs)
 		if parent == dataDir || strings.HasPrefix(parent, dataDir+string(os.PathSeparator)) {
-			fmt.Println("[错误] 备份文件不能输出到数据目录内部")
+			cliErr("备份文件不能输出到数据目录内部")
 			return 1
 		}
 	}
 
 	for _, p := range running2panelProcs() {
 		if p.data == dataDir {
-			fmt.Printf("[提示] 检测到 2panel 正在使用数据目录 %s（PID %d），\n", dataDir, p.pid)
-			fmt.Println("        将通过数据库快照保证备份一致性。")
+			cliHint("检测到 2panel 正在使用数据目录 %s（PID %d），\n        将通过数据库快照保证备份一致性。", dataDir, p.pid)
 			break
 		}
 	}
@@ -61,26 +60,26 @@ func cmdBackup(args []string, flagData string) int {
 	if _, err := os.Stat(dbPath); err == nil {
 		snap, cErr := os.CreateTemp("", "2panel-backup-*.db")
 		if cErr != nil {
-			fmt.Printf("[错误] 创建临时文件失败: %v\n", cErr)
+			cliErr("创建临时文件失败: %v", cErr)
 			return 1
 		}
 		snapName = snap.Name()
 		snap.Close()
 		defer os.Remove(snapName)
 		if cErr := database.SnapshotDB(dbPath, snapName); cErr != nil {
-			fmt.Printf("[错误] 生成数据库快照失败: %v\n", cErr)
+			cliErr("生成数据库快照失败: %v", cErr)
 			return 1
 		}
 	}
 
 	if err := zipDir(dataDir, dest, snapName); err != nil {
-		fmt.Printf("[错误] 备份失败: %v\n", err)
+		cliErr("备份失败: %v", err)
 		return 1
 	}
 	if abs, err := filepath.Abs(dest); err == nil {
 		dest = abs
 	}
-	fmt.Printf(">>> 备份完成: %s\n", dest)
+	cliOK("备份完成: %s", dest)
 	return 0
 }
 
@@ -88,12 +87,12 @@ func cmdBackup(args []string, flagData string) int {
 // Usage: 2panel [-data /path] restore <备份文件.zip>
 func cmdRestore(args []string, flagData string) int {
 	if len(args) == 0 {
-		fmt.Println("用法: 2panel restore <备份文件.zip>")
+		fmt.Println(cliPaint("用法: 2panel restore <备份文件.zip>", styleGrey))
 		return 1
 	}
 	backupFile := args[0]
 	if _, err := os.Stat(backupFile); err != nil {
-		fmt.Printf("[错误] 备份文件不存在: %s\n", backupFile)
+		cliErr("备份文件不存在: %s", backupFile)
 		return 1
 	}
 
@@ -103,19 +102,19 @@ func cmdRestore(args []string, flagData string) int {
 	}
 
 	if err := checkZip(backupFile); err != nil {
-		fmt.Printf("[错误] 无效的备份文件: %v\n", err)
+		cliErr("无效的备份文件: %v", err)
 		return 1
 	}
 
 	reader := bufio.NewReader(os.Stdin)
 	if !uninstallConfirm(reader, fmt.Sprintf("还原将覆盖数据目录 %s 中的现有数据，是否继续？[y/N]: ", dataDir), false) {
-		fmt.Println("已取消还原。")
+		fmt.Println(cliPaint("已取消还原。", styleYellow))
 		return 0
 	}
 
 	// 停掉 systemd 服务防止自动重启，再兜底终止使用该数据目录的进程。
 	if _, err := os.Stat(uninstallServiceFile); err == nil {
-		fmt.Println(">>> 正在停止 2panel systemd 服务 ...")
+		cliOK("正在停止 2panel systemd 服务 ...")
 		runQuiet("systemctl", "stop", uninstallServiceName)
 	}
 	stopInstanceUsingDataDir(dataDir)
@@ -123,23 +122,23 @@ func cmdRestore(args []string, flagData string) int {
 	backupPath := dataDir + ".backup-" + time.Now().Format("20060102-150405")
 	if isDir(dataDir) {
 		if err := os.Rename(dataDir, backupPath); err != nil {
-			fmt.Printf("[警告] 备份现有数据失败: %v\n", err)
+			cliWarn("备份现有数据失败: %v", err)
 		} else {
-			fmt.Printf(">>> 现有数据已备份到 %s\n", backupPath)
+			cliOK("现有数据已备份到 %s", backupPath)
 		}
 	}
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
-		fmt.Printf("[错误] 创建数据目录失败: %v\n", err)
+		cliErr("创建数据目录失败: %v", err)
 		return 1
 	}
 	if err := unzipDir(backupFile, dataDir); err != nil {
-		fmt.Printf("[错误] 还原失败: %v\n", err)
+		cliErr("还原失败: %v", err)
 		if backupPath != dataDir && isDir(backupPath) {
-			fmt.Printf("        原数据已回退到 %s，可手动恢复。\n", backupPath)
+			cliHint("原数据已回退到 %s，可手动恢复。", backupPath)
 		}
 		return 1
 	}
-	fmt.Println(">>> 还原完成。请启动 2panel：systemctl start 2panel")
+	cliOK("还原完成。请启动 2panel：systemctl start 2panel")
 	return 0
 }
 
@@ -155,7 +154,7 @@ func stopInstanceUsingDataDir(dataDir string) {
 	if len(pids) == 0 {
 		return
 	}
-	fmt.Printf(">>> 正在停止使用数据目录 %s 的 2panel 进程: %v ...\n", dataDir, pids)
+	cliOK("正在停止使用数据目录 %s 的 2panel 进程: %v ...", dataDir, pids)
 	for _, pid := range pids {
 		_ = syscall.Kill(pid, syscall.SIGTERM)
 	}
