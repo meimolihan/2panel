@@ -85,7 +85,7 @@
   --shadow-primary: 0 4px 14px rgba(47, 111, 237, 0.28);
   --card-grad: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
   --row-hover-bg: rgba(47, 111, 237, 0.20);
-  --row-zebra: rgba(15, 23, 42, 0.025);
+  --row-zebra: #d9dde3;
   --focus-ring: rgba(47, 111, 237, 0.18);
   --bg-glow-a: rgba(47, 111, 237, 0.09);
   --bg-glow-b: rgba(107, 79, 216, 0.07);
@@ -96,6 +96,9 @@ body {
   background: var(--bg);
   color: var(--text);
   font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 .header {
   background: var(--bg-card);
@@ -128,7 +131,7 @@ body {
   position: absolute; right: 0; top: calc(100% + 8px); z-index: 300;
   min-width: 160px; background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 12px; padding: 6px; box-shadow: var(--shadow-md);
-  animation: menu-in 0.18s ease;
+  animation: menu-in 0.2s ease;
 }
 @keyframes menu-in { from { opacity: 0; transform: translateY(-6px); } }
 .dropdown-item {
@@ -145,7 +148,7 @@ body {
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 [data-theme="light"] .user-dropdown { box-shadow: var(--shadow-lg); }
-.container { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+.container { max-width: 1200px; margin: 24px auto; padding: 0 16px; flex: 1 0 auto; width: 100%; }
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -314,8 +317,8 @@ th, td, .code {
   animation: none;
 }
 
-/* ===== 移动端适配（≤768px） ===== */
-@media (max-width: 768px) {
+/* ===== 移动端适配（<768px，平板端 768px 起保持原布局） ===== */
+@media (max-width: 767px) {
   .header { padding: 0 12px; height: 48px; }
   .header h1 { font-size: 16px; }
   .container { margin: 12px auto; padding: 0 8px; }
@@ -382,12 +385,12 @@ th, td, .code {
 
 /* login page */
 #loginPage { display: none; align-items: center; justify-content: center; position: fixed; inset: 0; z-index: 2000; background: var(--bg); padding: 16px; }
-#app { display: block; }
+#app { display: flex; flex-direction: column; flex: 1 0 auto; min-width: 0; }
 :root:not([data-authed="1"]) #loginPage { display: flex; }
 :root:not([data-authed="1"]) #app { display: none; }
 .login-card {
   width: 380px; max-width: 100%; background: var(--bg-card);
-  border: 1px solid var(--border); border-radius: 12px; padding: 32px 28px;
+  border-radius: 12px; position: relative; overflow: hidden;
 }
 .login-card h2 { font-size: 22px; margin-bottom: 4px; }
 .login-card .sub { color: var(--text-secondary); font-size: 13px; margin-bottom: 24px; }
@@ -421,7 +424,7 @@ th, td, .code {
   width: 34px; height: 34px; margin-right: 4px; border-radius: 8px;
   cursor: pointer; color: var(--text-secondary); background: transparent; border: none;
   padding: 0; user-select: none; white-space: nowrap;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition: color 0.2s ease, background-color 0.2s ease;
 }
 .pwd-wrap .eye:hover { color: var(--primary); background: rgba(127, 127, 127, 0.12); }
 .pwd-wrap .eye svg { width: 17px; height: 17px; display: block; }
@@ -497,7 +500,7 @@ th, td, .code {
 }
 .pwd-tip .tip-dot { flex: 0 0 auto; margin-top: 3px; }
 .pwd-modal .modal-foot .btn.primary:disabled { opacity: 0.55; cursor: not-allowed; }
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .pwd-modal { width: 100%; }
 }
 
@@ -693,7 +696,7 @@ tbody tr:hover { background: var(--row-hover-bg); background-image: none; }
   .theme-toggle:hover svg { transform: rotate(18deg); }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   tbody tr { box-shadow: var(--shadow-sm); }
 }
 
@@ -712,10 +715,11 @@ tbody tr:hover { background: var(--row-hover-bg); background-image: none; }
    box-shadow / background 三个属性，0.25s ease，禁用 all。
    ====================================================================== */
 
-/* --- 一、统一过渡：只过渡 3 个必要属性（禁止 all 全局过渡） --- */
+/* --- 一、统一过渡：只过渡必要属性（禁止 all 全局过渡），0.25s ease --- */
 .card, .login-card, .btn, .tab, .preset, .dropdown-item, .spec-row, tbody tr,
 .user-avatar, .theme-toggle, .toast, .spec-row .btn {
-  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease,
+              background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
 }
 
 /* --- 二、层次感：背景 → 容器 → 卡片 → 内容 分层增强 --- */
@@ -774,7 +778,6 @@ th { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transp
 
 /* 列表行极淡分隔底色，强化局部层级 */
 tbody tr { background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent); }
-[data-theme="light"] tbody tr { background-image: linear-gradient(180deg, #ffffff, #fbfcfe); }
 [data-theme="light"] tbody tr:hover {
   background: var(--row-hover-bg);
   background-image: none;
@@ -1412,7 +1415,7 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
   background-image:
     radial-gradient(560px 400px at 30% 20%, var(--bg-glow-a), transparent 60%),
     radial-gradient(520px 380px at 70% 80%, var(--bg-glow-b), transparent 60%);
-  transition: opacity 0.35s ease;
+  transition: opacity 0.3s ease;
 }
 #splash.hide { opacity: 0; pointer-events: none; }
 #splash.remove { display: none; }
@@ -1427,6 +1430,83 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
 @media (prefers-reduced-motion: reduce) {
   .splash-logo { animation: none; }
   .splash-spinner { animation-duration: 1.6s; }
+}
+
+/* ======================================================================
+   UI 美化增强（追加层 7）：规格收尾校验
+   1) iPad（768~1024px + 鼠标）重新约束按钮/统计卡片 hover —— 追加层 3 的
+      桌面级 hover 规则源序更靠后，会覆盖前面的 iPad 克制值，这里在末尾
+      再次声明 iPad 专用克制值（上浮更小、阴影透明度更低）。
+   2) 触屏（pointer:coarse）统一去掉点击高亮，避免移动端灰闪残留。
+   仅视觉值覆盖，不改 DOM、不改业务逻辑、不改主题色变量。
+   ====================================================================== */
+@media (min-width: 768px) and (max-width: 1024px) and (hover: hover) and (pointer: fine) {
+  .btn:not(:disabled):hover,
+  .btn.primary:not(:disabled):hover,
+  .btn.danger:not(:disabled):hover {
+    transform: translateY(-1px) scale(1.005);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+  }
+  .stat-card:hover {
+    transform: translateY(-1px) scale(1.005);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 8px 20px rgba(0, 0, 0, 0.06);
+  }
+  [data-theme="light"] .stat-card:hover {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 20px rgba(0, 0, 0, 0.05);
+  }
+}
+
+@media (pointer: coarse) {
+  .btn, .tab, .preset, .dropdown-item, .group-chip, .tag, .switch,
+  .user-avatar, .theme-toggle, .modal-head .close, .pwd-wrap .eye {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* ======================================================================
+   登录页旋转边框光条（复刻 Animated-Login 的动画：两条光带）
+   结构与原版一致：::before / ::after 两条光带错开半圈（-3s/6s）。
+   关键点1：伪元素 top/right/bottom/left:-75% 放大到 250%，以卡片为中心
+   居中，任何旋转角度都完整罩住卡片 → 光带永远落在边框环上，360°
+   循环不断线、不消失。
+   关键点2：渐变特意收窄（transparent 62% → 光色 74% → 光色 100%），
+   每条光带只照亮卡片顶部/底部一小段弧。若用原版宽渐变（亮区占半），
+   两条互补会正好把整环填满，看起来反而静止；收窄后每条光带只覆盖
+   很小一段弧，两条亮弧之间留出大片暗区，两条光带头随旋转清晰扫动。
+   --login-glow 跟随明暗主题。
+   ====================================================================== */
+:root { --login-glow: #45f3ff; }
+[data-theme="light"] { --login-glow: #2f6fed; }
+
+.login-card::before,
+.login-card::after {
+  content: "";
+  position: absolute;
+  top: -75%; right: -75%; bottom: -75%; left: -75%;
+  transform-origin: center;
+   background: linear-gradient(0deg, transparent 62%, var(--login-glow) 74%, var(--login-glow) 100%);
+  animation: login-border-rotate 6s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+.login-card::after { animation-delay: -3s; }
+@keyframes login-border-rotate {
+  to { transform: rotate(360deg); }
+}
+
+.login-inner {
+  position: relative;
+  z-index: 1;
+  margin: 2px;
+  padding: 32px 28px;
+  background: var(--card-grad);
+  border-radius: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-card::before,
+  .login-card::after { animation: none; display: none; }
+  .login-card { border: 1px solid var(--border); }
 }
 </style>
 </head>
@@ -1446,6 +1526,7 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
 </div>
 <div id="loginPage">
   <div class="login-card">
+  <div class="login-inner">
     <div class="login-brand">
       <svg class="login-logo" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <path d="M79.560165 259.855802v503.572017l435.09465 250.73251 434.041152-250.73251-1.053498-502.518519-432.987654-250.73251-435.09465 249.679012z" fill="#005EFD"/>
@@ -1479,6 +1560,7 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
       <div class="dp-label">首次登录默认密码</div>
       <div class="dp-val"><code id="defaultPwdVal"></code><button class="btn small" onclick="copyDefaultPwd(this)">复制</button></div>
       <div class="dp-note">登录后请在右上角「修改密码」中更换初始密码。</div>
+    </div>
     </div>
   </div>
 </div>
