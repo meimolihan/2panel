@@ -184,7 +184,7 @@ echo -e ""
 
 if [ -n "$DATA_DIR" ] && [ -d "$DATA_DIR" ]; then
   echo -e "检测到数据目录: ${gl_bai}${DATA_DIR}${reset}"
-  read -r -p "${gl_huang}是否删除数据目录 ${DATA_DIR}？（包含数据库、任务脚本和日志）(${gl_lv}y${gl_bai}/${gl_hong}N${gl_bai}): " DEL_DATA
+  read -r -p "${gl_bai}是否删除数据目录 ${gl_huang}${DATA_DIR}${gl_bai}？（包含数据库、任务脚本和日志）(${gl_lv}y${gl_bai}/${gl_hong}N${gl_bai}): " DEL_DATA
   case "$DEL_DATA" in
     n|N|no|NO)
       skip "已保留数据目录 ${gl_bai}${DATA_DIR}${reset}"
@@ -207,7 +207,6 @@ else
   skip "未找到安装记录 ${gl_bai}$CONFIG_FILE${reset}，跳过。"
 fi
 
-echo -e ""
 close_firewall_port "$PORT"
 
 echo -e ""
