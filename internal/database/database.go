@@ -19,7 +19,10 @@ func Init(dbPath string) error {
 		"?_pragma=journal_mode(WAL)" +
 		"&_pragma=busy_timeout(5000)" +
 		"&_pragma=synchronous(NORMAL)" +
-		"&_pragma=foreign_keys(1)"
+		"&_pragma=foreign_keys(1)" +
+		"&_pragma=temp_store(MEMORY)" +
+		"&_pragma=mmap_size(268435456)" +
+		"&_pragma=wal_autocheckpoint(1000)"
 	var err error
 	DB, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),

@@ -23,8 +23,8 @@ type UpdateInfo struct {
 // UpgradeStatus reports the in-progress (or last) upgrade so the frontend can
 // render live progress and know when the service restarted.
 type UpgradeStatus struct {
-	Running   bool     `json:"running"`
-	State     string   `json:"state"`
-	NewVersion string  `json:"newVersion"`
-	Log       []string `json:"log"`
+	Running    bool     `json:"running"`
+	State      string   `json:"state"`
+	NewVersion string   `json:"newVersion"`
+	Log        []string `json:"log"`
 }

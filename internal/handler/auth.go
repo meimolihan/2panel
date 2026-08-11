@@ -27,7 +27,7 @@ func (a *AuthApi) Login(w http.ResponseWriter, r *http.Request) {
 	if err := decode(&req, w, r); err != nil {
 		return
 	}
-	info, err := authService.Login(req)
+	info, err := authService.Login(req, r.RemoteAddr)
 	if err != nil {
 		Error(w, http.StatusBadRequest, err)
 		return

@@ -35,9 +35,17 @@ func (u *CronjobService) SearchWithPage(search dto.SearchCronjob) (int64, []dto.
 	if err != nil {
 		return 0, nil, err
 	}
+	ids := make([]uint, 0, len(cronjobs))
+	for _, cronjob := range cronjobs {
+		ids = append(ids, cronjob.ID)
+	}
+	recordMap, err := cronjobRepo.RecordFirstBatch(ids)
+	if err != nil {
+		return 0, nil, err
+	}
 	items := make([]dto.CronjobInfo, 0)
 	for _, cronjob := range cronjobs {
-		item := u.toInfo(cronjob)
+		item := u.toInfo(cronjob, recordMap[cronjob.ID])
 		items = append(items, item)
 	}
 	return total, items, nil
@@ -47,25 +55,17 @@ func (u *CronjobService) SearchWithPage(search dto.SearchCronjob) (int64, []dto.
 // today's execution success rate.
 func (u *CronjobService) Stats() (dto.CronjobStats, error) {
 	stats := dto.CronjobStats{}
-	if total, err := cronjobRepo.Count(); err != nil {
-		return stats, err
-	} else {
-		stats.Total = total
-	}
-	if enabled, err := cronjobRepo.Count(repo.WithByStatus(model.StatusEnable)); err != nil {
-		return stats, err
-	} else {
-		stats.Enabled = enabled
-	}
-	if executing, err := cronjobRepo.Count(repo.WithIsExecuting(true)); err != nil {
-		return stats, err
-	} else {
-		stats.Executing = executing
-	}
 	now := time.Now()
 	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	stats.TodaySuccess, _ = cronjobRepo.CountRecords(repo.WithByStatus(model.StatusSuccess), repo.WithStartTimeAfter(start))
-	stats.TodayFailed, _ = cronjobRepo.CountRecords(repo.WithByStatus(model.StatusFailed), repo.WithStartTimeAfter(start))
+	summary, err := cronjobRepo.Stats(start)
+	if err != nil {
+		return stats, err
+	}
+	stats.Total = summary.Total
+	stats.Enabled = summary.Enabled
+	stats.Executing = summary.Executing
+	stats.TodaySuccess = summary.TodaySuccess
+	stats.TodayFailed = summary.TodayFailed
 	if done := stats.TodaySuccess + stats.TodayFailed; done > 0 {
 		stats.TodayRate = math.Round(float64(stats.TodaySuccess)/float64(done)*1000) / 10
 	}
@@ -94,7 +94,7 @@ func (u *CronjobService) LoadInfo(id uint) (dto.CronjobOperate, error) {
 	}, nil
 }
 
-func (u *CronjobService) toInfo(cronjob model.Cronjob) dto.CronjobInfo {
+func (u *CronjobService) toInfo(cronjob model.Cronjob, record model.JobRecord) dto.CronjobInfo {
 	item := dto.CronjobInfo{
 		ID:           cronjob.ID,
 		Name:         cronjob.Name,
@@ -113,7 +113,7 @@ func (u *CronjobService) toInfo(cronjob model.Cronjob) dto.CronjobInfo {
 		CreatedAt:    cronjob.CreatedAt,
 		RetainCopies: int(cronjob.RetainCopies),
 	}
-	if record, err := cronjobRepo.RecordFirst(cronjob.ID); err == nil {
+	if record.ID != 0 {
 		item.LastRecordStatus = record.Status
 		item.LastRecordTime = record.StartTime.Format("2006-01-02 15:04:05")
 	}
@@ -314,7 +314,10 @@ func (u *CronjobService) removeExpiredLog(cronjob model.Cronjob) {
 	if cronjob.RetainCopies == 0 {
 		return
 	}
-	records, err := cronjobRepo.ListRecords(repo.WithByCronjobID(cronjob.ID), repo.WithOrderBy("created_at", "desc"))
+	// Only the newest RetainCopies+1 records can ever be removed, so there is
+	// no need to load the whole history for pruning.
+	records, err := cronjobRepo.ListRecordsLimit(int(cronjob.RetainCopies)+1,
+		repo.WithByCronjobID(cronjob.ID), repo.WithOrderBy("created_at", "desc"))
 	if err != nil {
 		return
 	}

@@ -2117,6 +2117,8 @@ let scriptGroupOptions = [];
 let scriptFormGroupIDs = [];
 let editingScriptGroupID = 0;
 let scriptRunTaskID = '';
+let scriptRunOffset = 0;
+let scriptRunRaw = '';
 let scriptRunTimer = null;
 let currentScriptRecordPage = 1, scriptRecordPageSize = 10;
 let scriptRecordTotalPages = 1;
@@ -3431,6 +3433,9 @@ function runScript(id) {
 async function startScriptRun(id) {
   try {
     scriptRunTaskID = await request('/api/scripts/run', 'POST', { id });
+    scriptRunOffset = 0;
+    scriptRunRaw = '';
+    document.getElementById('scriptRunView').textContent = '';
     pollScriptRunLog();
     scriptRunTimer = setInterval(pollScriptRunLog, 1000);
   } catch (e) {
@@ -3442,12 +3447,14 @@ async function startScriptRun(id) {
 async function pollScriptRunLog() {
   if (!scriptRunTaskID) return;
   try {
-    const data = await request('/api/scripts/run/log', 'POST', { taskID: scriptRunTaskID });
-    const view = document.getElementById('scriptRunView');
+    const data = await request('/api/scripts/run/log', 'POST', { taskID: scriptRunTaskID, offset: scriptRunOffset });
     if (data.content) {
-      view.innerHTML = ansiToHtml(data.content);
+      scriptRunRaw += data.content;
+      const view = document.getElementById('scriptRunView');
+      view.innerHTML = ansiToHtml(scriptRunRaw);
       view.scrollTop = view.scrollHeight;
     }
+    if (typeof data.offset === 'number') scriptRunOffset = data.offset;
     const st = data.status || 'running';
     const stEl = document.getElementById('scriptRunStatus');
     stEl.innerHTML = `<span class="tag ${st}">${statusText[st] || st}</span>`;
@@ -3471,6 +3478,8 @@ async function stopScriptRun() {
 function closeScriptRun() {
   if (scriptRunTimer) { clearInterval(scriptRunTimer); scriptRunTimer = null; }
   scriptRunTaskID = '';
+  scriptRunOffset = 0;
+  scriptRunRaw = '';
   document.getElementById('scriptRunMask').classList.remove('show');
 }
 

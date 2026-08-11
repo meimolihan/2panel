@@ -62,9 +62,9 @@ func displayWidth(s string) int {
 
 // cliSuccessBox draws a green ASCII success banner around title, e.g.
 //
-//	  ┌────────────────────────────────┐
-//	  │             ✔ 备份完成           │
-//	  └────────────────────────────────┘
+//	┌────────────────────────────────┐
+//	│             ✔ 备份完成           │
+//	└────────────────────────────────┘
 func cliSuccessBox(title string) {
 	const width = 36
 	fmt.Println("")

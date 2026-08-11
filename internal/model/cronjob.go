@@ -47,8 +47,8 @@ type Cronjob struct {
 type JobRecord struct {
 	BaseModel
 
-	CronjobID uint      `json:"cronjobID"`
-	TaskID    string    `json:"taskID"`
+	CronjobID uint      `gorm:"index" json:"cronjobID"`
+	TaskID    string    `gorm:"index" json:"taskID"`
 	StartTime time.Time `json:"startTime"`
 	Interval  float64   `json:"interval"`
 	Records   string    `json:"records"`

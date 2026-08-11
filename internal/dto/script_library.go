@@ -36,6 +36,7 @@ type ScriptRunStopReq struct {
 
 type ScriptLogReq struct {
 	TaskID string `json:"taskID"`
+	Offset int64  `json:"offset"`
 }
 
 type ScriptRecordSearch struct {
@@ -57,5 +58,6 @@ type ScriptRecord struct {
 
 type ScriptLog struct {
 	Content string `json:"content"`
+	Offset  int64  `json:"offset"`
 	Status  string `json:"status"`
 }

@@ -42,12 +42,10 @@ func main() {
 	var (
 		dataDir string
 		port    int
-		debug   bool
 		showVer bool
 	)
 	flag.StringVar(&dataDir, "data", "", "数据目录（数据库、日志、脚本）")
 	flag.IntVar(&port, "port", 8080, "http 监听端口")
-	flag.BoolVar(&debug, "debug", false, "启用 gin debug 模式")
 	flag.BoolVar(&showVer, "version", false, "显示版本信息")
 	flag.Parse()
 
@@ -110,7 +108,7 @@ func main() {
 		cliPaint(fmt.Sprintf("listening on %s, data dir: %s", addr, dataDir), styleGrey))
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           server.New(debug),
+		Handler:           server.New(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       120 * time.Second,
 		WriteTimeout:      120 * time.Second,

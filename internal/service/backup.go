@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -134,6 +135,7 @@ func RestoreZip(zipBytes []byte) error {
 	// copy lives next to the data dir (never inside it) so a trailing slash on
 	// -data cannot leave it in the data dir where a later backup would pack it.
 	base := strings.TrimRight(dataDir, "/")
+	pruneOldRestoreBackups(base)
 	if err := copyFile(filepath.Join(dataDir, backupDBName), base+".pre-restore-"+time.Now().Format("20060102-150405")+".db"); err != nil {
 		return fmt.Errorf("备份当前数据库失败: %v", err)
 	}
@@ -196,6 +198,21 @@ func RestoreZip(zipBytes []byte) error {
 	RestoreCronjobs()
 	RestoreScriptRecords()
 	return nil
+}
+
+// pruneOldRestoreBackups keeps only the two most recent pre-restore database
+// snapshots, so repeated restores cannot accumulate unbounded copies next to
+// the data directory.
+func pruneOldRestoreBackups(base string) {
+	pattern := filepath.Base(base) + ".pre-restore-*.db"
+	matches, err := filepath.Glob(filepath.Join(filepath.Dir(base), pattern))
+	if err != nil {
+		return
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(matches)))
+	for _, m := range matches[2:] {
+		_ = os.Remove(m)
+	}
 }
 
 // clearDataFiles removes and recreates the log/ and task/ directories so no

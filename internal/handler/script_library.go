@@ -116,7 +116,7 @@ func (a *ScriptApi) RunLog(w http.ResponseWriter, r *http.Request) {
 	if err := decode(&req, w, r); err != nil {
 		return
 	}
-	data, err := scriptService.LoadRunLog(req.TaskID)
+	data, err := scriptService.LoadRunLog(req.TaskID, req.Offset)
 	if err != nil {
 		InternalServer(w, err)
 		return

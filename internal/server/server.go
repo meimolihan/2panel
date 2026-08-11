@@ -11,7 +11,7 @@ import (
 //go:embed all:web
 var webFS embed.FS
 
-func New(debug bool) http.Handler {
+func New() http.Handler {
 	mux := http.NewServeMux()
 
 	cronjobs := "/api/cronjobs"
@@ -30,7 +30,7 @@ func New(debug bool) http.Handler {
 		mux.HandleFunc("POST /api/auth/status", authApi.Status)
 		mux.HandleFunc("POST /api/auth/login", authApi.Login)
 		mux.HandleFunc("POST /api/auth/logout", authApi.Logout)
-		mux.HandleFunc("POST /api/auth/change-password", authApi.ChangePassword)
+		mux.HandleFunc("POST /api/auth/change-password", handler.AuthMiddleware(authApi.ChangePassword))
 		mux.HandleFunc("POST /api/auth/me", handler.AuthMiddleware(authApi.Me))
 		mux.HandleFunc("POST /api/auth/backup", handler.AuthMiddleware(authApi.Backup))
 		mux.HandleFunc("POST /api/auth/restore", handler.AuthMiddleware(authApi.Restore))

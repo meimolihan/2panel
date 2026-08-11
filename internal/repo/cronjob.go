@@ -48,20 +48,6 @@ func WithByStatus(status string) DBOption {
 	}
 }
 
-func WithIsExecuting(v bool) DBOption {
-	return func(g *gorm.DB) *gorm.DB {
-		return g.Where("is_executing = ?", v)
-	}
-}
-
-// WithStartTimeAfter filters job records that started at or after the given
-// time, used for per-day dashboard stats.
-func WithStartTimeAfter(t time.Time) DBOption {
-	return func(g *gorm.DB) *gorm.DB {
-		return g.Where("start_time >= ?", t)
-	}
-}
-
 func WithByLikeName(info string) DBOption {
 	return func(g *gorm.DB) *gorm.DB {
 		if len(info) == 0 {
@@ -134,17 +120,6 @@ func (u *CronjobRepo) List(opts ...DBOption) ([]model.Cronjob, error) {
 	return cronjobs, err
 }
 
-// Count returns the number of cronjobs matching the given options.
-func (u *CronjobRepo) Count(opts ...DBOption) (int64, error) {
-	db := database.DB.Model(&model.Cronjob{})
-	for _, opt := range opts {
-		db = opt(db)
-	}
-	var count int64
-	err := db.Count(&count).Error
-	return count, err
-}
-
 func (u *CronjobRepo) Create(cronjob *model.Cronjob) error {
 	return database.DB.Create(cronjob).Error
 }
@@ -177,6 +152,28 @@ func (u *CronjobRepo) RecordFirst(cronjobID uint) (model.JobRecord, error) {
 	return record, err
 }
 
+// RecordFirstBatch returns the most recent record per cronjob ID in a single
+// query. IDs auto-increment together with CreatedAt, so MAX(id) equals the
+// newest record for each cronjob, avoiding the per-row lookup the list view
+// used to trigger (N+1).
+func (u *CronjobRepo) RecordFirstBatch(cronjobIDs []uint) (map[uint]model.JobRecord, error) {
+	result := make(map[uint]model.JobRecord)
+	if len(cronjobIDs) == 0 {
+		return result, nil
+	}
+	var records []model.JobRecord
+	err := database.DB.Model(&model.JobRecord{}).
+		Where("id IN (SELECT MAX(id) FROM job_records WHERE cronjob_id IN ? GROUP BY cronjob_id)", cronjobIDs).
+		Find(&records).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, rec := range records {
+		result[rec.CronjobID] = rec
+	}
+	return result, nil
+}
+
 func (u *CronjobRepo) PageRecords(page, size int, opts ...DBOption) (int64, []model.JobRecord, error) {
 	var records []model.JobRecord
 	db := database.DB.Model(&model.JobRecord{})
@@ -205,15 +202,57 @@ func (u *CronjobRepo) ListRecords(opts ...DBOption) ([]model.JobRecord, error) {
 	return records, err
 }
 
-// CountRecords returns the number of job records matching the given options.
-func (u *CronjobRepo) CountRecords(opts ...DBOption) (int64, error) {
+// ListRecordsLimit returns at most limit records matching the options, used by
+// the retention pruning so it never has to load the whole history.
+func (u *CronjobRepo) ListRecordsLimit(limit int, opts ...DBOption) ([]model.JobRecord, error) {
+	var records []model.JobRecord
 	db := database.DB.Model(&model.JobRecord{})
 	for _, opt := range opts {
 		db = opt(db)
 	}
-	var count int64
-	err := db.Count(&count).Error
-	return count, err
+	if limit <= 0 {
+		return records, nil
+	}
+	err := db.Limit(limit).Find(&records).Error
+	return records, err
+}
+
+// StatsSummary is the result of the single-pass dashboard aggregate.
+type StatsSummary struct {
+	Total        int64
+	Enabled      int64
+	Executing    int64
+	TodaySuccess int64
+	TodayFailed  int64
+}
+
+// Stats computes the dashboard numbers with two aggregate queries instead of
+// five separate COUNT scans. Each query must scan into its own target: GORM's
+// Scan resets the destination struct to its zero value, so scanning the second
+// query into the same struct would wipe the first query's totals.
+func (u *CronjobRepo) Stats(start time.Time) (StatsSummary, error) {
+	var summary StatsSummary
+	err := database.DB.Model(&model.Cronjob{}).
+		Select(`COUNT(*) AS total,
+			COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) AS enabled,
+			COALESCE(SUM(CASE WHEN is_executing = ? THEN 1 ELSE 0 END), 0) AS executing`,
+			model.StatusEnable, true).
+		Scan(&summary).Error
+	if err != nil {
+		return summary, err
+	}
+	var records StatsSummary
+	err = database.DB.Model(&model.JobRecord{}).
+		Select(`COALESCE(SUM(CASE WHEN status = ? AND start_time >= ? THEN 1 ELSE 0 END), 0) AS today_success,
+			COALESCE(SUM(CASE WHEN status = ? AND start_time >= ? THEN 1 ELSE 0 END), 0) AS today_failed`,
+			model.StatusSuccess, start, model.StatusFailed, start).
+		Scan(&records).Error
+	if err != nil {
+		return summary, err
+	}
+	summary.TodaySuccess = records.TodaySuccess
+	summary.TodayFailed = records.TodayFailed
+	return summary, nil
 }
 
 func (u *CronjobRepo) CreateRecord(record *model.JobRecord) error {

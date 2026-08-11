@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,8 +45,11 @@ func (u *ScriptService) SearchWithPage(search dto.ScriptSearch) (int64, []dto.Sc
 	if len(search.Info) != 0 {
 		opts = append(opts, repo.WithByInfo(search.Info))
 	}
+	if search.GroupID != 0 {
+		opts = append(opts, repo.WithByScriptGroup(search.GroupID))
+	}
 	opts = append(opts, repo.WithOrderBy("created_at", "desc"))
-	scripts, err := scriptLibraryRepo.List(opts...)
+	total, scripts, err := scriptLibraryRepo.Page(search.Page.Page, search.Page.PageSize, opts...)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -53,13 +57,10 @@ func (u *ScriptService) SearchWithPage(search dto.ScriptSearch) (int64, []dto.Sc
 	if err != nil {
 		return 0, nil, err
 	}
-	all := make([]dto.ScriptInfo, 0, len(scripts))
+	items := make([]dto.ScriptInfo, 0, len(scripts))
 	for _, script := range scripts {
 		groupList, groupBelong := parseScriptGroups(script.Groups, groupMap)
-		if search.GroupID != 0 && !containsUint(groupList, search.GroupID) {
-			continue
-		}
-		all = append(all, dto.ScriptInfo{
+		items = append(items, dto.ScriptInfo{
 			ID:          script.ID,
 			Name:        script.Name,
 			Description: script.Description,
@@ -69,17 +70,7 @@ func (u *ScriptService) SearchWithPage(search dto.ScriptSearch) (int64, []dto.Sc
 			CreatedAt:   script.CreatedAt,
 		})
 	}
-	total := len(all)
-	page, size := normalizePage(search.Page.Page, search.Page.PageSize)
-	start := (page - 1) * size
-	if start > total {
-		start = total
-	}
-	end := start + size
-	if end > total {
-		end = total
-	}
-	return int64(total), all[start:end], nil
+	return total, items, nil
 }
 
 func (u *ScriptService) LoadInfo(id uint) (dto.ScriptOperate, error) {
@@ -348,18 +339,42 @@ func (u *ScriptService) SearchRunRecords(search dto.ScriptRecordSearch) (int64, 
 	return total, items, nil
 }
 
-// LoadRunLog returns the live (or final) output and status of a script run,
-// resolved by task ID so the frontend can poll during execution.
-func (u *ScriptService) LoadRunLog(taskID string) (dto.ScriptLog, error) {
+// LoadRunLog returns the log content appended since the given byte offset plus
+// the next offset and the record status, resolved by task ID so the frontend
+// can poll incrementally during execution instead of re-reading the whole file
+// every second.
+func (u *ScriptService) LoadRunLog(taskID string, offset int64) (dto.ScriptLog, error) {
 	record, err := scriptRecordRepo.Get(repo.WithByTaskID(taskID))
 	if err != nil {
 		return dto.ScriptLog{}, fmt.Errorf("record not found")
 	}
-	content, err := os.ReadFile(record.Records)
-	if err != nil {
-		content = nil
+	result := dto.ScriptLog{Offset: offset, Status: record.Status}
+	if offset < 0 {
+		result.Offset = 0
 	}
-	return dto.ScriptLog{Content: string(content), Status: record.Status}, nil
+	if record.Records == "" {
+		return result, nil
+	}
+	f, err := os.Open(record.Records)
+	if err != nil {
+		return result, nil
+	}
+	defer f.Close()
+	stat, err := f.Stat()
+	if err != nil {
+		return result, nil
+	}
+	size := stat.Size()
+	if result.Offset > size {
+		result.Offset = size
+	}
+	if _, err := f.Seek(result.Offset, io.SeekStart); err != nil {
+		return result, nil
+	}
+	content, _ := io.ReadAll(f)
+	result.Content = string(content)
+	result.Offset = size
+	return result, nil
 }
 
 // RestoreScriptRecords marks in-flight script runs as failed after a service
@@ -436,28 +451,4 @@ func parseUint(s string) uint {
 		return 0
 	}
 	return uint(id)
-}
-
-func containsUint(list []uint, id uint) bool {
-	for _, item := range list {
-		if item == id {
-			return true
-		}
-	}
-	return false
-}
-
-// normalizePage clamps a page/size pair into safe values for in-memory
-// pagination, mirroring the repo package's normalizePageSize.
-func normalizePage(page, size int) (int, int) {
-	if page <= 0 {
-		page = 1
-	}
-	if size <= 0 {
-		size = 10
-	}
-	if size > 200 {
-		size = 200
-	}
-	return page, size
 }

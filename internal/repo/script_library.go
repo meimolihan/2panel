@@ -1,6 +1,8 @@
 package repo
 
 import (
+	"strconv"
+
 	"github.com/2panel-dev/2panel/internal/database"
 	"github.com/2panel-dev/2panel/internal/model"
 	"gorm.io/gorm"
@@ -14,6 +16,17 @@ func WithByInfo(info string) DBOption {
 			return g
 		}
 		return g.Where("name LIKE ? OR description LIKE ?", "%"+info+"%", "%"+info+"%")
+	}
+}
+
+// WithByScriptGroup matches scripts whose comma-separated Groups field contains
+// the given group id, pushed down to SQL so the script list can be filtered
+// and paginated in the database instead of in memory.
+func WithByScriptGroup(id uint) DBOption {
+	ids := strconv.FormatUint(uint64(id), 10)
+	return func(g *gorm.DB) *gorm.DB {
+		return g.Where("groups = ? OR groups LIKE ? OR groups LIKE ? OR groups LIKE ?",
+			ids, ids+",%", "%,"+ids, "%,"+ids+",%")
 	}
 }
 
