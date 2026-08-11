@@ -15,7 +15,6 @@
 
 set -e
 
-# ================== terminal colors ==================
 list_color_init() {
     export gl_hui=$'\033[38;5;59m'
     export gl_hong=$'\033[38;5;9m'
@@ -155,7 +154,6 @@ open_firewall_port() {
   printf "  %s %s\n" "${gl_huang}[提示]${reset}" "未检测到活跃的防火墙（firewalld/ufw/iptables），跳过端口开放。"
 }
 
-# ---- preflight ----
 [ "$(id -u)" != "0" ] && error "请以 root 身份运行（例如 sudo bash <(curl -sSL ...) -p 8080）"
 
 command -v curl >/dev/null 2>&1 || error "请先安装 curl（apt install curl / yum install curl）"
@@ -247,7 +245,7 @@ SHA_URL="${BIN_URL}.sha256"
 
 sep_line
 section "安装程序"
-ok "正在下载 ${gl_bai}2panel${reset} (${gl_lan}${ARCH}${reset}) ..."
+ok "正在下载 ${gl_bai}2panel${reset} (${gl_lan}${ARCH}${reset}) ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
 SIZE=$(curl -sIL --retry 2 "${BIN_URL}" 2>/dev/null | awk 'BEGIN{IGNORECASE=1} /^content-length:/{v=$2} END{print v}')
 if [ -n "${SIZE}" ] && command -v pv >/dev/null 2>&1; then
   # 单行实时进度条：百分比 + 速度 + 剩余时间（仅安装 pv 时启用）
@@ -257,7 +255,7 @@ if [ -n "${SIZE}" ] && command -v pv >/dev/null 2>&1; then
 else
   curl -fSL --progress-bar --retry 3 -o "${BIN_PATH}.download" "${BIN_URL}" || error "下载失败，请检查 GITHUB_OWNER 与 GitHub Release 附件"
 fi
-ok "下载完成，正在校验并安装..."
+ok "下载完成，正在校验并安装 ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
 
 # ---- verify checksum ----
 if command -v sha256sum >/dev/null 2>&1; then
@@ -281,7 +279,7 @@ chmod +x "${BIN_PATH}.download"
 mv "${BIN_PATH}.download" "${BIN_PATH}"
 
 ok "已安装二进制至 ${gl_bai}${BIN_PATH}${reset}"
-ok "正在创建数据目录 ${gl_lan}${DATA_DIR}${reset} ..."
+ok "正在创建数据目录 ${gl_lan}${DATA_DIR}${reset} ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
 mkdir -p "${DATA_DIR}"
 chmod 700 "${DATA_DIR}"
 
@@ -366,5 +364,3 @@ else
   printf "  %s\n" "  ${gl_huang}注意：${reset}后台运行模式在系统重启后不会自动恢复。"
   printf "  %s\n" "${gl_hui}    如需开机自启 / 崩溃自动重启 / journald 日志，请在安装 systemd 后重新运行本脚本。${reset}"
 fi
-sep_line
-break_end
