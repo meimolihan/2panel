@@ -418,6 +418,15 @@ th, td, .code {
 }
 .pwd-wrap input::placeholder { color: var(--text-secondary); opacity: 0.7; }
 .pwd-wrap:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--focus-ring); }
+/* 登录页密码框：点击聚焦时无高亮边框/光晕 */
+.login-card .pwd-wrap:focus-within,
+.login-card .pwd-wrap input:focus,
+[data-theme="light"] .login-card .pwd-wrap:focus-within,
+[data-theme="light"] .login-card .pwd-wrap input:focus {
+  border-color: var(--border);
+  box-shadow: none;
+  background-color: transparent;
+}
 .pwd-wrap:focus-within .pwd-icon { color: var(--primary); opacity: 1; }
 .pwd-wrap .eye {
   flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
@@ -426,7 +435,7 @@ th, td, .code {
   padding: 0; user-select: none; white-space: nowrap;
   transition: color 0.2s ease, background-color 0.2s ease;
 }
-.pwd-wrap .eye:hover { color: var(--primary); background: rgba(127, 127, 127, 0.12); }
+.pwd-wrap .eye:hover { color: var(--primary); background: transparent; }
 .pwd-wrap .eye svg { width: 17px; height: 17px; display: block; }
 .pwd-wrap .eye .eye-off { display: none; }
 .pwd-wrap .eye.show .eye-on { display: none; }
@@ -1240,27 +1249,46 @@ body.modal-open { overflow: hidden; }
   }
 }
 
-/* --- 三、表格行状态强化：执行中行黄色霓虹光晕 --- */
-tbody tr.row-running {
-  background-color: var(--row-hover-bg);
-  background-image:
-    linear-gradient(#fbbf24, #fbbf24),
-    linear-gradient(#fbbf24, #fbbf24),
-    linear-gradient(#fbbf24, #fbbf24),
-    linear-gradient(#fbbf24, #fbbf24),
-    linear-gradient(180deg, rgba(251, 191, 36, 0.35), rgba(251, 191, 36, 0)),
-    linear-gradient(0deg, rgba(251, 191, 36, 0.35), rgba(251, 191, 36, 0)),
-    linear-gradient(90deg, rgba(251, 191, 36, 0.35), rgba(251, 191, 36, 0)),
-    linear-gradient(270deg, rgba(251, 191, 36, 0.35), rgba(251, 191, 36, 0));
-  background-repeat: no-repeat;
-  background-size: 100% 2px, 100% 2px, 2px 100%, 2px 100%, 100% 12px, 100% 12px, 12px 100%, 12px 100%;
-  background-position: 0 0, 0 100%, 0 0, 100% 0, 0 0, 0 100%, 0 0, 100% 0;
-  animation: row-glow-yellow 3.5s ease-in-out infinite;
+/* --- 三、表格行状态强化：执行中行旋转流光边框（与登录页同款动画） ---
+   结构与登录页一致：内部用不透明的 --card-grad 铺满并内缩 2px，
+   露出外层一圈旋转的 conic 流光，两条光带错开半圈（6s/圈）。
+   注意内层填充必须不透明，否则旋转光带会透过整行。 */
+@property --row-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
 }
-tbody tr.row-running:hover { background-color: var(--row-hover-bg); }
-@keyframes row-glow-yellow {
-  0%, 100% { background-size: 100% 2px, 100% 2px, 2px 100%, 2px 100%, 100% 12px, 100% 12px, 12px 100%, 12px 100%; }
-  50%      { background-size: 100% 2px, 100% 2px, 2px 100%, 2px 100%, 100% 26px, 100% 26px, 26px 100%, 26px 100%; }
+:root {
+  --row-glow: var(--login-glow);
+  --row-fill-hover: linear-gradient(180deg, #26294f, #1d2040);
+}
+[data-theme="light"] {
+  --row-fill-hover: linear-gradient(180deg, #eef3fc, #e6ebf6);
+}
+tbody tr.row-running {
+  background-color: transparent;
+  background-image:
+    var(--card-grad),
+    conic-gradient(from var(--row-angle),
+      transparent 15%, var(--row-glow) 22%, var(--row-glow) 34%, transparent 41%,
+      transparent 65%, var(--row-glow) 72%, var(--row-glow) 84%, transparent 91%);
+  background-repeat: no-repeat;
+  background-size: calc(100% - 4px) calc(100% - 4px), 100% 100%;
+  background-position: 2px 2px, 0 0;
+  animation: row-border-spin 6s linear infinite;
+}
+tbody tr.row-running:hover {
+  background-image:
+    var(--row-fill-hover),
+    conic-gradient(from var(--row-angle),
+      transparent 15%, var(--row-glow) 22%, var(--row-glow) 34%, transparent 41%,
+      transparent 65%, var(--row-glow) 72%, var(--row-glow) 84%, transparent 91%);
+}
+@keyframes row-border-spin {
+  to { --row-angle: 360deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  tbody tr.row-running { animation: none; }
 }
 td.name.failed { color: var(--danger); }
 .name-err {
