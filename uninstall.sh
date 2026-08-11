@@ -221,6 +221,6 @@ echo -e ""
 close_firewall_port "$PORT"
 
 echo -e ""
-printf "  %s\n" "${gl_lv}✔ 2Panel 已卸载完成${reset}"
-printf "  %s\n" "${gl_hui}如需重新安装，请再次运行 install.sh 安装脚本。${reset}"
 sep_line
+printf "  %s\n" "${gl_lv}✔ 2Panel 已卸载完成${reset}"
+
