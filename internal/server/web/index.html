@@ -418,14 +418,25 @@ th, td, .code {
 }
 .pwd-wrap input::placeholder { color: var(--text-secondary); opacity: 0.7; }
 .pwd-wrap:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--focus-ring); }
-/* 登录页密码框：点击聚焦时无高亮边框/光晕 */
-.login-card .pwd-wrap:focus-within,
-.login-card .pwd-wrap input:focus,
-[data-theme="light"] .login-card .pwd-wrap:focus-within,
-[data-theme="light"] .login-card .pwd-wrap input:focus {
-  border-color: var(--border);
+/* 登录页密码框：点击时最外层边框显示与用户名输入框一致的聚焦装饰线（主色边框+光晕），内部输入框保持透明无边框 */
+.login-card .login-field .pwd-wrap { transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.login-card .login-field .pwd-wrap:focus-within {
+  background: transparent;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.login-card .login-field .pwd-wrap input:focus {
+  border-color: transparent;
   box-shadow: none;
-  background-color: transparent;
+  background: transparent;
+}
+/* 登录页输入框：清除浏览器自动填充的灰色/白色底 */
+.login-card .login-field .pwd-wrap input:-webkit-autofill,
+.login-card .login-field .pwd-wrap input:-webkit-autofill:hover,
+.login-card .login-field .pwd-wrap input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+  transition: background-color 9999s ease-in-out 0s;
 }
 .pwd-wrap:focus-within .pwd-icon { color: var(--primary); opacity: 1; }
 .pwd-wrap .eye {
@@ -662,6 +673,18 @@ tbody tr:hover { background: var(--row-hover-bg); background-image: none; }
   background-color: #ffffff;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--focus-ring);
+}
+[data-theme="light"] .login-card .pwd-wrap:focus-within,
+[data-theme="light"] .login-card .pwd-wrap:has(.eye:focus) {
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+[data-theme="light"] .login-card .login-field input:focus,
+[data-theme="light"] .login-card .login-field input:hover {
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 [data-theme="light"] .login-field input,
 [data-theme="light"] .pwd-wrap,
@@ -3946,6 +3969,8 @@ function togglePwd(id, el) {
   const show = input.type === 'password';
   input.type = show ? 'text' : 'password';
   el.classList.toggle('show', show);
+  el.setAttribute('aria-pressed', String(show));
+  el.setAttribute('aria-label', show ? '隐藏密码' : '显示密码');
 }
 
 function copyDefaultPwd(btn) {
