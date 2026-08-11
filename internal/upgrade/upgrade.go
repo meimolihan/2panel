@@ -94,17 +94,17 @@ func Check() (*dto.UpdateInfo, error) {
 	}
 
 	info := &dto.UpdateInfo{Current: currentVersion, Updatable: Enabled()}
-	if Enabled() {
-		latest, err := fetchLatestRelease()
-		if err != nil {
-			return nil, err
-		}
-		info.Latest = latest.Tag
-		info.PublishedAt = latest.PublishedAt
-		info.Changelog = latest.Body
-		if semver.IsValid(latest.Tag) && semver.Compare(latest.Tag, currentVersion) > 0 {
-			info.HasUpdate = true
-		}
+	// 始终查询最新发布：开发构建（build=dev）也能看到更新提示，
+	// 只是不能在线升级（Updatable=false 时前端会提示手动重新部署）。
+	latest, err := fetchLatestRelease()
+	if err != nil {
+		return nil, err
+	}
+	info.Latest = latest.Tag
+	info.PublishedAt = latest.PublishedAt
+	info.Changelog = latest.Body
+	if semver.IsValid(latest.Tag) && semver.Compare(latest.Tag, currentVersion) > 0 {
+		info.HasUpdate = true
 	}
 
 	checkCache, checkTime = info, time.Now()

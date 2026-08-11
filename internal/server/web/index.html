@@ -1592,7 +1592,10 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
     </div>
     <div class="login-field">
       <label>用户名</label>
-      <input type="text" id="loginName" value="admin" placeholder="admin" autocomplete="username">
+      <div class="pwd-wrap">
+        <svg class="pwd-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <input type="text" id="loginName" value="admin" placeholder="admin" autocomplete="username">
+      </div>
     </div>
     <div class="login-field">
       <label>密码</label>
@@ -2546,7 +2549,12 @@ async function checkUpdate() {
       toast('发现新版本 ' + data.latest, 'success');
     } else {
       go.style.display = 'none';
-      if (!data.updatable) {
+      if (data.hasUpdate && !data.updatable) {
+        status.className = 'upd-status';
+        status.textContent = '发现新版本 ' + data.latest + '，但当前为开发构建（build=dev），不支持在线升级，请手动重新部署。';
+        status.style.display = '';
+        setUpdateBadge(data.latest);
+      } else if (!data.updatable) {
         status.className = 'upd-status';
         status.textContent = '当前为开发构建（build=dev），不支持在线升级，请手动重新部署。';
         status.style.display = '';
