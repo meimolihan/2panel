@@ -5,8 +5,9 @@
 # directory created by install.sh.
 #
 # Usage: bash uninstall.sh
+#
 
-set -e
+set -euo pipefail
 
 BIN_PATH="/usr/local/bin/2panel"
 SERVICE_NAME="2panel"
@@ -15,6 +16,19 @@ DEFAULT_PORT=8080
 CONFIG_FILE="/etc/2panel/config"
 
 list_color_init() {
+    # 非TTY关闭颜色
+    if [ ! -t 1 ]; then
+        export gl_hui=""
+        export gl_hong=""
+        export gl_lv=""
+        export gl_huang=""
+        export gl_lan=""
+        export gl_bai=""
+        export gl_zi=""
+        export gl_bufan=""
+        export reset=""
+        return
+    fi
     export gl_hui=$'\033[38;5;59m'
     export gl_hong=$'\033[38;5;9m'
     export gl_lv=$'\033[38;5;10m'
@@ -31,8 +45,21 @@ section() {
   printf "  %s %s\n" "${gl_zi}▶${reset}" "$1"
 }
 
+ok() {
+  printf "  %s %s\n" "${gl_lv}>>>${reset}" "$1"
+}
+
 skip() {
   printf "  %s %s\n" "${gl_hui}----${reset}" "$1"
+}
+
+warn() {
+  printf "  %s %s\n" "${gl_huang}[提示]${reset}" "$1"
+}
+
+error() {
+  printf "  %s %s\n" "${gl_hong}[错误]${reset}" "$1" >&2
+  exit 1
 }
 
 print_banner() {
@@ -46,22 +73,18 @@ print_banner() {
     ""
 }
 
-break_end() {
-    echo -e "${gl_lv}操作完成${gl_bai}"
-    echo -e "${gl_bai}按任意键继续 ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}\c"
-    read -r -n 1 -s -r -p ""
-    echo ""
-    clear
-}
-
-error() { printf "  %s %s\n" "${gl_hong}[错误]${reset}" "$1" >&2; exit 1; }
 [ "$(id -u)" != "0" ] && error "请以 root 身份运行（sudo bash uninstall.sh）"
 
+# 读取配置，跳过注释行
 read_config() {
+  local key_val
   [ -f "$CONFIG_FILE" ] || return 0
-  while IFS='=' read -r KEY VALUE; do
-    KEY=$(printf '%s' "$KEY" | tr -d ' ')
-    VALUE=$(printf '%s' "$VALUE" | tr -d '\r')
+  while IFS='=' read -r key_val; do
+    # 跳过空行、#注释
+    [[ -z "$key_val" || "$key_val" =~ ^# ]] && continue
+    local KEY VALUE
+    KEY=$(printf '%s' "$key_val" | cut -d'=' -f1 | tr -d ' ')
+    VALUE=$(printf '%s' "$key_val" | cut -d'=' -f2 | tr -d '\r')
     case "$KEY" in
       BIN_PATH) [ -n "$VALUE" ] && BIN_PATH="$VALUE" ;;
       PORT) [ -n "$VALUE" ] && PORT="$VALUE" ;;
@@ -70,145 +93,209 @@ read_config() {
   done < "$CONFIG_FILE"
 }
 
+# 获取所有2panel pid，排除僵尸进程
 find_2panel_pids() {
-  local d pid exe
+  local d pid exe stat
   for d in /proc/[0-9]*; do
     [ -d "$d" ] || continue
     pid="${d#/proc/}"
     [ "$pid" = "$$" ] && continue
-    exe=$(readlink "$d/exe" 2>/dev/null) || continue
+    stat=$(cat "${d}/stat" 2>/dev/null || true)
+    # 跳过僵尸进程 Z
+    if [[ "$stat" =~ \(.*\)\ Z ]]; then
+        continue
+    fi
+    exe=$(readlink "${d}/exe" 2>/dev/null || true)
     [ "$(basename "$exe")" = "2panel" ] || continue
     echo "$pid"
   done
+}
+
+# 从pid的cmdline解析 -port / -data
+parse_from_pid() {
+  local pid="$1"
+  local cmdline
+  cmdline=$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)
+  local p d
+  p=$(printf '%s' "$cmdline" | grep -oE '\-port [0-9]+' | awk '{print $2}' || true)
+  d=$(printf '%s' "$cmdline" | grep -oE '\-data [^ ]+' | awk '{print $2}' || true)
+  echo "${p:-} ${d:-}"
 }
 
 close_firewall_port() {
   local PORT="$1"
   [ -z "$PORT" ] && return 0
 
-  # 1. firewalld
+  # 只清理本脚本之前开放的端口，不盲目删除全部规则
   if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
-    firewall-cmd --permanent --remove-port="${PORT}/tcp" >/dev/null 2>&1 || true
-    firewall-cmd --reload >/dev/null 2>&1 || true
-    echo -e "已通过 ${gl_bai}firewalld${reset} 关闭端口 ${gl_lan}${PORT}/tcp${reset}"
-  # 2. ufw
-  elif command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
-    ufw delete allow "${PORT}/tcp" >/dev/null 2>&1 || true
-    echo -e "已通过 ${gl_bai}ufw${reset} 关闭端口 ${gl_lan}${PORT}/tcp${reset}"
-  # 3. iptables
-  elif command -v iptables >/dev/null 2>&1; then
-    if iptables -D INPUT -p tcp --dport "${PORT}" -j ACCEPT >/dev/null 2>&1; then
-      echo -e "已通过 ${gl_bai}iptables${reset} 关闭端口 ${gl_lan}${PORT}/tcp${reset}"
+    if firewall-cmd --query-port="${PORT}/tcp" >/dev/null 2>&1; then
+      firewall-cmd --permanent --remove-port="${PORT}/tcp" >/dev/null 2>&1 || true
+      firewall-cmd --reload >/dev/null 2>&1 || true
+      ok "已通过 firewalld 移除端口 ${PORT}/tcp"
+    else
+      skip "firewalld 中未发现 ${PORT}/tcp，跳过"
+    fi
+    return 0
+  fi
+
+  if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
+    if ufw status 2>/dev/null | grep -q "${PORT}/tcp"; then
+      ufw delete allow "${PORT}/tcp" >/dev/null 2>&1 || true
+      ok "已通过 ufw 移除端口 ${PORT}/tcp"
+    else
+      skip "ufw 中未发现 ${PORT}/tcp，跳过"
+    fi
+    return 0
+  fi
+
+  if command -v iptables >/dev/null 2>&1; then
+    if iptables -C INPUT -p tcp --dport "${PORT}" -j ACCEPT >/dev/null 2>&1; then
+      iptables -D INPUT -p tcp --dport "${PORT}" -j ACCEPT >/dev/null 2>&1
+      ok "已通过 iptables 移除端口 ${PORT}/tcp"
+    else
+      skip "iptables INPUT链未发现 ${PORT}/tcp 放行规则，跳过"
     fi
   fi
 }
 
+# -------- main --------
 print_banner
-echo -e "${gl_zi}>>> ${gl_bai}卸载 2Panel"
-echo -e "${gl_bufan}————————————————————————————————————————————————${gl_bai}"
-while :; do
-  read -r -p "${gl_bai}卸载将停止并移除 2Panel 服务与程序，是否继续？ (${gl_lv}y${gl_bai}/${gl_hong}N${gl_bai}): " CONFIRM
-  case "$CONFIRM" in
-    y|Y|yes|YES)
-      echo -e "${gl_huang}>>> 开始卸载 2Panel ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
-      break
-      ;;
-    n|N|no|NO|"")
-      printf "  %s\n" "${gl_huang}已取消卸载。${reset}"
-      exit 0
-      ;;
-    *)
-      printf "  %s\n" "${gl_huang}输入无效，请输入 y 或 n。${reset}"
-      ;;
-  esac
-done
+printf "%s>>> %s\n" "${gl_zi}" "${gl_bai}卸载 2Panel${reset}"
+printf "%s%s\n" "${gl_bufan}" "————————————————————————————————————————————————${reset}"
+
+CONFIRM="n"
+# TTY交互式确认；非TTY直接执行卸载（静默模式）
+if [ -t 0 ]; then
+  while :; do
+    read -r -p "${gl_bai}卸载将停止并移除 2Panel 服务与程序，是否继续？ (${gl_lv}y${gl_bai}/${gl_hong}N${gl_bai}): " CONFIRM
+    case "$CONFIRM" in
+      y|Y|yes|YES)
+        ok "开始卸载 2Panel"
+        break
+        ;;
+      n|N|no|NO|"")
+        warn "已取消卸载。"
+        exit 0
+        ;;
+      *)
+        warn "输入无效，请输入 y 或 n。"
+        ;;
+    esac
+  done
+else
+  warn "非交互式环境，自动确认卸载"
+  CONFIRM="y"
+fi
 
 PORT="$DEFAULT_PORT"
-DATA_DIR="${DATA_DIR:-}"
+DATA_DIR=""
 read_config
 
-echo -e ""
-if command -v systemctl >/dev/null 2>&1 && [ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
-  SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-  [ -z "$PORT" ] && PORT=$(grep -oE '\-port [0-9]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
-  [ -z "$PORT" ] && PORT="$DEFAULT_PORT"
-  [ -z "$DATA_DIR" ] && DATA_DIR=$(grep -oE '\-data [^ ]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
-  echo -e "正在停止并移除 systemd 服务 ${gl_bai}${SERVICE_NAME}${reset} ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
+section "停止 systemd 服务"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+if command -v systemctl >/dev/null 2>&1 && [ -f "$SERVICE_FILE" ]; then
+  # 从service文件回填参数
+  port_svc=$(grep -oE '\-port [0-9]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1 || true)
+  data_svc=$(grep -oE '\-data [^ ]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1 || true)
+  [ -n "$port_svc" ] && PORT="$port_svc"
+  [ -n "$data_svc" ] && DATA_DIR="$data_svc"
+
   systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
   systemctl disable "${SERVICE_NAME}" 2>/dev/null || true
   rm -f "$SERVICE_FILE"
   systemctl daemon-reload 2>/dev/null || true
+  ok "已停止、禁用并删除 systemd unit"
 else
-  skip "未发现 systemd 服务，跳过。"
+  skip "未发现 systemd 服务单元，跳过"
 fi
 
-echo -e ""
+section "终止运行进程"
 PIDS=$(find_2panel_pids)
 if [ -n "$PIDS" ]; then
-  if [ -z "$DATA_DIR" ]; then
-    for PID in $PIDS; do
-      [ -d "/proc/$PID" ] || continue
-      CMD=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null)
-      [ -z "$PORT_CMD" ] && PORT_CMD=$(printf '%s' "$CMD" | grep -oE '\-port [0-9]+' | awk '{print $2}')
-      [ -z "$DATA_DIR" ] && DATA_DIR=$(printf '%s' "$CMD" | grep -oE '\-data [^ ]+' | awk '{print $2}')
-      [ -n "$PORT_CMD" ] && [ -n "$DATA_DIR" ] && break
-    done
-  fi
-  echo -e "正在停止 2panel 进程: ${gl_bai}$PIDS${reset} ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
+  ok "发现运行PID: ${PIDS}"
+  # 从第一个运行进程尝试回填PORT/DATA_DIR
+  read p_from_pid d_from_pid <<< $(parse_from_pid $(echo "$PIDS" | awk '{print $1}'))
+  [ -n "$p_from_pid" ] && PORT="$p_from_pid"
+  [ -n "$d_from_pid" ] && DATA_DIR="$d_from_pid"
+
+  # 优雅终止
   for PID in $PIDS; do
-    [ -d "/proc/$PID" ] || continue
-    kill "$PID" 2>/dev/null || true
+    [ -d "/proc/$PID" ] && kill "$PID" 2>/dev/null || true
   done
   sleep 1
+  # 强制杀残留
   for PID in $PIDS; do
-    [ -d "/proc/$PID" ] || continue
-    kill -9 "$PID" 2>/dev/null || true
+    if [ -d "/proc/$PID" ]; then
+      warn "进程 $PID 未退出，执行强制终止 SIGKILL"
+      kill -9 "$PID" 2>/dev/null || true
+    fi
   done
+  ok "所有2panel进程已终止"
 else
-  skip "未发现运行中的 2panel 进程，跳过。"
+  skip "未发现运行中的2panel进程，跳过"
 fi
 
-[ -z "$PORT" ] && [ -n "$PORT_CMD" ] && PORT="$PORT_CMD"
-[ -n "$DATA_DIR" ] && DEFAULT_DATA_DIR="$DATA_DIR"
-
-echo -e ""
+section "删除二进制程序"
 if [ -f "${BIN_PATH}" ]; then
   rm -f "${BIN_PATH}"
-  echo -e "已删除二进制文件 ${gl_bai}${BIN_PATH}${reset}"
+  ok "已删除二进制 ${BIN_PATH}"
 else
-  skip "未找到二进制文件 ${gl_bai}${BIN_PATH}${reset}，跳过。"
+  skip "二进制文件不存在 ${BIN_PATH}，跳过"
 fi
 
-echo -e ""
-[ -z "$DATA_DIR" ] && [ -d "${DEFAULT_DATA_DIR}" ] && DATA_DIR="${DEFAULT_DATA_DIR}"
+section "处理数据目录"
+# 兜底默认路径
+[ -z "$DATA_DIR" ] && DATA_DIR="$DEFAULT_DATA_DIR"
+# 安全防护：禁止高危路径rm‑rf
+DANGER_PATHS=( "/" "/etc" "/usr" "/bin" "/sbin" "/usr/bin" "/usr/sbin" "/var" )
+is_danger=0
+for dp in "${DANGER_PATHS[@]}"; do
+    if [ "$DATA_DIR" = "$dp" ]; then
+        is_danger=1
+        break
+    fi
+done
 
-if [ -n "$DATA_DIR" ] && [ -d "$DATA_DIR" ]; then
-  echo -e "检测到数据目录: ${gl_bai}${DATA_DIR}${reset}"
-  read -r -p "${gl_bai}是否删除数据目录 ${gl_huang}${DATA_DIR}${gl_bai}？（包含数据库、任务脚本和日志）(${gl_lv}y${gl_bai}/${gl_hong}N${gl_bai}): " DEL_DATA
+if [ "$is_danger" -eq 1 ]; then
+  warn "检测到高危路径，跳过数据目录删除: ${DATA_DIR}"
+elif [ -n "$DATA_DIR" ] && [ -d "$DATA_DIR" ]; then
+  DEL_DATA="n"
+  if [ -t 0 ]; then
+    read -r -p "${gl_bai}是否删除数据目录 ${gl_huang}${DATA_DIR}${gl_bai}？（数据库/任务/日志）(${gl_lv}y${gl_bai}/${gl_hong}N${gl_bai}): " DEL_DATA
+  else
+    DEL_DATA="n"
+    warn "非交互式，保留数据目录"
+  fi
+
   case "$DEL_DATA" in
-    n|N|no|NO)
-      skip "已保留数据目录 ${gl_bai}${DATA_DIR}${reset}"
+    y|Y|yes|YES)
+      rm -rf "${DATA_DIR}"
+      ok "已删除数据目录 ${DATA_DIR}"
       ;;
     *)
-      rm -rf "$DATA_DIR"
-      echo -e "已删除数据目录 ${gl_bai}${DATA_DIR}${reset}"
+      skip "保留数据目录 ${DATA_DIR}"
       ;;
   esac
 else
-  skip "未找到数据目录，跳过。"
+  skip "数据目录不存在，跳过"
 fi
 
-echo -e ""
+section "清理配置记录"
 if [ -f "$CONFIG_FILE" ]; then
   rm -f "$CONFIG_FILE"
-  echo -e "已删除安装记录 ${gl_bai}$CONFIG_FILE${reset}"
+  ok "删除安装记录文件 ${CONFIG_FILE}"
+  # 删除空目录，有残留文件不会报错
   rmdir "$(dirname "$CONFIG_FILE")" 2>/dev/null || true
 else
-  skip "未找到安装记录 ${gl_bai}$CONFIG_FILE${reset}，跳过。"
+  skip "未找到安装记录，跳过"
 fi
 
-close_firewall_port "$PORT"
+section "关闭防火墙端口"
+close_firewall_port "${PORT}"
 
-echo -e ""
-echo -e "${gl_bufan}————————————————————————————————————————————————${gl_bai}"
-printf "  %s\n" "${gl_lv}✔ 2Panel 已卸载完成${reset}"
+printf "\n%s%s\n" "${gl_bufan}" "————————————————————————————————————————————————${reset}"
+printf "  %s\n" "${gl_lv}✔ 2Panel 卸载完成${reset}"
+printf "  %‑16s %s\n" "二进制" "${BIN_PATH}"
+printf "  %‑16s %s\n" "监听端口" "${PORT}"
+printf "  %‑16s %s\n" "数据目录" "${DATA_DIR}"
+printf "\n"

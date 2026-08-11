@@ -230,22 +230,22 @@ sep_line
 section "安装程序"
 ok "正在下载 ${gl_bai}2panel${reset} (${gl_lan}${ARCH}${reset}) ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
 
-# ========== 下载+进度条核心逻辑 ==========
+# ========== 下载+进度条核心逻辑 进度条输出至stderr，避免stdout乱码 ==========
 if [ -t 1 ] && command -v pv >/dev/null 2>&1; then
   SIZE=$(curl -sIL --retry 2 "${BIN_URL}" 2>/dev/null | awk 'BEGIN{IGNORECASE=1}/^content-length:/{print $2}')
   if [[ -n "${SIZE}" && "${SIZE}" =~ ^[0-9]+$ ]]; then
-    (set -o pipefail; curl -fsSL --retry 3 "${BIN_URL}" | pv -p -t -e -b -s "${SIZE}" -o "${TMP_BIN}") || error "下载失败(pv)"
+    (set -o pipefail; curl -fsSL --retry 3 "${BIN_URL}" | pv -p -t -e -b -s "${SIZE}" -o "${TMP_BIN}" >&2) || error "下载失败(pv)"
   else
-    curl -fSL --progress-bar --retry 3 -o "${TMP_BIN}" "${BIN_URL}" || error "下载失败(curl)"
+    curl -fSL --progress-bar --retry 3 -o "${TMP_BIN}" "${BIN_URL}" 2>&1 || error "下载失败(curl)"
   fi
 elif [ -t 1 ]; then
-  # TTY终端，curl原生进度条
-  curl -fSL --progress-bar --retry 3 -o "${TMP_BIN}" "${BIN_URL}" || error "下载失败(curl)"
+  # TTY终端，curl原生进度条输出stderr，不污染标准输出
+  curl -fSL --progress-bar --retry 3 -o "${TMP_BIN}" "${BIN_URL}" 2>&1 || error "下载失败(curl)"
 else
   # 非终端：管道、日志重定向，完全静默，关闭动画
   curl -fsSL --retry 3 -o "${TMP_BIN}" "${BIN_URL}" || error "下载失败(非tty)"
 fi
-echo ""
+
 ok "下载完成，正在校验并安装 ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
 
 # sha256校验
@@ -282,7 +282,8 @@ EOF
 chmod 0644 /etc/2panel/config
 ok "已写入安装记录 ${gl_bai}/etc/2panel/config${reset}"
 
-"${BIN_PATH}" -version
+# 只提取版本号，过滤掉大ASCII banner
+"${BIN_PATH}" -version 2>/dev/null | grep -E "版本|v[0-9]+\.[0-9]+\.[0-9]+" || true
 
 sep_line
 section "启动服务"
