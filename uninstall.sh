@@ -37,12 +37,8 @@ section() {
   printf "  %s %s\n" "${gl_zi}▶${reset}" "$1"
 }
 
-ok() {
-  printf "  %s %s\n" "${gl_lv}>>>${reset}" "$1"
-}
-
 skip() {
-  printf "  %s %s\n" "${gl_hui}---${reset}" "$1"
+  printf "  %s %s\n" "${gl_hui}----${reset}" "$1"
 }
 
 print_banner() {
@@ -100,27 +96,27 @@ close_firewall_port() {
   if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
     firewall-cmd --permanent --remove-port="${PORT}/tcp" >/dev/null 2>&1 || true
     firewall-cmd --reload >/dev/null 2>&1 || true
-    ok "已通过 ${gl_bai}firewalld${reset} 关闭端口 ${gl_lan}${PORT}/tcp${reset}"
+    echo -e "已通过 ${gl_bai}firewalld${reset} 关闭端口 ${gl_lan}${PORT}/tcp${reset}"
   # 2. ufw
   elif command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
     ufw delete allow "${PORT}/tcp" >/dev/null 2>&1 || true
-    ok "已通过 ${gl_bai}ufw${reset} 关闭端口 ${gl_lan}${PORT}/tcp${reset}"
+    echo -e "已通过 ${gl_bai}ufw${reset} 关闭端口 ${gl_lan}${PORT}/tcp${reset}"
   # 3. iptables
   elif command -v iptables >/dev/null 2>&1; then
     if iptables -D INPUT -p tcp --dport "${PORT}" -j ACCEPT >/dev/null 2>&1; then
-      ok "已通过 ${gl_bai}iptables${reset} 关闭端口 ${gl_lan}${PORT}/tcp${reset}"
+      echo -e "已通过 ${gl_bai}iptables${reset} 关闭端口 ${gl_lan}${PORT}/tcp${reset}"
     fi
   fi
 }
 
 print_banner
-echo -e "${gl_zi}>>> 卸载 2Panel${gl_bai}"
+echo -e "${gl_zi}>>> ${gl_bai}卸载 2Panel"
 sep_line
 while :; do
   read -r -p "${gl_bai}卸载将停止并移除 2Panel 服务与程序，是否继续？ (${gl_lv}y${gl_bai}/${gl_hong}N${gl_bai}): " CONFIRM
   case "$CONFIRM" in
     y|Y|yes|YES)
-      ok "开始卸载 2Panel ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
+      echo -e "开始卸载 2Panel ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
       break
       ;;
     n|N|no|NO|"")
@@ -143,7 +139,7 @@ if command -v systemctl >/dev/null 2>&1 && [ -f "/etc/systemd/system/${SERVICE_N
   [ -z "$PORT" ] && PORT=$(grep -oE '\-port [0-9]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
   [ -z "$PORT" ] && PORT="$DEFAULT_PORT"
   [ -z "$DATA_DIR" ] && DATA_DIR=$(grep -oE '\-data [^ ]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
-  ok "正在停止并移除 systemd 服务 ${gl_bai}${SERVICE_NAME}${reset} ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
+  echo -e "正在停止并移除 systemd 服务 ${gl_bai}${SERVICE_NAME}${reset} ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
   systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
   systemctl disable "${SERVICE_NAME}" 2>/dev/null || true
   rm -f "$SERVICE_FILE"
@@ -164,7 +160,7 @@ if [ -n "$PIDS" ]; then
       [ -n "$PORT_CMD" ] && [ -n "$DATA_DIR" ] && break
     done
   fi
-  ok "正在停止 2panel 进程: ${gl_bai}$PIDS${reset} ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
+  echo -e "正在停止 2panel 进程: ${gl_bai}$PIDS${reset} ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
   for PID in $PIDS; do
     [ -d "/proc/$PID" ] || continue
     kill "$PID" 2>/dev/null || true
@@ -184,7 +180,7 @@ fi
 echo -e ""
 if [ -f "${BIN_PATH}" ]; then
   rm -f "${BIN_PATH}"
-  ok "已删除二进制文件 ${gl_bai}${BIN_PATH}${reset}"
+  echo -e "已删除二进制文件 ${gl_bai}${BIN_PATH}${reset}"
 else
   skip "未找到二进制文件 ${gl_bai}${BIN_PATH}${reset}，跳过。"
 fi
@@ -193,7 +189,7 @@ echo -e ""
 [ -z "$DATA_DIR" ] && [ -d "${DEFAULT_DATA_DIR}" ] && DATA_DIR="${DEFAULT_DATA_DIR}"
 
 if [ -n "$DATA_DIR" ] && [ -d "$DATA_DIR" ]; then
-  ok "检测到数据目录: ${gl_bai}${DATA_DIR}${reset}"
+  echo -e "检测到数据目录: ${gl_bai}${DATA_DIR}${reset}"
   read -r -p "${gl_huang}是否删除数据目录 ${DATA_DIR}？（包含数据库、任务脚本和日志）${gl_bai}[Y/n]${reset}: " DEL_DATA
   case "$DEL_DATA" in
     n|N|no|NO)
@@ -201,7 +197,7 @@ if [ -n "$DATA_DIR" ] && [ -d "$DATA_DIR" ]; then
       ;;
     *)
       rm -rf "$DATA_DIR"
-      ok "已删除数据目录 ${gl_bai}${DATA_DIR}${reset}"
+      echo -e "已删除数据目录 ${gl_bai}${DATA_DIR}${reset}"
       ;;
   esac
 else
@@ -211,7 +207,7 @@ fi
 echo -e ""
 if [ -f "$CONFIG_FILE" ]; then
   rm -f "$CONFIG_FILE"
-  ok "已删除安装记录 ${gl_bai}$CONFIG_FILE${reset}"
+  echo -e "已删除安装记录 ${gl_bai}$CONFIG_FILE${reset}"
   rmdir "$(dirname "$CONFIG_FILE")" 2>/dev/null || true
 else
   skip "未找到安装记录 ${gl_bai}$CONFIG_FILE${reset}，跳过。"
@@ -221,6 +217,6 @@ echo -e ""
 close_firewall_port "$PORT"
 
 echo -e ""
-sep_line
 printf "  %s\n" "${gl_lv}✔ 2Panel 已卸载完成${reset}"
-
+printf "  %s\n" "${gl_hui}如需重新安装，请再次运行 install.sh 安装脚本。${reset}"
+sep_line
