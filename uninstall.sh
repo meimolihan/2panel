@@ -110,7 +110,7 @@ while :; do
   read -r -p "${gl_bai}卸载将停止并移除 2Panel 服务与程序，是否继续？ (${gl_lv}y${gl_bai}/${gl_hong}N${gl_bai}): " CONFIRM
   case "$CONFIRM" in
     y|Y|yes|YES)
-      echo -e "开始卸载 2Panel ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
+      echo -e "${gl_huang}>>> 开始卸载 2Panel ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
       break
       ;;
     n|N|no|NO|"")
