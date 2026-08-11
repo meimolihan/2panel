@@ -14,7 +14,6 @@ DEFAULT_DATA_DIR="/var/lib/2panel"
 DEFAULT_PORT=8080
 CONFIG_FILE="/etc/2panel/config"
 
-# ================== terminal colors ==================
 list_color_init() {
     export gl_hui=$'\033[38;5;59m'
     export gl_hong=$'\033[38;5;9m'
@@ -43,7 +42,7 @@ ok() {
 }
 
 skip() {
-  printf "  %s %s\n" "${gl_hui}--${reset}" "$1"
+  printf "  %s %s\n" "${gl_hui}---${reset}" "$1"
 }
 
 print_banner() {
@@ -54,8 +53,6 @@ print_banner() {
     "${z}  __) | |_) / _\` | '_ \\ / _ \\ |${r}" \
     "${z} / __/|  __/ (_| | | | |  __/ |${r}" \
     "${z}|_____|_|   \\__,_|_| |_|\\___|_|${r}" \
-    "" \
-    "${b}2Panel${r} - ${l}卸载${r}" \
     ""
 }
 
@@ -117,13 +114,13 @@ close_firewall_port() {
 }
 
 print_banner
+echo -e "${gl_zi}>>> 卸载 2Panel${gl_bai}"
 sep_line
-section "卸载确认"
 while :; do
-  read -r -p "${gl_huang}卸载将停止并移除 2Panel 服务与程序，是否继续？${gl_bai}[y/N]${reset}: " CONFIRM
+  read -r -p "${gl_bai}卸载将停止并移除 2Panel 服务与程序，是否继续？ (${gl_lv}y${gl_bai}/${gl_hong}N${gl_bai}): " CONFIRM
   case "$CONFIRM" in
     y|Y|yes|YES)
-      ok "开始卸载 2Panel ..."
+      ok "开始卸载 2Panel ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
       break
       ;;
     n|N|no|NO|"")
@@ -140,14 +137,13 @@ PORT="$DEFAULT_PORT"
 DATA_DIR="${DATA_DIR:-}"
 read_config
 
-sep_line
-section "停止服务"
+echo -e ""
 if command -v systemctl >/dev/null 2>&1 && [ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
   SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
   [ -z "$PORT" ] && PORT=$(grep -oE '\-port [0-9]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
   [ -z "$PORT" ] && PORT="$DEFAULT_PORT"
   [ -z "$DATA_DIR" ] && DATA_DIR=$(grep -oE '\-data [^ ]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
-  ok "正在停止并移除 systemd 服务 ${gl_bai}${SERVICE_NAME}${reset} ..."
+  ok "正在停止并移除 systemd 服务 ${gl_bai}${SERVICE_NAME}${reset} ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
   systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
   systemctl disable "${SERVICE_NAME}" 2>/dev/null || true
   rm -f "$SERVICE_FILE"
@@ -156,8 +152,7 @@ else
   skip "未发现 systemd 服务，跳过。"
 fi
 
-sep_line
-section "停止进程"
+echo -e ""
 PIDS=$(find_2panel_pids)
 if [ -n "$PIDS" ]; then
   if [ -z "$DATA_DIR" ]; then
@@ -169,7 +164,7 @@ if [ -n "$PIDS" ]; then
       [ -n "$PORT_CMD" ] && [ -n "$DATA_DIR" ] && break
     done
   fi
-  ok "正在停止 2panel 进程: ${gl_bai}$PIDS${reset} ..."
+  ok "正在停止 2panel 进程: ${gl_bai}$PIDS${reset} ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
   for PID in $PIDS; do
     [ -d "/proc/$PID" ] || continue
     kill "$PID" 2>/dev/null || true
@@ -186,8 +181,7 @@ fi
 [ -z "$PORT" ] && [ -n "$PORT_CMD" ] && PORT="$PORT_CMD"
 [ -n "$DATA_DIR" ] && DEFAULT_DATA_DIR="$DATA_DIR"
 
-sep_line
-section "删除二进制"
+echo -e ""
 if [ -f "${BIN_PATH}" ]; then
   rm -f "${BIN_PATH}"
   ok "已删除二进制文件 ${gl_bai}${BIN_PATH}${reset}"
@@ -195,8 +189,7 @@ else
   skip "未找到二进制文件 ${gl_bai}${BIN_PATH}${reset}，跳过。"
 fi
 
-sep_line
-section "删除数据目录"
+echo -e ""
 [ -z "$DATA_DIR" ] && [ -d "${DEFAULT_DATA_DIR}" ] && DATA_DIR="${DEFAULT_DATA_DIR}"
 
 if [ -n "$DATA_DIR" ] && [ -d "$DATA_DIR" ]; then
@@ -215,8 +208,7 @@ else
   skip "未找到数据目录，跳过。"
 fi
 
-sep_line
-section "删除安装记录"
+echo -e ""
 if [ -f "$CONFIG_FILE" ]; then
   rm -f "$CONFIG_FILE"
   ok "已删除安装记录 ${gl_bai}$CONFIG_FILE${reset}"
@@ -225,12 +217,10 @@ else
   skip "未找到安装记录 ${gl_bai}$CONFIG_FILE${reset}，跳过。"
 fi
 
-sep_line
-section "关闭防火墙"
+echo -e ""
 close_firewall_port "$PORT"
 
-sep_line
+echo -e ""
 printf "  %s\n" "${gl_lv}✔ 2Panel 已卸载完成${reset}"
 printf "  %s\n" "${gl_hui}如需重新安装，请再次运行 install.sh 安装脚本。${reset}"
 sep_line
-break_end
