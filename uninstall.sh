@@ -27,12 +27,6 @@ list_color_init() {
 }
 list_color_init
 
-sep_line() {
-  printf '%s' "$gl_bufan"
-  printf '—%.0s' {1..32}
-  printf '%s\n' "$reset"
-}
-
 section() {
   printf "  %s %s\n" "${gl_zi}▶${reset}" "$1"
 }
@@ -111,7 +105,7 @@ close_firewall_port() {
 
 print_banner
 echo -e "${gl_zi}>>> ${gl_bai}卸载 2Panel"
-sep_line
+echo -e "${gl_bufan}————————————————————————————————————————————————${gl_bai}"
 while :; do
   read -r -p "${gl_bai}卸载将停止并移除 2Panel 服务与程序，是否继续？ (${gl_lv}y${gl_bai}/${gl_hong}N${gl_bai}): " CONFIRM
   case "$CONFIRM" in
@@ -217,6 +211,5 @@ echo -e ""
 close_firewall_port "$PORT"
 
 echo -e ""
+echo -e "${gl_bufan}————————————————————————————————————————————————${gl_bai}"
 printf "  %s\n" "${gl_lv}✔ 2Panel 已卸载完成${reset}"
-printf "  %s\n" "${gl_hui}如需重新安装，请再次运行 install.sh 安装脚本。${reset}"
-sep_line
