@@ -646,7 +646,7 @@ check_os() {
 }
 
 main() {
-  clear
+  [ -t 1 ] && clear || true
   echo
   if command -v curl &>/dev/null; then
     ver=$(curl --version | awk 'NR==1{print $2}')
@@ -682,7 +682,7 @@ check_os() {
 }
 
 main() {
-  clear
+  [ -t 1 ] && clear || true
   echo
   if command -v rsync &>/dev/null; then
     ver=$(rsync --version | awk 'NR==1{print $3}')
@@ -708,6 +708,16 @@ main
 
 // DefaultScriptGroup is the built-in default group name for the script library.
 const DefaultScriptGroup = "内置脚本"
+
+// currentBuiltin indexes the built-in script content by name so SeedScripts can
+// refresh already-seeded scripts whose stored content is still a legacy version.
+var currentBuiltin = func() map[string]string {
+	m := make(map[string]string, len(preseedScripts))
+	for _, s := range preseedScripts {
+		m[s.Name] = s.Script
+	}
+	return m
+}()
 
 // SeedGroups creates the built-in default group for the script library on
 // first run. It only seeds when no script group exists yet, so groups created
@@ -746,6 +756,80 @@ var legacySeedScripts = []string{
 	"安装 Fail2ban",
 	"安装 Pure-FTPd",
 	"安装 Supervisor",
+}
+
+// legacyBuiltinContent holds the exact content shipped by an earlier release
+// for built-in scripts whose content has since changed. SeedScripts refreshes
+// an existing script when its stored content still matches byte-for-byte, so
+// already-installed databases pick up fixes while scripts the user edited are
+// left untouched.
+var legacyBuiltinContent = map[string]string{
+	"安装 curl": `
+#!/bin/bash
+set -euo pipefail
+
+check_os() {
+  [ -f /etc/debian_version ] && echo debian ||
+  [ -f /etc/redhat-release ] && echo rhel ||
+  [ -f /etc/alpine-release ] && echo alpine || echo unknown
+}
+
+main() {
+  clear
+  echo
+  if command -v curl &>/dev/null; then
+    ver=$(curl --version | awk 'NR==1{print $2}')
+    echo "当前版本 $ver"
+    echo
+    exit 0
+  fi
+  os=$(check_os)
+  echo "检测系统 $os"
+  case "$os" in
+    debian) apt update -qq; apt install -y curl ;;
+    rhel)   command -v dnf &>/dev/null && dnf install -y curl || yum install -y curl ;;
+    alpine) apk update; apk add curl ;;
+    *)      echo "无法识别系统"; exit 1 ;;
+  esac
+  new_ver=$(curl --version | awk 'NR==1{print $2}')
+  echo "安装后版本 $new_ver"
+}
+
+main
+`,
+	"安装 rsync": `
+#!/bin/bash
+set -euo pipefail
+
+check_os() {
+  [ -f /etc/debian_version ] && echo debian ||
+  [ -f /etc/redhat-release ] && echo rhel ||
+  [ -f /etc/alpine-release ] && echo alpine || echo unknown
+}
+
+main() {
+  clear
+  echo
+  if command -v rsync &>/dev/null; then
+    ver=$(rsync --version | awk 'NR==1{print $3}')
+    echo "当前版本 $ver"
+    echo
+    exit 0
+  fi
+  os=$(check_os)
+  echo "检测系统 $os"
+  case "$os" in
+    debian) apt update -qq; apt install -y rsync ;;
+    rhel)   command -v dnf &>/dev/null && dnf install -y rsync || yum install -y rsync ;;
+    alpine) apk update; apk add rsync ;;
+    *)      echo "无法识别系统"; exit 1 ;;
+  esac
+  new_ver=$(rsync --version | awk 'NR==1{print $3}')
+  echo "安装后版本 $new_ver"
+}
+
+main
+`,
 }
 
 // SeedScripts populates the script library with built-in install scripts. Each
@@ -791,6 +875,25 @@ func SeedScripts() {
 			log.Printf("seed script [%s] failed: %v", s.Name, err)
 		} else {
 			seeded[s.Name] = struct{}{}
+			changed = true
+		}
+	}
+	// Refresh built-in scripts whose content changed in this release: only
+	// when the stored content still matches a previously-shipped version
+	// byte-for-byte, so user edits are never overwritten.
+	for name, legacy := range legacyBuiltinContent {
+		current, ok := currentBuiltin[name]
+		if !ok || current == legacy {
+			continue
+		}
+		existing, err := scriptLibraryRepo.Get(repo.WithByName(name))
+		if err != nil || existing.Script != legacy {
+			continue
+		}
+		if err := scriptLibraryRepo.Update(existing.ID, map[string]interface{}{"script": current}); err != nil {
+			log.Printf("refresh built-in script [%s] failed: %v", name, err)
+		} else {
+			log.Printf("refreshed built-in script [%s]", name)
 			changed = true
 		}
 	}
