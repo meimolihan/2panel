@@ -374,10 +374,19 @@ echo y | 2panel restore /root/backup.zip && systemctl start 2panel
 ### 4. `2panel uninstall` — 卸载
 
 ```bash
-2panel uninstall
+2panel uninstall              # 交互式确认卸载
+2panel uninstall -y           # 免确认静默卸载（保留数据目录）
+2panel uninstall -y --purge   # 免确认静默卸载，并删除数据目录
 ```
 
-完整流程：root 检查 → 交互确认 → 停止并移除 systemd 服务 / 结束后台进程 → 关闭防火墙端口 → 删除自身二进制 → 二次确认后删除数据目录。
+| 参数 | 说明 |
+| --- | --- |
+| `-y, --yes` | 免确认，静默卸载（默认保留数据目录） |
+| `--purge` | 卸载时同时删除数据目录（数据库/脚本/日志） |
+| `--keep-data` | 卸载时保留数据目录 |
+| `-h, --help` | 显示帮助 |
+
+完整流程：root 检查 → 交互确认（带 `-y` 跳过）→ 停止并移除 systemd 服务 / 结束后台进程 → 关闭防火墙端口 → 删除自身二进制 → 确认后删除数据目录（`-y` 默认保留，`--purge` 才删除）。
 
 > 备份 / 还原 / 卸载共用同一套数据目录探测与进程识别逻辑，均以 `/proc/<pid>/exe` 匹配，不会误杀 shell。
 
