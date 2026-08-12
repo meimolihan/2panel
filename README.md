@@ -238,6 +238,30 @@ bash uninstall.sh
 bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)"
 ```
 
+**带参数静默卸载**（免确认，自动完成全部卸载流程）：
+
+```bash
+# 方式一：一行式 + 参数（推荐，不依赖进程替换）
+bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)" _ -y --purge
+
+# 方式二：下载后带参执行（最稳妥）
+curl -fsSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh -o /tmp/2panel-uninstall.sh && \
+bash /tmp/2panel-uninstall.sh -y --purge
+```
+
+> `bash -c "..." _ args` 中的 `_` 是占位符（`-c` 模式下第一个参数会变成 `$0`），后面的 `-y/--purge` 才会进入 `$1`。
+
+| 参数 | 说明 |
+| --- | --- |
+| `-y, --yes` | 免确认，自动同意卸载 |
+| `--purge` | 卸载时同时删除数据目录（数据库/脚本/日志） |
+| `--keep-data` | 卸载时保留数据目录 |
+| `-q, --quiet` | 静默模式，仅输出关键信息 |
+| `-h, --help` | 显示帮助 |
+
+- 不带任何参数时仍为交互式提示；非交互环境（如无 TTY）下默认保留数据目录，如需删除请显式加 `--purge`。
+- 查看参数说明：`bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)" _ -h`
+
 脚本会依次：停止并移除 systemd 服务 → 结束后台运行进程 → 删除二进制 → **询问是否删除数据目录**（默认删除，按 `n` 可保留；数据目录含数据库/脚本/日志）→ 关闭安装时开放的防火墙端口。数据目录会从 systemd 服务文件中自动解析，无需手动指定。
 
 ```bash
