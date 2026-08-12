@@ -7,7 +7,7 @@
 #   交互式安装:
 #     bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)"
 #   参数静默安装（-p 端口 / -d 数据目录）:
-#     bash <(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh) -p 8080 -d /var/lib/2panel
+#     bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)" -p 8080 -d /var/lib/2panel
 #     curl -fsSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh -o /tmp/2panel-install.sh \
 #       && bash /tmp/2panel-install.sh -p 8080 -d /var/lib/2panel
 #
@@ -67,6 +67,14 @@ DEFAULT_DATA_DIR="/var/lib/2panel"
 PORT=""
 DATA_DIR=""
 SILENT="n"
+
+# ---- bootstrap: support `bash -c "$(curl ...)" -p ...` ----
+# In `bash -c "script" args` the first arg becomes $0, so a flag passed right
+# after the script string would be invisible to the normal $1.. parsing below.
+# Re-prepend it when $0 looks like a flag (the `_` placeholder form keeps working).
+case "$0" in
+  -*) set -- "$0" "$@" ;;
+esac
 
 # ---- parse command-line args (silent install) ----
 while [ "$#" -gt 0 ]; do

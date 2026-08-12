@@ -92,6 +92,14 @@ usage() {
   exit 0
 }
 
+# ---- bootstrap: support `bash -c "$(curl ...)" -y --purge` ----
+# In `bash -c "script" args` the first arg becomes $0, so a flag passed right
+# after the script string would be invisible to the normal $1.. parsing below.
+# Re-prepend it when $0 looks like a flag (the `_` placeholder form keeps working).
+case "$0" in
+  -*) set -- "$0" "$@" ;;
+esac
+
 while [ $# -gt 0 ]; do
   case "$1" in
     -y|--yes) UNINSTALL_YES=1; shift ;;

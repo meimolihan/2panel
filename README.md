@@ -183,7 +183,7 @@ bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/in
 
 ```bash
 # 方式一：一行式 + 参数（推荐，不依赖进程替换）
-bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)" _ -p 8080 -d /var/lib/2panel
+bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)" -p 8080 -d /var/lib/2panel
 
 # 方式二：下载后带参执行（最稳妥）
 curl -fsSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh -o /tmp/2panel-install.sh && \
@@ -194,7 +194,7 @@ PORT=8080 DATA_DIR=/var/lib/2panel bash -c "$(curl -sSL https://raw.githubuserco
 ```
 
 > 说明：
-> - `bash -c "..." _ args` 中的 `_` 是占位符（`-c` 模式下第一个参数会变成 `$0`），后面的 `-p/-d` 才会进入 `$1`。
+> - 脚本已兼容 `bash -c "$(curl ...)" args` 的一行式写法（`-c` 模式下首个参数会成为 `$0`，脚本会自动将其并入参数），无需额外的 `_` 占位符。
 > - `bash <(curl ...) -p 8080` 的进程替换写法依赖 bash 且部分环境（sh/dash、sudo 包装、部分 CI）不展开进程替换，参数会丢失导致退回交互模式，不推荐。
 ```
 
@@ -204,7 +204,7 @@ PORT=8080 DATA_DIR=/var/lib/2panel bash -c "$(curl -sSL https://raw.githubuserco
 | `-d, --data <DIR>` | 数据目录 | `/var/lib/2panel` |
 | `-h, --help` | 显示帮助 | - |
 
-指定任意参数即进入静默安装，未指定的项用默认值，全程无交互；不带参数时仍为交互式提示。查看参数说明：`bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)" _ -h`
+指定任意参数即进入静默安装，未指定的项用默认值，全程无交互；不带参数时仍为交互式提示。查看参数说明：`bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)" -h`
 
 安装脚本会自动完成：
 
@@ -242,14 +242,14 @@ bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/un
 
 ```bash
 # 方式一：一行式 + 参数（推荐，不依赖进程替换）
-bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)" _ -y --purge
+bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)" -y --purge
 
 # 方式二：下载后带参执行（最稳妥）
 curl -fsSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh -o /tmp/2panel-uninstall.sh && \
 bash /tmp/2panel-uninstall.sh -y --purge
 ```
 
-> `bash -c "..." _ args` 中的 `_` 是占位符（`-c` 模式下第一个参数会变成 `$0`），后面的 `-y/--purge` 才会进入 `$1`。
+> 脚本已兼容 `bash -c "$(curl ...)" args` 的一行式写法，无需 `_` 占位符。
 
 | 参数 | 说明 |
 | --- | --- |
@@ -260,7 +260,7 @@ bash /tmp/2panel-uninstall.sh -y --purge
 | `-h, --help` | 显示帮助 |
 
 - 不带任何参数时仍为交互式提示；非交互环境（如无 TTY）下默认保留数据目录，如需删除请显式加 `--purge`。
-- 查看参数说明：`bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)" _ -h`
+- 查看参数说明：`bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)" -h`
 
 脚本会依次：停止并移除 systemd 服务 → 结束后台运行进程 → 删除二进制 → **询问是否删除数据目录**（默认删除，按 `n` 可保留；数据目录含数据库/脚本/日志）→ 关闭安装时开放的防火墙端口。数据目录会从 systemd 服务文件中自动解析，无需手动指定。
 
