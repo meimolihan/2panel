@@ -106,13 +106,35 @@ func cmdBackup(args []string, flagData string) int {
 }
 
 // cmdRestore replaces the data dir from a backup zip produced by cmdBackup.
-// Usage: 2panel [-data /path] restore <备份文件.zip>
+// Usage: 2panel [-data /path] restore [-y] <备份文件.zip>
 func cmdRestore(args []string, flagData string) int {
-	if len(args) == 0 {
-		fmt.Println(cliPaint("用法: 2panel restore <备份文件.zip>", styleGrey))
+	var backupFile string
+	yes := false
+	for _, a := range args {
+		switch a {
+		case "-y", "--yes":
+			yes = true
+		case "-h", "--help":
+			fmt.Println(cliPaint("用法: 2panel restore [选项] <备份文件.zip>", styleGrey))
+			fmt.Printf("    %-18s%s\n", cliPaint("-y, --yes", styleWhite), cliPaint("免确认，直接还原覆盖数据", styleGrey))
+			fmt.Printf("    %-18s%s\n", cliPaint("-h, --help", styleWhite), cliPaint("显示帮助", styleGrey))
+			return 0
+		default:
+			if a != "" && a[0] == '-' {
+				cliErr("未知参数: %s，使用 -h 查看帮助", a)
+				return 1
+			}
+			if backupFile != "" {
+				cliErr("多余参数: %s", a)
+				return 1
+			}
+			backupFile = a
+		}
+	}
+	if backupFile == "" {
+		fmt.Println(cliPaint("用法: 2panel restore [选项] <备份文件.zip>", styleGrey))
 		return 1
 	}
-	backupFile := args[0]
 	if _, err := os.Stat(backupFile); err != nil {
 		cliErr("备份文件不存在: %s", backupFile)
 		return 1
@@ -134,7 +156,7 @@ func cmdRestore(args []string, flagData string) int {
 	cliKV("数据目录", dataDir)
 
 	reader := bufio.NewReader(os.Stdin)
-	if !uninstallConfirm(reader, fmt.Sprintf("还原将覆盖数据目录 %s 中的现有数据，是否继续？", dataDir), false) {
+	if !yes && !uninstallConfirm(reader, fmt.Sprintf("还原将覆盖数据目录 %s 中的现有数据，是否继续？", dataDir), false) {
 		fmt.Println(cliPaint("已取消还原。", styleYellow))
 		return 0
 	}

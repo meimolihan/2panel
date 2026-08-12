@@ -326,8 +326,14 @@ systemctl restart 2panel   # systemd 模式
 
 ```bash
 2panel restore /backup/2026-08-05.zip     # 交互确认后还原
+2panel restore -y /backup/2026-08-05.zip  # -y 免确认直接还原
 2panel -data /var/lib/2panel restore /backup/2026-08-05.zip
 ```
+
+| 参数 | 说明 |
+| --- | --- |
+| `-y, --yes` | 免确认，跳过「覆盖数据目录」确认，直接还原 |
+| `-h, --help` | 显示帮助 |
 
 - 还原前校验 zip 结构，必须包含 `2panel.db` 才算有效备份。
 - 解压防 zip-slip：拒绝绝对路径、`..` 越界条目。
@@ -349,10 +355,10 @@ systemctl start 2panel         # 恢复服务
 unzip -l /root/backup.zip      # 应包含 2panel.db / log/ / task/
 ```
 
-**还原**（restore 自动停服务，`&&` 后自动重启）：
+**还原**（restore 自动停服务，`&&` 后自动重启；`-y` 免确认，脚本环境友好）：
 
 ```bash
-echo y | 2panel restore /root/backup.zip && systemctl start 2panel
+2panel restore -y /root/backup.zip && systemctl start 2panel
 ```
 
 - 还原前会把现有数据目录重命名保留为 `/var/lib/2panel.backup-<时间戳>`，出问题可回退。
