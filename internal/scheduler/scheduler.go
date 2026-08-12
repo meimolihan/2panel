@@ -266,9 +266,34 @@ func (r *Runner) runCurl(ctx context.Context, job *model.Cronjob, log *LogWriter
 	return nil
 }
 
+// NonInteractiveEnv returns the current environment with TERM forced to "dumb"
+// (replacing any inherited value, since a duplicate TERM entry may be ignored
+// by the child). Scripts run by the scheduler are non-interactive: terminal
+// tools like clear no longer error out, and well-behaved tools skip color.
+func NonInteractiveEnv() []string {
+	env := make([]string, 0, len(os.Environ())+1)
+	for _, kv := range os.Environ() {
+		if strings.HasPrefix(kv, "TERM=") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	return append(env, "TERM=dumb")
+}
+
 func (r *Runner) exec(ctx context.Context, cmd *exec.Cmd, log *LogWriter) error {
 	cmd.Stdout = log
 	cmd.Stderr = log
+	// Non-interactive execution: a single newline on stdin lets trailing
+	// "press any key to continue" prompts (read returns 1 on EOF) finish with
+	// exit code 0, and TERM=dumb stops terminal tools such as clear from
+	// printing "TERM environment variable not set." into the log.
+	if cmd.Stdin == nil {
+		cmd.Stdin = strings.NewReader("\n")
+	}
+	if cmd.Env == nil {
+		cmd.Env = NonInteractiveEnv()
+	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Start(); err != nil {
 		return err
