@@ -32,7 +32,7 @@ go build -o 2panel .
 ### 1. 构建并后台运行
 
 ```bash
-cd /vol1/1000/compose/opencode/workspace/test/2Panel   # 换成你的项目路径
+cd /vol1/1000/compose/opencode/workspace/2panel   # 换成你的项目路径
 go build -o 2panel . && \
 nohup ./2panel >/dev/null 2>&1 &
 ```
@@ -86,25 +86,6 @@ curl -sS -X POST -H "Content-Type: application/json" \
 ```bash
 # 先停掉 nohup 后台进程，释放端口
 systemctl stop 2panel 2>/dev/null; pkill -f '^./2panel'; sleep 1
-```
-
-```bash
-# 创建服务文件（粘贴后按 Ctrl+D 结束）
-tee /etc/systemd/system/2panel.service <<'EOF'
-[Unit]
-Description=2Panel - 定时任务管理器
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/vol1/1000/compose/opencode/workspace/test/2Panel
-ExecStart=/vol1/1000/compose/opencode/workspace/test/2Panel/2panel
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-EOF
 ```
 
 ```bash
@@ -188,15 +169,11 @@ bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/in
 # 方式二：下载后带参执行（最稳妥）
 curl -fsSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh -o /tmp/2panel-install.sh && \
 bash /tmp/2panel-install.sh -p 8080 -d /var/lib/2panel
-
-# 方式三：环境变量（备用）
-PORT=8080 DATA_DIR=/var/lib/2panel bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)"
 ```
 
 > 说明：
 > - 脚本已兼容 `bash -c "$(curl ...)" args` 的一行式写法（`-c` 模式下首个参数会成为 `$0`，脚本会自动将其并入参数），无需额外的 `_` 占位符。
 > - `bash <(curl ...) -p 8080` 的进程替换写法依赖 bash 且部分环境（sh/dash、sudo 包装、部分 CI）不展开进程替换，参数会丢失导致退回交互模式，不推荐。
-```
 
 | 参数 | 说明 | 默认值 |
 | --- | --- | --- |
@@ -248,8 +225,6 @@ bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/un
 curl -fsSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh -o /tmp/2panel-uninstall.sh && \
 bash /tmp/2panel-uninstall.sh -y --purge
 ```
-
-> 脚本已兼容 `bash -c "$(curl ...)" args` 的一行式写法，无需 `_` 占位符。
 
 | 参数 | 说明 |
 | --- | --- |
@@ -515,19 +490,5 @@ POST /api/cronjobs
 - 数据库：`<data>/2panel.db`（含全部用户数据：账号/密码、任务、脚本库、执行记录）
 - 任务脚本：`<data>/task/<任务名>/<任务名>.sh`
 - 执行日志：`<data>/log/<taskID>.log`
-
-> 备份整站：`2panel backup`；完整还原：`2panel restore <备份文件.zip>`（详见「基础命令」）。
-
-## 与 1Panel 的对应关系
-
-| 1Panel | 2Panel |
-| --- | --- |
-| `agent/app/model/cronjob.go` | `internal/model/cronjob.go` |
-| `agent/app/repo/cronjob.go` | `internal/repo/cronjob.go` |
-| `agent/app/service/cronjob.go` | `internal/service/cronjob.go` |
-| `agent/app/api/v2/cronjob.go` | `internal/handler/cronjob.go` |
-| `agent/router/ro_cronjob.go` | `internal/server/server.go` |
-| `agent/init/cron/` | `internal/scheduler/` |
-| `frontend/src/views/cronjob/*` | `internal/server/web/index.html` |
 
 2Panel 砍掉了 1Panel 中与计划任务无关的模块（网站、应用、数据库、备份、告警、AI Agent 等），仅保留 shell / curl 两类任务及执行记录，其余保持相同的分层结构与 API 风格。
