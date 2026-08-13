@@ -279,7 +279,9 @@ td.ellipsis { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
   font-size: 14px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
 }
 .tab:hover { color: var(--text); }
-.tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+.tab.active { font-weight: 600; }
+[data-theme="dark"] .tab.active { background: var(--card-grad); color: #ffffff; }
+[data-theme="light"] .tab.active { background: var(--card-grad); color: #000000; }
 .script-mode { display: flex; gap: 18px; padding: 6px 0; }
 .script-mode label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
 .script-mode input { width: auto; accent-color: var(--primary); }
@@ -296,6 +298,8 @@ td.ellipsis { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 }
 .group-chip:hover { border-color: var(--primary); color: var(--primary); }
 .group-chip.on { background: var(--tag-info-bg); color: var(--tag-info-color); border-color: var(--primary); }
+[data-theme="dark"] .group-chip.on { background: var(--primary); }
+[data-theme="light"] .group-chip.on { background: var(--primary); }
 .group-tag {
   display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; line-height: 18px;
   background: var(--tag-info-bg); color: var(--tag-info-color); margin: 2px 4px 2px 0;
@@ -758,8 +762,8 @@ tbody tr:hover { background: var(--row-hover-bg); background-image: none; }
 [data-theme="light"] .tabs { border-bottom-color: #dde2e8; }
 [data-theme="light"] .tab:hover { background: rgba(15, 23, 42, 0.16); }
 [data-theme="light"] .tab.active {
-  background: linear-gradient(180deg, #f0f6ff, #ffffff);
-  border-bottom-color: var(--primary);
+  background: var(--card-grad);
+  color: #000000;
 }
 [data-theme="light"] .toast {
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.10), 0 12px 32px rgba(15, 23, 42, 0.10);
@@ -1095,6 +1099,147 @@ thead th { position: sticky; top: 0; z-index: 2; }
   .dialog-box { width: 100%; }
   .dialog-foot .btn { flex: 1; height: 44px; justify-content: center; }
 }
+
+/* ======================================================================
+   UI 美化增强（追加层 3）：柔和圆润风
+   统一圆角更圆润 / hover 上浮增强 / 标签与分组 chip 微过渡 /
+   卡片间距加大、全局描边弱化。仅覆盖视觉值，不改布局结构。
+   ====================================================================== */
+
+/* ======================================================================
+   UI 美化增强（追加层 6 · 方案C）：极简精致
+   极保守视觉增强：阴影层次优化 / hover 统一过渡 / active 下压反馈
+   / 移动端禁用悬浮效果 / 响应式断点细化
+   核心原则：不改业务逻辑、DOM结构、页面布局、颜色主题
+   ====================================================================== */
+
+/* ---- 0. 阴影变量重新定义（更柔和、层次分明、杜绝厚重发黑）---- */
+:root {
+  /* 暗色：保留轻质感，加宽弥散范围 */
+  --shadow-sm:    0 2px 6px rgba(0, 0, 0, 0.28),  0 1px 3px rgba(0, 0, 0, 0.18);
+  --shadow-md:    0 4px 14px rgba(0, 0, 0, 0.32),  0 8px 24px rgba(0, 0, 0, 0.22);
+  --shadow-lg:    0 10px 36px rgba(0, 0, 0, 0.40), 0 20px 56px rgba(0, 0, 0, 0.30);
+  --shadow-hover: 0 8px 22px rgba(0, 0, 0, 0.38),  0 16px 44px rgba(0, 0, 0, 0.28);
+}
+[data-theme="light"] {
+  /* 浅色：极轻阴影，白卡片上浮感 */
+  --shadow-sm:    0 1px 3px rgba(15, 23, 42, 0.06), 0 2px 6px rgba(15, 23, 42, 0.05);
+  --shadow-md:    0 3px 10px rgba(15, 23, 42, 0.08), 0 10px 24px rgba(15, 23, 42, 0.10);
+  --shadow-lg:    0 10px 32px rgba(15, 23, 42, 0.14), 0 24px 56px rgba(15, 23, 42, 0.12);
+  --shadow-hover: 0 6px 18px rgba(15, 23, 42, 0.10), 0 18px 38px rgba(15, 23, 42, 0.14);
+}
+
+/* ---- 1. 全局统一过渡基准（核心交互参数）---- */
+/* 仅覆盖交互相关属性，不影响布局尺寸类属性 */
+.card, .btn, .tag, .group-chip, .dropdown-item, .modal,
+.log-view, .pager .btn, .switch, .toolbar input, .toolbar select,
+.login-field input, .spec-row, .form-row input, .form-row select,
+.user-avatar, .theme-toggle, td, tbody tr, .pager-jump input[type=number],
+.modal-foot .btn {
+  transition:
+    box-shadow  0.25s ease,
+    transform   0.25s ease,
+    border-color 0.25s ease,
+    background-color 0.25s ease,
+    color       0.25s ease,
+    opacity     0.25s ease;
+}
+
+/* ---- 2. 卡片悬浮质感增强 ---- */
+.card { background: var(--card-grad); box-shadow: var(--shadow-md); }
+[data-theme="dark"] .card { box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.04); }
+@media (hover: hover) and (pointer: fine) {
+  [data-theme="dark"] .card:hover {
+    box-shadow: var(--shadow-hover), inset 0 1px 0 rgba(255,255,255,0.07);
+    transform: translateY(-2px);
+  }
+  [data-theme="light"] .card:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px) scale(1.005);
+  }
+}
+.card:active {
+  transform: translateY(0) scale(0.995);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---- 3. 按钮 active 点击下压（统一） ---- */
+.btn:not(:disabled):active {
+  transform: translateY(0) scale(0.97) !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition-duration: 0.15s, 0.15s, 0.15s, 0.15s, 0.15s, 0.15s;
+}
+
+/* ---- 4. 行悬浮状态 ---- */
+@media (hover: hover) and (pointer: fine) {
+  tbody tr:not(.empty-row):hover td { background-color: var(--row-hover-bg); }
+}
+
+/* ---- 5. 模态框悬浮阴影 ---- */
+.modal { box-shadow: var(--shadow-lg); }
+@media (hover: hover) and (pointer: fine) {
+  .modal:hover {
+    box-shadow: 0 12px 44px rgba(0,0,0,0.50), 0 24px 68px rgba(0,0,0,0.36);
+  }
+}
+
+/* ---- 6. 标签 / 分组 chip 悬浮 + 点击 ---- */
+@media (hover: hover) and (pointer: fine) {
+  .tag:hover      { transform: translateY(-1px); }
+  .group-chip:hover { transform: translateY(-2px); }
+}
+.tag:active, .group-chip:active { transform: translateY(0) scale(0.95); }
+
+/* ---- 7. 移动端（<768px）：禁用悬浮动画，保留基础质感 ---- */
+@media (max-width: 767px) {
+  .card, .btn, .tag, .group-chip { transition: none; }
+  .card { box-shadow: var(--shadow-sm); transform: none !important; }
+  .card:hover { transform: none !important; }
+  .btn:not(:disabled):hover  { transform: none; box-shadow: none; }
+  .btn:not(:disabled):active { transform: none; box-shadow: none; transition: none; }
+  .tag:hover, .group-chip:hover { transform: none; }
+  tbody tr:not(.empty-row):hover td { background-color: transparent; }
+}
+
+/* ---- 8. iPad 平板端（768px ~ 1024px）：中等阴影，保留鼠标hover ---- */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .card  { box-shadow: var(--shadow-sm); }
+  .modal { box-shadow: var(--shadow-md); }
+}
+
+/* ---- 9. 桌面端（>1024px）：完整参数 ---- */
+@media (min-width: 1025px) {
+  .container { max-width: 1200px; }
+}
+
+/* ---- 10. 聚焦状态精致化 ---- */
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring), var(--shadow-sm); }
+.toolbar input[type=text]:focus, .toolbar select:focus,
+.form-row input[type=text]:focus, .form-row textarea:focus,
+.form-row select:focus, .login-field input:focus,
+.spec-row input[type=number]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* ---- 11. 分页按钮 ---- */
+@media (hover: hover) and (pointer: fine) {
+  .pager .btn:not(:disabled):hover { border-color: var(--primary); color: var(--primary); transform: translateY(-1px); }
+}
+.pager .btn:not(:disabled):active { transform: none; box-shadow: none; }
+
+/* ---- 12. 用户头像 / 主题切换圆形按钮 ---- */
+@media (hover: hover) and (pointer: fine) {
+  .user-avatar:hover  { transform: translateY(-2px) scale(1.06); box-shadow: var(--shadow-hover); }
+  .theme-toggle:hover { transform: translateY(-2px) scale(1.08); box-shadow: var(--shadow-hover); }
+}
+.user-avatar:active, .theme-toggle:active { transform: scale(0.94); box-shadow: var(--shadow-sm); }
+
+/* ---- 13. 下拉菜单项悬浮 ---- */
+@media (hover: hover) and (pointer: fine) {
+  .dropdown-item:hover { transform: translateX(2px); }
+}
+.dropdown-item:active { transform: translateX(0) scale(0.97); }
 
 /* ======================================================================
    UI 美化增强（追加层 3）：柔和圆润风
