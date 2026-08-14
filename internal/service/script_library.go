@@ -271,6 +271,12 @@ func (u *ScriptService) runScript(taskID, script string, log *scheduler.LogWrite
 	cmd := exec.CommandContext(ctx, "bash", scriptFile)
 	cmd.Stdout = log
 	cmd.Stderr = log
+	// Scripts run non-interactively by the scheduler: a single newline on stdin
+	// lets trailing "press any key to continue" prompts (read returns 1 on EOF)
+	// finish with exit code 0, and TERM=dumb stops terminal tools such as clear
+	// from printing "TERM environment variable not set." into the log.
+	cmd.Stdin = strings.NewReader("\n")
+	cmd.Env = scheduler.NonInteractiveEnv()
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Start(); err != nil {
 		return err
