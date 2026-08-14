@@ -30,8 +30,8 @@ func init() {
 		fmt.Println()
 		fmt.Printf("  %s\n", cliPaint("子命令:", styleYellow))
 		fmt.Printf("    %-30s%s\n", cliPaint("backup [输出.zip]", styleWhite), cliPaint("备份数据目录为 zip", styleGrey))
-		fmt.Printf("    %-30s%s\n", cliPaint("restore <备份.zip>", styleWhite), cliPaint("从备份 zip 还原数据目录", styleGrey))
-		fmt.Printf("    %-30s%s\n", cliPaint("uninstall", styleWhite), cliPaint("卸载 2Panel 并（可选）删除数据", styleGrey))
+		fmt.Printf("    %-30s%s\n", cliPaint("restore [-y] <备份.zip>", styleWhite), cliPaint("从备份 zip 还原数据目录（-y 免确认）", styleGrey))
+		fmt.Printf("    %-30s%s\n", cliPaint("uninstall [-y] [--purge|--keep-data]", styleWhite), cliPaint("卸载 2Panel 并（可选）删除数据", styleGrey))
 		fmt.Println()
 		fmt.Printf("  %s\n", cliPaint("选项:", styleYellow))
 		flag.PrintDefaults()
@@ -53,7 +53,7 @@ func main() {
 	if args := flag.Args(); len(args) > 0 {
 		switch args[0] {
 		case "uninstall":
-			os.Exit(cmdUninstall())
+			os.Exit(cmdUninstall(args[1:]))
 		case "backup":
 			os.Exit(cmdBackup(args[1:], dataDir))
 		case "restore":

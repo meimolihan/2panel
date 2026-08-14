@@ -4,7 +4,7 @@
 # Stops the service/process, removes the binary and (optionally) the data
 # directory created by install.sh.
 #
-# Usage: bash uninstall.sh
+# Usage: bash uninstall.sh [-y] [--purge|--keep-data] [-q]
 
 set -e
 
@@ -70,6 +70,54 @@ break_end() {
 error() { printf "  %s %s\n" "${gl_hong}[错误]${reset}" "$1" >&2; exit 1; }
 [ "$(id -u)" != "0" ] && error "请以 root 身份运行（sudo bash uninstall.sh）"
 
+UNINSTALL_YES=0
+DELETE_DATA=0
+KEEP_DATA=0
+QUIET=0
+
+usage() {
+  printf '%s\n' \
+    "用法: bash uninstall.sh [选项]" \
+    "" \
+    "选项:" \
+    "  -y, --yes        免确认，自动同意卸载" \
+    "      --purge      卸载时同时删除数据目录（包含数据库、任务脚本和日志）" \
+    "      --keep-data  卸载时保留数据目录" \
+    "  -q, --quiet      静默模式，仅输出关键信息" \
+    "  -h, --help       显示帮助" \
+    "" \
+    "示例:" \
+    "  bash uninstall.sh -y                   免确认卸载，保留数据目录" \
+    "  bash uninstall.sh -y --purge           免确认卸载，并删除数据目录"
+  exit 0
+}
+
+# ---- bootstrap: support `bash -c "$(curl ...)" -y --purge` ----
+# In `bash -c "script" args` the first arg becomes $0, so a flag passed right
+# after the script string would be invisible to the normal $1.. parsing below.
+# Re-prepend it when $0 looks like a flag (the `_` placeholder form keeps working).
+case "$0" in
+  -*) set -- "$0" "$@" ;;
+esac
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -y|--yes) UNINSTALL_YES=1; shift ;;
+    --purge|--delete-data) DELETE_DATA=1; shift ;;
+    --keep-data) KEEP_DATA=1; shift ;;
+    -q|--quiet) QUIET=1; shift ;;
+    -h|--help) usage ;;
+    *) error "未知参数: $1，使用 -h 查看帮助" ;;
+  esac
+done
+
+[ "$QUIET" = "1" ] && {
+  sep_line() { :; }
+  section() { :; }
+  ok() { :; }
+  skip() { :; }
+}
+
 read_config() {
   [ -f "$CONFIG_FILE" ] || return 0
   while IFS='=' read -r KEY VALUE; do
@@ -116,25 +164,29 @@ close_firewall_port() {
   fi
 }
 
-print_banner
+[ "$QUIET" = "1" ] || print_banner
 sep_line
 section "卸载确认"
-while :; do
-  read -r -p "${gl_huang}卸载将停止并移除 2Panel 服务与程序，是否继续？${gl_bai}[y/N]${reset}: " CONFIRM
-  case "$CONFIRM" in
-    y|Y|yes|YES)
-      ok "开始卸载 2Panel ..."
-      break
-      ;;
-    n|N|no|NO|"")
-      printf "  %s\n" "${gl_huang}已取消卸载。${reset}"
-      exit 0
-      ;;
-    *)
-      printf "  %s\n" "${gl_huang}输入无效，请输入 y 或 n。${reset}"
-      ;;
-  esac
-done
+if [ "$UNINSTALL_YES" = "1" ]; then
+  ok "开始卸载 2Panel ..."
+else
+  while :; do
+    read -r -p "${gl_huang}卸载将停止并移除 2Panel 服务与程序，是否继续？${gl_bai}[y/N]${reset}: " CONFIRM
+    case "$CONFIRM" in
+      y|Y|yes|YES)
+        ok "开始卸载 2Panel ..."
+        break
+        ;;
+      n|N|no|NO|"")
+        printf "  %s\n" "${gl_huang}已取消卸载。${reset}"
+        exit 0
+        ;;
+      *)
+        printf "  %s\n" "${gl_huang}输入无效，请输入 y 或 n。${reset}"
+        ;;
+    esac
+  done
+fi
 
 PORT="$DEFAULT_PORT"
 DATA_DIR="${DATA_DIR:-}"
@@ -201,16 +253,25 @@ section "删除数据目录"
 
 if [ -n "$DATA_DIR" ] && [ -d "$DATA_DIR" ]; then
   ok "检测到数据目录: ${gl_bai}${DATA_DIR}${reset}"
-  read -r -p "${gl_huang}是否删除数据目录 ${DATA_DIR}？（包含数据库、任务脚本和日志）${gl_bai}[Y/n]${reset}: " DEL_DATA
-  case "$DEL_DATA" in
-    n|N|no|NO)
-      skip "已保留数据目录 ${gl_bai}${DATA_DIR}${reset}"
-      ;;
-    *)
-      rm -rf "$DATA_DIR"
-      ok "已删除数据目录 ${gl_bai}${DATA_DIR}${reset}"
-      ;;
-  esac
+  if [ "$KEEP_DATA" = "1" ]; then
+    skip "已保留数据目录 ${gl_bai}${DATA_DIR}${reset}"
+  elif [ "$DELETE_DATA" = "1" ]; then
+    rm -rf "$DATA_DIR"
+    ok "已删除数据目录 ${gl_bai}${DATA_DIR}${reset}"
+  elif [ -t 0 ]; then
+    read -r -p "${gl_huang}是否删除数据目录 ${DATA_DIR}？（包含数据库、任务脚本和日志）${gl_bai}[Y/n]${reset}: " DEL_DATA
+    case "$DEL_DATA" in
+      n|N|no|NO)
+        skip "已保留数据目录 ${gl_bai}${DATA_DIR}${reset}"
+        ;;
+      *)
+        rm -rf "$DATA_DIR"
+        ok "已删除数据目录 ${gl_bai}${DATA_DIR}${reset}"
+        ;;
+    esac
+  else
+    skip "非交互模式下默认保留数据目录 ${gl_bai}${DATA_DIR}${reset}"
+  fi
 else
   skip "未找到数据目录，跳过。"
 fi
@@ -233,4 +294,5 @@ sep_line
 printf "  %s\n" "${gl_lv}✔ 2Panel 已卸载完成${reset}"
 printf "  %s\n" "${gl_hui}如需重新安装，请再次运行 install.sh 安装脚本。${reset}"
 sep_line
-break_end
+break_end_guard() { [ -t 0 ] && break_end; }
+break_end_guard
