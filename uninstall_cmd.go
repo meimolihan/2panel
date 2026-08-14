@@ -7,10 +7,6 @@ package main
 //   - close the firewall port opened by install.sh
 //   - remove the binary
 //   - ask whether to delete the data directory (full uninstall)
-//
-// Accepts the same flags as uninstall.sh: -y/--yes skips all confirmations
-// (silent uninstall, data dir kept unless --purge is given), --purge removes
-// the data directory, --keep-data explicitly retains it.
 
 import (
 	"bufio"
@@ -34,66 +30,15 @@ const (
 	uninstallDefaultPort = 8080
 )
 
-type uninstallOptions struct {
-	yes      bool
-	purge    bool
-	keepData bool
-}
-
-// parseUninstallArgs parses the "2panel uninstall" sub-command flags, mirroring
-// uninstall.sh. help reports whether -h/--help was seen; err is non-nil for any
-// unknown argument.
-func parseUninstallArgs(args []string) (opts uninstallOptions, help bool, err error) {
-	for _, a := range args {
-		switch a {
-		case "-h", "--help":
-			help = true
-		case "-y", "--yes":
-			opts.yes = true
-		case "--purge", "--delete-data":
-			opts.purge = true
-		case "--keep-data":
-			opts.keepData = true
-		default:
-			return opts, false, fmt.Errorf("未知参数: %s，使用 -h 查看帮助", a)
-		}
-	}
-	return opts, help, nil
-}
-
-func uninstallUsage() {
-	fmt.Printf("  %s\n", cliPaint("用法: 2panel uninstall [选项]", styleWhite))
-	fmt.Println()
-	fmt.Printf("  %s\n", cliPaint("选项:", styleYellow))
-	fmt.Printf("    %-18s%s\n", cliPaint("-y, --yes", styleWhite), cliPaint("免确认，静默卸载（默认保留数据目录）", styleGrey))
-	fmt.Printf("    %-18s%s\n", cliPaint("--purge", styleWhite), cliPaint("卸载时同时删除数据目录（数据库、任务脚本和日志）", styleGrey))
-	fmt.Printf("    %-18s%s\n", cliPaint("--keep-data", styleWhite), cliPaint("卸载时保留数据目录", styleGrey))
-	fmt.Printf("    %-18s%s\n", cliPaint("-h, --help", styleWhite), cliPaint("显示帮助", styleGrey))
-	fmt.Println()
-	fmt.Printf("  %s\n", cliPaint("示例:", styleYellow))
-	fmt.Printf("    %-36s%s\n", cliPaint("2panel uninstall -y", styleWhite), cliPaint("免确认卸载，保留数据目录", styleGrey))
-	fmt.Printf("    %-36s%s\n", cliPaint("2panel uninstall -y --purge", styleWhite), cliPaint("免确认卸载，并删除数据目录", styleGrey))
-}
-
-func cmdUninstall(args []string) int {
+func cmdUninstall() int {
 	if os.Geteuid() != 0 {
 		cliErr("请以 root 身份运行：sudo 2panel uninstall")
 		return 1
 	}
-	opts, help, err := parseUninstallArgs(args)
-	if err != nil {
-		cliErr("%v", err)
-		return 1
-	}
-	if help {
-		uninstallUsage()
-		return 0
-	}
-
 	cliBanner("卸载")
 
 	reader := bufio.NewReader(os.Stdin)
-	if !opts.yes && !uninstallConfirm(reader, "卸载将停止并移除 2Panel 服务与程序，是否继续？", false) {
+	if !uninstallConfirm(reader, "卸载将停止并移除 2Panel 服务与程序，是否继续？", false) {
 		fmt.Println(cliPaint("已取消卸载。", styleYellow))
 		return 0
 	}
@@ -119,19 +64,7 @@ func cmdUninstall(args []string) int {
 		return 0
 	}
 
-	removeData := false
-	switch {
-	case opts.purge:
-		removeData = true
-	case opts.keepData:
-		removeData = false
-	case opts.yes:
-		// silent uninstall keeps data unless --purge is given explicitly
-		removeData = false
-	default:
-		removeData = uninstallConfirm(reader, fmt.Sprintf("是否删除数据目录 %s（完全卸载）？", dataDir), true)
-	}
-	if removeData {
+	if uninstallConfirm(reader, fmt.Sprintf("是否删除数据目录 %s（完全卸载）？", dataDir), true) {
 		if err := os.RemoveAll(dataDir); err != nil {
 			cliWarn("删除数据目录失败: %v", err)
 		} else {

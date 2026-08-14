@@ -32,7 +32,7 @@ go build -o 2panel .
 ### 1. 构建并后台运行
 
 ```bash
-cd /vol1/1000/compose/opencode/workspace/2panel   # 换成你的项目路径
+cd /vol1/1000/compose/opencode/workspace/test/2Panel   # 换成你的项目路径
 go build -o 2panel . && \
 nohup ./2panel >/dev/null 2>&1 &
 ```
@@ -86,6 +86,25 @@ curl -sS -X POST -H "Content-Type: application/json" \
 ```bash
 # 先停掉 nohup 后台进程，释放端口
 systemctl stop 2panel 2>/dev/null; pkill -f '^./2panel'; sleep 1
+```
+
+```bash
+# 创建服务文件（粘贴后按 Ctrl+D 结束）
+tee /etc/systemd/system/2panel.service <<'EOF'
+[Unit]
+Description=2Panel - 定时任务管理器
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/vol1/1000/compose/opencode/workspace/test/2Panel
+ExecStart=/vol1/1000/compose/opencode/workspace/test/2Panel/2panel
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
 ```
 
 ```bash
@@ -164,16 +183,20 @@ bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/in
 
 ```bash
 # 方式一：一行式 + 参数（推荐，不依赖进程替换）
-bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)" -p 8080 -d /var/lib/2panel
+bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)" _ -p 8080 -d /var/lib/2panel
 
 # 方式二：下载后带参执行（最稳妥）
 curl -fsSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh -o /tmp/2panel-install.sh && \
 bash /tmp/2panel-install.sh -p 8080 -d /var/lib/2panel
+
+# 方式三：环境变量（备用）
+PORT=8080 DATA_DIR=/var/lib/2panel bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)"
 ```
 
 > 说明：
-> - 脚本已兼容 `bash -c "$(curl ...)" args` 的一行式写法（`-c` 模式下首个参数会成为 `$0`，脚本会自动将其并入参数），无需额外的 `_` 占位符。
+> - `bash -c "..." _ args` 中的 `_` 是占位符（`-c` 模式下第一个参数会变成 `$0`），后面的 `-p/-d` 才会进入 `$1`。
 > - `bash <(curl ...) -p 8080` 的进程替换写法依赖 bash 且部分环境（sh/dash、sudo 包装、部分 CI）不展开进程替换，参数会丢失导致退回交互模式，不推荐。
+```
 
 | 参数 | 说明 | 默认值 |
 | --- | --- | --- |
@@ -181,7 +204,7 @@ bash /tmp/2panel-install.sh -p 8080 -d /var/lib/2panel
 | `-d, --data <DIR>` | 数据目录 | `/var/lib/2panel` |
 | `-h, --help` | 显示帮助 | - |
 
-指定任意参数即进入静默安装，未指定的项用默认值，全程无交互；不带参数时仍为交互式提示。查看参数说明：`bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)" -h`
+指定任意参数即进入静默安装，未指定的项用默认值，全程无交互；不带参数时仍为交互式提示。查看参数说明：`bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)" _ -h`
 
 安装脚本会自动完成：
 
@@ -214,28 +237,6 @@ bash uninstall.sh
 # 或远程执行
 bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)"
 ```
-
-**带参数静默卸载**（免确认，自动完成全部卸载流程）：
-
-```bash
-# 方式一：一行式 + 参数（推荐，不依赖进程替换）
-bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)" -y --purge
-
-# 方式二：下载后带参执行（最稳妥）
-curl -fsSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh -o /tmp/2panel-uninstall.sh && \
-bash /tmp/2panel-uninstall.sh -y --purge
-```
-
-| 参数 | 说明 |
-| --- | --- |
-| `-y, --yes` | 免确认，自动同意卸载 |
-| `--purge` | 卸载时同时删除数据目录（数据库/脚本/日志） |
-| `--keep-data` | 卸载时保留数据目录 |
-| `-q, --quiet` | 静默模式，仅输出关键信息 |
-| `-h, --help` | 显示帮助 |
-
-- 不带任何参数时仍为交互式提示；非交互环境（如无 TTY）下默认保留数据目录，如需删除请显式加 `--purge`。
-- 查看参数说明：`bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)" -h`
 
 脚本会依次：停止并移除 systemd 服务 → 结束后台运行进程 → 删除二进制 → **询问是否删除数据目录**（默认删除，按 `n` 可保留；数据目录含数据库/脚本/日志）→ 关闭安装时开放的防火墙端口。数据目录会从 systemd 服务文件中自动解析，无需手动指定。
 
@@ -301,14 +302,8 @@ systemctl restart 2panel   # systemd 模式
 
 ```bash
 2panel restore /backup/2026-08-05.zip     # 交互确认后还原
-2panel restore -y /backup/2026-08-05.zip  # -y 免确认直接还原
 2panel -data /var/lib/2panel restore /backup/2026-08-05.zip
 ```
-
-| 参数 | 说明 |
-| --- | --- |
-| `-y, --yes` | 免确认，跳过「覆盖数据目录」确认，直接还原 |
-| `-h, --help` | 显示帮助 |
 
 - 还原前校验 zip 结构，必须包含 `2panel.db` 才算有效备份。
 - 解压防 zip-slip：拒绝绝对路径、`..` 越界条目。
@@ -330,10 +325,10 @@ systemctl start 2panel         # 恢复服务
 unzip -l /root/backup.zip      # 应包含 2panel.db / log/ / task/
 ```
 
-**还原**（restore 自动停服务，`&&` 后自动重启；`-y` 免确认，脚本环境友好）：
+**还原**（restore 自动停服务，`&&` 后自动重启）：
 
 ```bash
-2panel restore -y /root/backup.zip && systemctl start 2panel
+echo y | 2panel restore /root/backup.zip && systemctl start 2panel
 ```
 
 - 还原前会把现有数据目录重命名保留为 `/var/lib/2panel.backup-<时间戳>`，出问题可回退。
@@ -355,19 +350,10 @@ unzip -l /root/backup.zip      # 应包含 2panel.db / log/ / task/
 ### 4. `2panel uninstall` — 卸载
 
 ```bash
-2panel uninstall              # 交互式确认卸载
-2panel uninstall -y           # 免确认静默卸载（保留数据目录）
-2panel uninstall -y --purge   # 免确认静默卸载，并删除数据目录
+2panel uninstall
 ```
 
-| 参数 | 说明 |
-| --- | --- |
-| `-y, --yes` | 免确认，静默卸载（默认保留数据目录） |
-| `--purge` | 卸载时同时删除数据目录（数据库/脚本/日志） |
-| `--keep-data` | 卸载时保留数据目录 |
-| `-h, --help` | 显示帮助 |
-
-完整流程：root 检查 → 交互确认（带 `-y` 跳过）→ 停止并移除 systemd 服务 / 结束后台进程 → 关闭防火墙端口 → 删除自身二进制 → 确认后删除数据目录（`-y` 默认保留，`--purge` 才删除）。
+完整流程：root 检查 → 交互确认 → 停止并移除 systemd 服务 / 结束后台进程 → 关闭防火墙端口 → 删除自身二进制 → 二次确认后删除数据目录。
 
 > 备份 / 还原 / 卸载共用同一套数据目录探测与进程识别逻辑，均以 `/proc/<pid>/exe` 匹配，不会误杀 shell。
 
@@ -490,5 +476,19 @@ POST /api/cronjobs
 - 数据库：`<data>/2panel.db`（含全部用户数据：账号/密码、任务、脚本库、执行记录）
 - 任务脚本：`<data>/task/<任务名>/<任务名>.sh`
 - 执行日志：`<data>/log/<taskID>.log`
+
+> 备份整站：`2panel backup`；完整还原：`2panel restore <备份文件.zip>`（详见「基础命令」）。
+
+## 与 1Panel 的对应关系
+
+| 1Panel | 2Panel |
+| --- | --- |
+| `agent/app/model/cronjob.go` | `internal/model/cronjob.go` |
+| `agent/app/repo/cronjob.go` | `internal/repo/cronjob.go` |
+| `agent/app/service/cronjob.go` | `internal/service/cronjob.go` |
+| `agent/app/api/v2/cronjob.go` | `internal/handler/cronjob.go` |
+| `agent/router/ro_cronjob.go` | `internal/server/server.go` |
+| `agent/init/cron/` | `internal/scheduler/` |
+| `frontend/src/views/cronjob/*` | `internal/server/web/index.html` |
 
 2Panel 砍掉了 1Panel 中与计划任务无关的模块（网站、应用、数据库、备份、告警、AI Agent 等），仅保留 shell / curl 两类任务及执行记录，其余保持相同的分层结构与 API 风格。
