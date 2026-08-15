@@ -21,6 +21,7 @@ type Runner struct {
 	dataDir string
 	cron    *cron.Cron
 	cancel  map[string]context.CancelFunc
+	watch   *WatchManager
 	mu      sync.RWMutex
 }
 
@@ -42,6 +43,7 @@ func Init(dataDir string) *Runner {
 				cron.WithChain(cron.DelayIfStillRunning(cron.DefaultLogger)),
 			),
 			cancel: make(map[string]context.CancelFunc),
+			watch:  newWatchManager(),
 		}
 		runner.cron.Start()
 	})
@@ -54,6 +56,29 @@ func (r *Runner) Cron() *cron.Cron {
 
 func (r *Runner) DataDir() string {
 	return r.dataDir
+}
+
+// StartFileWatch registers an inotify watcher for an enabled file-watch task.
+// handle receives (watch, eventType, eventPath) for every accepted event.
+func (r *Runner) StartFileWatch(watch *model.FileWatch, handle func(*model.FileWatch, string, string)) error {
+	return r.watch.Start(watch, handle)
+}
+
+// StopFileWatch closes the watcher for the task id, releasing its inotify
+// descriptor. Called on disable, delete and update.
+func (r *Runner) StopFileWatch(id uint) {
+	r.watch.Stop(id)
+}
+
+// StopAllFileWatches closes every registered watcher (graceful shutdown,
+// restore). Cron entries are stopped separately.
+func (r *Runner) StopAllFileWatches() {
+	r.watch.StopAll()
+}
+
+// IsWatchingFileWatch reports whether a live watcher is registered for the id.
+func (r *Runner) IsWatchingFileWatch(id uint) bool {
+	return r.watch.IsWatching(id)
 }
 
 // everyTokenRe matches a numeric duration token (with optional unit) inside an
@@ -216,6 +241,50 @@ func (r *Runner) RunJob(job *model.Cronjob, record *model.JobRecord, log *LogWri
 		return r.runCurl(ctx, job, log)
 	}
 	return fmt.Errorf("unsupported cronjob type: %s", job.Type)
+}
+
+// RunWatchJob executes the script of a file-watch conditional task with its
+// timeout applied, reusing the same logging / process-group machinery as the
+// cronjob runner. The triggering event is exposed to the script via the
+// WATCH_PATH / WATCH_EVENT environment variables.
+func (r *Runner) RunWatchJob(watch *model.FileWatch, eventType, eventPath string, log *LogWriter) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	timeout := time.Duration(watch.Timeout) * time.Second
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+	executor := watch.Executor
+	if len(executor) == 0 {
+		executor = "bash"
+	}
+	script := watch.Script
+	if len(strings.TrimSpace(script)) == 0 {
+		return fmt.Errorf("the script content is empty")
+	}
+
+	ext := ".sh"
+	if strings.HasPrefix(executor, "python") {
+		ext = ".py"
+	}
+	jobDir := filepath.Join(r.dataDir, "task", "watch", watch.Name)
+	if err := os.MkdirAll(jobDir, 0755); err != nil {
+		return err
+	}
+	scriptFile := filepath.Join(jobDir, watch.Name+ext)
+	if err := os.WriteFile(scriptFile, []byte(script), 0755); err != nil {
+		return err
+	}
+
+	var cmd *exec.Cmd
+	if len(watch.User) == 0 {
+		cmd = exec.CommandContext(ctx, executor, scriptFile)
+	} else {
+		cmd = exec.CommandContext(ctx, "sudo", "-u", watch.User, executor, scriptFile)
+	}
+	cmd.Env = append(NonInteractiveEnv(), "WATCH_EVENT="+eventType, "WATCH_PATH="+eventPath)
+	return r.exec(ctx, cmd, log)
 }
 
 func (r *Runner) runShell(ctx context.Context, job *model.Cronjob, log *LogWriter) error {

@@ -3,6 +3,7 @@ module github.com/2panel-dev/2panel
 go 1.26
 
 require (
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/google/uuid v1.6.0
 	github.com/jedisct1/go-minisign v0.0.0-20260527172527-a09352b57a22

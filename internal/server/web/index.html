@@ -1669,6 +1669,7 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
   <div class="tabs">
     <button class="tab active" id="tabCron" onclick="switchTab('cron')">计划任务</button>
     <button class="tab" id="tabScript" onclick="switchTab('script')">脚本库</button>
+    <button class="tab" id="tabWatch" onclick="switchTab('watch')">文件监控</button>
   </div>
 
   <div id="panelCron">
@@ -1786,6 +1787,77 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
       </span>
       <button class="btn small" id="prevScriptPageBtn" onclick="loadScriptList(currentScriptPage-1)">上一页</button>
       <button class="btn small" id="nextScriptPageBtn" onclick="loadScriptList(currentScriptPage+1)">下一页</button>
+    </div>
+  </div>
+  </div>
+
+  <div id="panelWatch" style="display:none">
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-icon stat-icon-total"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+      <div>
+        <div class="stat-value" id="watchStatTotalVal">-</div>
+        <div class="stat-label">监控总数</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon stat-icon-enabled"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+      <div>
+        <div class="stat-value" id="watchStatEnabledVal">-</div>
+        <div class="stat-label">已启用</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon stat-icon-running"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></div>
+      <div>
+        <div class="stat-value" id="watchStatExecutingVal">-</div>
+        <div class="stat-label">监控中</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon stat-icon-today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 6l-9.5 9.5-5-5L1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+      <div>
+        <div class="stat-value" id="watchStatTodayVal">-</div>
+        <div class="stat-label">今日成功率</div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="toolbar">
+      <input type="text" id="watchSearch" placeholder="搜索监控名称" oninput="scheduleWatchSearch()" onkeyup="if(event.key==='Enter'){flushWatchSearch()}">
+      <div class="spacer"></div>
+      <button class="btn" onclick="loadWatchList(currentWatchPage)" title="刷新"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>刷新</button>
+      <button class="btn" onclick="openWatchRecords()" title="执行记录"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>记录</button>
+      <button class="btn primary" onclick="openWatchCreate()" title="新增监控"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>新增</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:180px">监控名称</th>
+          <th style="width:110px">监控开关</th>
+          <th>监控路径</th>
+          <th style="width:160px">触发事件</th>
+          <th style="width:110px">任务状态</th>
+          <th style="width:170px">上次执行</th>
+          <th style="width:320px"></th>
+        </tr>
+      </thead>
+      <tbody id="watchTbody"></tbody>
+    </table>
+    <div class="empty" id="watchEmpty" style="display:none">
+      <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <p>暂无文件监控，快创建第一个吧</p>
+      <button class="btn primary" id="watchEmptyCreateBtn" onclick="openWatchCreate()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>新增</button>
+    </div>
+    <div class="pager" id="watchPager" style="display:none">
+      <span class="info" id="watchPageInfo"></span>
+      <span class="pager-jump">
+        <input type="number" id="watchPageInput" min="1" value="1" aria-label="跳转页码" onkeydown="if(event.key==='Enter')jumpPage('watch')">
+        <button class="btn small" onclick="jumpPage('watch')">跳转</button>
+      </span>
+      <button class="btn small" id="prevWatchPageBtn" onclick="loadWatchList(currentWatchPage-1)">上一页</button>
+      <button class="btn small" id="nextWatchPageBtn" onclick="loadWatchList(currentWatchPage+1)">下一页</button>
     </div>
   </div>
   </div>
@@ -1910,6 +1982,124 @@ echo 'hello 2panel'"></textarea>
     <div class="modal-foot">
       <button class="btn" onclick="closeEdit()">取消</button>
       <button class="btn primary" id="saveJobBtn" onclick="saveJob()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- filewatch create/edit modal -->
+<div class="modal-mask" id="watchEditMask">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="watchEditTitle">新增监控</h3>
+      <span class="close" onclick="closeWatchEdit()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label class="required">监控名称</label>
+        <input type="text" id="wf_name" placeholder="例如：监控配置文件变化">
+      </div>
+      <div class="form-row">
+        <label class="required">监控路径</label>
+        <input type="text" id="wf_paths" placeholder="目录或文件，多个用逗号分隔，如 /data/conf">
+        <div class="hint">监控目录或文件的变化；多个路径用逗号分隔，如 /etc/nginx/nginx.conf, /data/conf。</div>
+      </div>
+      <div class="form-row">
+        <label>触发事件</label>
+        <div class="spec-toggle">
+          <label><input type="checkbox" id="wf_ev_write" checked> 写入 (write)</label>
+          <label><input type="checkbox" id="wf_ev_create" checked> 创建 (create)</label>
+          <label><input type="checkbox" id="wf_ev_remove"> 删除 (remove)</label>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>执行器</label>
+          <input type="text" id="wf_executor" placeholder="bash / sh / python3（默认 bash）">
+        </div>
+        <div class="form-row">
+          <label>执行用户</label>
+          <input type="text" id="wf_user" placeholder="留空表示当前用户，如 root">
+        </div>
+        <div class="form-row">
+          <label>去抖间隔（秒）</label>
+          <input type="text" id="wf_debounce" placeholder="默认 1，抑制同一文件在该间隔内的重复触发">
+        </div>
+        <div class="form-row">
+          <label>超时时间（秒）</label>
+          <input type="text" id="wf_timeout" placeholder="留空表示不限制">
+        </div>
+        <div class="form-row">
+          <label>保留份数</label>
+          <input type="text" id="wf_retention" placeholder="默认 7">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>脚本来源</label>
+        <div class="script-mode">
+          <label><input type="radio" name="watchScriptMode" value="input" checked onchange="toggleWatchScriptMode()"> 手动输入</label>
+          <label><input type="radio" name="watchScriptMode" value="library" onchange="toggleWatchScriptMode()"> 脚本库</label>
+        </div>
+      </div>
+      <div id="watchScriptInputBox">
+        <div class="form-row">
+          <label>脚本内容</label>
+          <textarea id="wf_script" placeholder="echo 'hello'"></textarea>
+        </div>
+      </div>
+      <div id="watchScriptLibraryBox" style="display:none">
+        <div class="form-row">
+          <label>选择脚本</label>
+          <select id="wf_scriptName"><option value="">（加载中…）</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="hint">脚本内可用环境变量：$WATCH_PATH（触发的事件路径）、$WATCH_EVENT（事件类型：write / create / remove）。</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeWatchEdit()">取消</button>
+      <button class="btn primary" id="saveWatchBtn" onclick="saveWatch()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- filewatch records modal -->
+<div class="modal-mask" id="watchRecordMask">
+  <div class="modal lg">
+    <div class="modal-head">
+      <h3>文件监控执行记录：<span id="watchRecordTitle">全部</span></h3>
+      <span class="close" onclick="closeWatchRecords()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="toolbar" style="margin-bottom:12px">
+        <select id="watchRecordStatus" onchange="loadWatchRecords(1)">
+          <option value="">全部状态</option>
+          <option value="success">成功</option>
+          <option value="failed">失败</option>
+          <option value="running">执行中</option>
+          <option value="waiting">等待中</option>
+        </select>
+        <button class="btn small" onclick="loadWatchRecords(currentWatchRecordPage)">刷新</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th style="width:150px">监控名称</th><th style="width:230px">事件路径</th><th style="width:80px">事件</th><th style="width:170px">开始时间</th><th style="width:90px">状态</th><th>日志</th><th style="width:120px">耗时</th><th style="width:100px">操作</th></tr>
+        </thead>
+        <tbody id="watchRecordTbody"></tbody>
+      </table>
+      <div class="empty" id="watchRecordEmpty" style="display:none">
+        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <p>暂无执行记录</p>
+      </div>
+      <div class="pager" id="watchRecordPager" style="display:none">
+        <span class="info" id="watchRecordPageInfo"></span>
+        <span class="pager-jump">
+          <input type="number" id="watchRecordPageInput" min="1" value="1" aria-label="跳转页码" onkeydown="if(event.key==='Enter')jumpPage('watchRecord')">
+          <button class="btn small" onclick="jumpPage('watchRecord')">跳转</button>
+        </span>
+        <button class="btn small" id="prevWatchRecordPageBtn" onclick="loadWatchRecords(currentWatchRecordPage-1)">上一页</button>
+        <button class="btn small" id="nextWatchRecordPageBtn" onclick="loadWatchRecords(currentWatchRecordPage+1)">下一页</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2235,6 +2425,7 @@ echo 'hello 2panel'"></textarea>
 <script>
  const API = '/api/cronjobs';
  const AUTH_API = '/api/auth';
+ const WATCH_API = '/api/filewatchs';
  let currentPage = 1, pageSize = 10;
 let totalPages = 1;
 let currentRecordPage = 1, recordPageSize = 10;
@@ -2696,9 +2887,9 @@ function setPagerState(containerId, inputId, prevId, nextId, page, pages) {
 }
 
 function jumpPage(kind) {
-  const inputId = { cron: 'pageInput', script: 'scriptPageInput', record: 'recordPageInput', scriptRecord: 'scriptRecordPageInput' }[kind];
-  const total = { cron: totalPages, script: scriptTotalPages, record: recordTotalPages, scriptRecord: scriptRecordTotalPages }[kind];
-  const load = { cron: loadList, script: loadScriptList, record: loadRecords, scriptRecord: loadScriptRecords }[kind];
+  const inputId = { cron: 'pageInput', script: 'scriptPageInput', record: 'recordPageInput', scriptRecord: 'scriptRecordPageInput', watch: 'watchPageInput', watchRecord: 'watchRecordPageInput' }[kind];
+  const total = { cron: totalPages, script: scriptTotalPages, record: recordTotalPages, scriptRecord: scriptRecordTotalPages, watch: watchTotalPages, watchRecord: watchRecordTotalPages }[kind];
+  const load = { cron: loadList, script: loadScriptList, record: loadRecords, scriptRecord: loadScriptRecords, watch: loadWatchList, watchRecord: loadWatchRecords }[kind];
   const input = document.getElementById(inputId);
   if (!input || !load) return;
   const v = parseInt(input.value, 10) || 1;
@@ -2715,7 +2906,7 @@ function renderStatusTags(item) {
 }
 
 /* ---------- 弹窗打开时锁定背景滚动（MutationObserver 自动同步） ---------- */
-const modalRootIds = ['editMask', 'recordMask', 'logMask', 'pwdMask', 'scriptMask', 'scriptGroupMask', 'scriptRunMask', 'scriptRecordMask', 'backupMask', 'dialogMask', 'updateMask'];
+const modalRootIds = ['editMask', 'recordMask', 'logMask', 'pwdMask', 'scriptMask', 'scriptGroupMask', 'scriptRunMask', 'scriptRecordMask', 'backupMask', 'dialogMask', 'updateMask', 'watchEditMask', 'watchRecordMask'];
 function syncBodyLock() {
   const open = modalRootIds.some(id => {
     const el = document.getElementById(id);
@@ -2739,8 +2930,11 @@ async function tickAutoRefresh() {
   if (document.documentElement.getAttribute('data-authed') !== '1') return scheduleAutoRefresh();
   if (document.hidden) return scheduleAutoRefresh();
   if (document.body.classList.contains('modal-open')) return scheduleAutoRefresh();
-  if (document.getElementById('panelCron').style.display === 'none') return scheduleAutoRefresh();
-  try { await loadList(currentPage, true); } catch (e) {}
+  if (document.getElementById('panelCron').style.display !== 'none') {
+    try { await loadList(currentPage, true); } catch (e) {}
+  } else if (document.getElementById('panelWatch').style.display !== 'none') {
+    try { await loadWatchList(currentWatchPage, true); } catch (e) {}
+  }
   scheduleAutoRefresh();
 }
 scheduleAutoRefresh();
@@ -3208,12 +3402,17 @@ async function removeJob(id) {
 function switchTab(tab) {
   const cron = tab === 'cron';
   document.getElementById('tabCron').className = 'tab' + (cron ? ' active' : '');
-  document.getElementById('tabScript').className = 'tab' + (cron ? '' : ' active');
+  document.getElementById('tabScript').className = 'tab' + (tab === 'script' ? ' active' : '');
+  document.getElementById('tabWatch').className = 'tab' + (tab === 'watch' ? ' active' : '');
   document.getElementById('panelCron').style.display = cron ? 'block' : 'none';
-  document.getElementById('panelScript').style.display = cron ? 'none' : 'block';
-  if (!cron) {
+  document.getElementById('panelScript').style.display = tab === 'script' ? 'block' : 'none';
+  document.getElementById('panelWatch').style.display = tab === 'watch' ? 'block' : 'none';
+  if (tab === 'script') {
     loadScriptGroupOptions();
     loadScriptList(currentScriptPage);
+  } else if (tab === 'watch') {
+    loadWatchList(currentWatchPage);
+    loadWatchStats();
   }
 }
 
@@ -3812,13 +4011,309 @@ async function copyLog(btn) {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeEdit(); closeRecords(); closeLog(); closeScript(); closeScriptRun(); closeScriptRecords(); closePwd(); closeBackup(); closeUpdate(); }
+  if (e.key === 'Escape') { closeEdit(); closeRecords(); closeLog(); closeScript(); closeScriptRun(); closeScriptRecords(); closePwd(); closeBackup(); closeUpdate(); closeWatchEdit(); closeWatchRecords(); }
 });
-['editMask', 'recordMask', 'logMask', 'pwdMask', 'scriptMask', 'scriptRunMask', 'scriptRecordMask', 'backupMask'].forEach(id => {
+['editMask', 'recordMask', 'logMask', 'pwdMask', 'scriptMask', 'scriptRunMask', 'scriptRecordMask', 'backupMask', 'watchEditMask', 'watchRecordMask'].forEach(id => {
   document.getElementById(id).addEventListener('click', function (e) {
     if (e.target === this) this.classList.remove('show');
   });
 });
+
+/* ---------- filewatch ---------- */
+let currentWatchPage = 1, watchPageSize = 10;
+let watchTotalPages = 1;
+let editingWatchID = 0;
+let currentWatchRecordPage = 1, watchRecordPageSize = 10;
+let watchRecordTotalPages = 1;
+let currentWatchRecordID = 0;
+let currentWatchLogName = '';
+const watchEventText = { write: '写入', create: '创建', remove: '删除' };
+
+let watchSearchTimer = null;
+function scheduleWatchSearch() {
+  clearTimeout(watchSearchTimer);
+  watchSearchTimer = setTimeout(() => loadWatchList(1), 300);
+}
+function flushWatchSearch() {
+  clearTimeout(watchSearchTimer);
+  loadWatchList(1);
+}
+
+async function loadWatchList(page, silent) {
+  if (page < 1) return;
+  currentWatchPage = page;
+  if (!silent) showTableLoading('watchTbody', 'watchEmpty', 7);
+  try {
+    const info = document.getElementById('watchSearch').value.trim();
+    const data = await request(WATCH_API + '/search', 'POST', { page: currentWatchPage, pageSize: watchPageSize, info });
+    renderWatchList(data.items || [], data.total);
+  } catch (e) { if (!silent) toast(e.message, 'error'); }
+}
+
+function renderWatchList(items, total) {
+  const tbody = document.getElementById('watchTbody');
+  tbody.innerHTML = '';
+  const emptyEl = document.getElementById('watchEmpty');
+  const hasFilter = !!document.getElementById('watchSearch').value.trim();
+  emptyEl.style.display = items.length ? 'none' : 'block';
+  emptyEl.querySelector('p').textContent = hasFilter ? '未找到匹配的监控，请调整搜索关键词' : '暂无文件监控，快创建第一个吧';
+  const emptyCreateBtn = document.getElementById('watchEmptyCreateBtn');
+  if (emptyCreateBtn) emptyCreateBtn.style.display = hasFilter ? 'none' : '';
+  watchTotalPages = Math.ceil(total / watchPageSize) || 1;
+  setPagerState('watchPager', 'watchPageInput', 'prevWatchPageBtn', 'nextWatchPageBtn', currentWatchPage, watchTotalPages);
+  document.getElementById('watchPageInfo').textContent = `共 ${total} 条 · 第 ${currentWatchPage}/${watchTotalPages} 页`;
+  for (const item of items) {
+    const tr = document.createElement('tr');
+    const paths = (item.paths || []).map(p => esc(p)).join('<br>') || '-';
+    const events = (item.events || []).map(e => `<span class="tag">${watchEventText[e] || esc(e)}</span>`).join('') || '-';
+    const lastFailed = item.lastRecordStatus === 'failed';
+    const lastTime = item.lastRecordStatus
+      ? `<span class="last-wrap"><span class="tag ${escAttr(item.lastRecordStatus)}">${statusText[item.lastRecordStatus] || esc(item.lastRecordStatus)}</span><div class="last-time" title="${escAttr(item.lastRecordTime || '')}">${esc(relTime(item.lastRecordTime))}</div></span>`
+      : `<span title="${escAttr(item.lastRecordTime || '')}">${esc(relTime(item.lastRecordTime))}</span>`;
+    const watchTag = item.watching ? '<span class="tag running">监控中</span>' : '';
+    tr.innerHTML = `
+      <td class="name ellipsis${lastFailed ? ' failed' : ''}" data-label="监控名称" title="${escAttr(item.name)}">${lastFailed ? '<span class="name-err"></span>' : ''}${esc(item.name)}</td>
+      <td data-label="监控开关" style="text-align:right">
+        <label class="switch" title="${item.status === 'enabled' ? '停用监控' : '启用监控'}">
+          <input type="checkbox" ${item.status === 'enabled' ? 'checked' : ''} onchange="toggleWatchStatus(${item.id}, this.checked)">
+          <span class="track"></span><span class="knob"></span>
+        </label>
+      </td>
+      <td data-label="监控路径" style="white-space:normal;word-break:break-all;max-width:360px">${paths}</td>
+      <td data-label="触发事件"><span class="tag-group">${events}</span></td>
+      <td data-label="任务状态"><span class="tag-group"><span class="tag ${escAttr(item.status)}">${statusText[item.status] || esc(item.status)}</span>${watchTag}</span></td>
+      <td data-label="上次执行">${lastTime}</td>
+      <td data-label="操作">
+        <div class="op-group">
+          <button class="btn small" onclick="handleWatchOnce(${item.id})" title="立即执行"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>执行</button>
+          <button class="btn small" onclick="openWatchEdit(${item.id})" title="编辑"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>编辑</button>
+          <button class="btn small" onclick="openWatchRecords(${item.id}, '${escAttr(item.name)}')" title="执行记录"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>记录</button>
+          <button class="btn small danger" onclick="removeWatch(${item.id})" title="删除"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>删除</button>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+async function loadWatchStats() {
+  try {
+    const s = await request(WATCH_API + '/stats', 'POST', {});
+    animateCount(document.getElementById('watchStatTotalVal'), s.total || 0);
+    animateCount(document.getElementById('watchStatEnabledVal'), s.enabled || 0);
+    animateCount(document.getElementById('watchStatExecutingVal'), s.executing || 0);
+    const done = (s.todaySuccess || 0) + (s.todayFailed || 0);
+    const todayEl = document.getElementById('watchStatTodayVal');
+    if (done > 0) {
+      animateCount(todayEl, s.todayRate || 0, '%');
+    } else {
+      todayEl.textContent = '暂无';
+      todayEl._count = 0;
+    }
+  } catch (e) {}
+}
+
+function resetWatchForm() {
+  editingWatchID = 0;
+  document.getElementById('wf_name').value = '';
+  document.getElementById('wf_paths').value = '';
+  document.getElementById('wf_executor').value = '';
+  document.getElementById('wf_user').value = '';
+  document.getElementById('wf_debounce').value = '';
+  document.getElementById('wf_timeout').value = '';
+  document.getElementById('wf_retention').value = '7';
+  document.getElementById('wf_script').value = '';
+  document.getElementById('wf_ev_write').checked = true;
+  document.getElementById('wf_ev_create').checked = true;
+  document.getElementById('wf_ev_remove').checked = false;
+  const inputMode = document.querySelector('input[name="watchScriptMode"][value="input"]');
+  if (inputMode) inputMode.checked = true;
+  toggleWatchScriptMode();
+}
+
+function openWatchCreate() {
+  resetWatchForm();
+  const sel = document.getElementById('wf_scriptName');
+  sel.innerHTML = scriptOptionsCache.length
+    ? scriptOptionsCache.map(s => `<option value="${escAttr(s.name)}">${esc(s.name)}</option>`).join('')
+    : '<option value="">（脚本库为空，请先新增脚本）</option>';
+  document.getElementById('watchEditTitle').textContent = '新增监控';
+  document.getElementById('watchEditMask').classList.add('show');
+}
+
+async function openWatchEdit(id) {
+  try {
+    const data = await request(WATCH_API + '/load/info', 'POST', { id });
+    resetWatchForm();
+    editingWatchID = data.id;
+    document.getElementById('wf_name').value = data.name || '';
+    document.getElementById('wf_paths').value = (data.paths || []).join(', ');
+    document.getElementById('wf_executor').value = data.executor || '';
+    document.getElementById('wf_user').value = data.user || '';
+    document.getElementById('wf_debounce').value = data.debounce || '';
+    document.getElementById('wf_timeout').value = data.timeout || '';
+    document.getElementById('wf_retention').value = data.retainCopies || 7;
+    const ev = data.events || [];
+    document.getElementById('wf_ev_write').checked = ev.includes('write');
+    document.getElementById('wf_ev_create').checked = ev.includes('create');
+    document.getElementById('wf_ev_remove').checked = ev.includes('remove');
+    document.getElementById('wf_script').value = data.script || '';
+    if (data.scriptName) {
+      document.querySelector('input[name="watchScriptMode"][value="library"]').checked = true;
+      const sel = document.getElementById('wf_scriptName');
+      if (!scriptOptionsCache.some(s => s.name === data.scriptName)) {
+        sel.innerHTML = `<option value="${escAttr(data.scriptName)}">${esc(data.scriptName)}（脚本库中已删除）</option>`;
+      }
+      sel.value = data.scriptName || '';
+      toggleWatchScriptMode();
+    }
+    document.getElementById('watchEditTitle').textContent = '编辑监控';
+    document.getElementById('watchEditMask').classList.add('show');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function closeWatchEdit() {
+  document.getElementById('watchEditMask').classList.remove('show');
+}
+
+function toggleWatchScriptMode() {
+  const mode = document.querySelector('input[name="watchScriptMode"]:checked').value;
+  document.getElementById('watchScriptInputBox').style.display = mode === 'input' ? 'block' : 'none';
+  document.getElementById('watchScriptLibraryBox').style.display = mode === 'library' ? 'block' : 'none';
+}
+
+async function saveWatch() {
+  const name = document.getElementById('wf_name').value.trim();
+  const paths = document.getElementById('wf_paths').value.split(',').map(s => s.trim()).filter(Boolean);
+  if (!name) return toast('请填写监控名称', 'error');
+  if (!paths.length) return toast('请填写监控路径', 'error');
+  const events = [];
+  if (document.getElementById('wf_ev_write').checked) events.push('write');
+  if (document.getElementById('wf_ev_create').checked) events.push('create');
+  if (document.getElementById('wf_ev_remove').checked) events.push('remove');
+  if (!events.length) return toast('请至少选择一种触发事件', 'error');
+  const scriptMode = document.querySelector('input[name="watchScriptMode"]:checked').value;
+  const isLib = scriptMode === 'library';
+  const body = {
+    id: editingWatchID,
+    name,
+    paths,
+    events,
+    executor: document.getElementById('wf_executor').value.trim() || 'bash',
+    user: document.getElementById('wf_user').value.trim(),
+    debounce: parseInt(document.getElementById('wf_debounce').value || '1', 10) || 1,
+    timeout: parseInt(document.getElementById('wf_timeout').value || '0', 10) || 0,
+    retainCopies: parseInt(document.getElementById('wf_retention').value || '7', 10) || 7,
+    script: !isLib ? document.getElementById('wf_script').value : '',
+    scriptName: isLib ? document.getElementById('wf_scriptName').value : '',
+  };
+  if (isLib && !body.scriptName) return toast('请选择脚本库中的脚本', 'error');
+  setBtnLoading('saveWatchBtn', true);
+  try {
+    if (editingWatchID) {
+      await request(WATCH_API + '/update', 'POST', body);
+      toast('监控已更新', 'success');
+    } else {
+      await request(WATCH_API, 'POST', body);
+      toast('监控已创建', 'success');
+    }
+    closeWatchEdit();
+    loadWatchList(currentWatchPage);
+    loadWatchStats();
+  } catch (e) { toast(e.message, 'error'); }
+  setBtnLoading('saveWatchBtn', false);
+}
+
+async function toggleWatchStatus(id, checked) {
+  const status = checked ? 'enabled' : 'disabled';
+  try {
+    await request(WATCH_API + '/status', 'POST', { id, status });
+    toast(status === 'enabled' ? '监控已启用' : '监控已停用', 'success');
+    loadWatchList(currentWatchPage);
+    loadWatchStats();
+  } catch (e) {
+    toast(e.message, 'error');
+    loadWatchList(currentWatchPage);
+  }
+}
+
+async function handleWatchOnce(id) {
+  try {
+    await request(WATCH_API + '/handle', 'POST', { id });
+    toast('已触发执行', 'success');
+    setTimeout(() => loadWatchList(currentWatchPage), 1500);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function removeWatch(id) {
+  const ok = await showConfirmBox({ title: '删除文件监控', message: '确定要删除该文件监控吗？相关执行记录和脚本文件将一并删除。', danger: true });
+  if (!ok) return;
+  request(WATCH_API + '/del', 'POST', { ids: [id] })
+    .then(() => { toast('监控已删除', 'success'); loadWatchList(currentWatchPage); loadWatchStats(); })
+    .catch(e => toast(e.message, 'error'));
+}
+
+function openWatchRecords(id, name) {
+  currentWatchRecordID = id || 0;
+  currentWatchRecordPage = 1;
+  document.getElementById('watchRecordStatus').value = '';
+  document.getElementById('watchRecordTitle').textContent = id ? (name || '') : '全部';
+  document.getElementById('watchRecordMask').classList.add('show');
+  loadWatchRecords(1);
+}
+
+function closeWatchRecords() {
+  document.getElementById('watchRecordMask').classList.remove('show');
+}
+
+async function loadWatchRecords(page) {
+  if (page < 1) return;
+  currentWatchRecordPage = page;
+  showTableLoading('watchRecordTbody', 'watchRecordEmpty', 8);
+  try {
+    const status = document.getElementById('watchRecordStatus').value;
+    const data = await request(WATCH_API + '/search/records', 'POST', {
+      page: currentWatchRecordPage, pageSize: watchRecordPageSize, watchID: currentWatchRecordID, status
+    });
+    renderWatchRecords(data.items || [], data.total);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function renderWatchRecords(items, total) {
+  const tbody = document.getElementById('watchRecordTbody');
+  tbody.innerHTML = '';
+  const emptyEl = document.getElementById('watchRecordEmpty');
+  const hasFilter = !!document.getElementById('watchRecordStatus').value;
+  emptyEl.style.display = items.length ? 'none' : 'block';
+  emptyEl.querySelector('p').textContent = hasFilter ? '未找到匹配的执行记录' : '暂无执行记录';
+  watchRecordTotalPages = Math.ceil(total / watchRecordPageSize) || 1;
+  setPagerState('watchRecordPager', 'watchRecordPageInput', 'prevWatchRecordPageBtn', 'nextWatchRecordPageBtn', currentWatchRecordPage, watchRecordTotalPages);
+  document.getElementById('watchRecordPageInfo').textContent = `共 ${total} 条 · 第 ${currentWatchRecordPage}/${watchRecordTotalPages} 页`;
+  for (const r of items) {
+    const tr = document.createElement('tr');
+    const err = r.message ? `<div style="color:var(--danger);font-size:12px" title="${escAttr(r.message)}">${esc(r.message)}</div>` : '';
+    tr.innerHTML = `
+      <td class="name" data-label="监控名称" title="${escAttr(r.watchName)}">${esc(r.watchName)}</td>
+      <td data-label="事件路径" style="white-space:normal;word-break:break-all;max-width:320px">${esc(r.eventPath)}</td>
+      <td data-label="事件"><span class="tag">${watchEventText[r.eventType] || esc(r.eventType)}</span></td>
+      <td data-label="开始时间">${esc(r.startTime)}</td>
+      <td data-label="状态"><span class="tag ${escAttr(r.status)}">${statusText[r.status] || esc(r.status)}</span></td>
+      <td data-label="日志" style="white-space:normal;max-width:300px">${err}<span class="code" style="font-size:12px">${esc(r.taskID)}.log</span></td>
+      <td data-label="耗时">${formatInterval(r.interval, r.status)}</td>
+      <td data-label="操作"><button class="btn small" onclick="openWatchLog(${r.id}, '${escAttr(r.startTime)}', '${escAttr(r.watchName)}')">查看日志</button></td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+async function openWatchLog(id, time, name) {
+  try {
+    const data = await request(WATCH_API + '/records/log', 'POST', { id });
+    currentWatchLogName = name || '';
+    document.getElementById('logTitle').textContent = (currentWatchLogName ? currentWatchLogName + ' · ' : '') + (time || '');
+    document.getElementById('logView').innerHTML = ansiToHtml(data || '(暂无日志内容)');
+    document.getElementById('logLiveStatus').style.display = 'none';
+    document.getElementById('logMask').classList.add('show');
+  } catch (e) { toast(e.message, 'error'); }
+}
 
 /* ---------- backup / restore ---------- */
 

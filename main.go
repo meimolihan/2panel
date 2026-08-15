@@ -95,6 +95,8 @@ func main() {
 	// restore running cron entries from db
 	service.RestoreCronjobs()
 	service.RestoreScriptRecords()
+	// restore enabled inotify file watchers from db
+	service.RestoreFilewatches()
 
 	// seed built-in install scripts into an empty script library
 	service.SeedGroups()

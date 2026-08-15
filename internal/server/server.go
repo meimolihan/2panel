@@ -20,6 +20,7 @@ func New() http.Handler {
 	scriptApi := handler.BaseApi.ScriptApi
 	groupApi := handler.BaseApi.GroupApi
 	upgradeApi := handler.BaseApi.UpgradeApi
+	watchApi := handler.BaseApi.FileWatchApi
 	{
 		mux.HandleFunc("POST /api/version", handler.AuthMiddleware(upgradeApi.Version))
 		mux.HandleFunc("POST /api/upgrade/check", handler.AuthMiddleware(upgradeApi.Check))
@@ -66,6 +67,19 @@ func New() http.Handler {
 		mux.HandleFunc("POST /api/groups/create", handler.AuthMiddleware(groupApi.Create))
 		mux.HandleFunc("POST /api/groups/update", handler.AuthMiddleware(groupApi.Update))
 		mux.HandleFunc("POST /api/groups/del", handler.AuthMiddleware(groupApi.Delete))
+
+		mux.HandleFunc("POST /api/filewatchs", handler.AuthMiddleware(watchApi.Create))
+		mux.HandleFunc("POST /api/filewatchs/search", handler.AuthMiddleware(watchApi.Search))
+		mux.HandleFunc("POST /api/filewatchs/stats", handler.AuthMiddleware(watchApi.Stats))
+		mux.HandleFunc("POST /api/filewatchs/load/info", handler.AuthMiddleware(watchApi.LoadInfo))
+		mux.HandleFunc("POST /api/filewatchs/update", handler.AuthMiddleware(watchApi.Update))
+		mux.HandleFunc("POST /api/filewatchs/del", handler.AuthMiddleware(watchApi.Delete))
+		mux.HandleFunc("POST /api/filewatchs/status", handler.AuthMiddleware(watchApi.UpdateStatus))
+		mux.HandleFunc("POST /api/filewatchs/handle", handler.AuthMiddleware(watchApi.HandleOnce))
+		mux.HandleFunc("POST /api/filewatchs/search/records", handler.AuthMiddleware(watchApi.SearchRecords))
+		mux.HandleFunc("POST /api/filewatchs/records/log", handler.AuthMiddleware(watchApi.RecordLog))
+		mux.HandleFunc("POST /api/filewatchs/records/log/tail", handler.AuthMiddleware(watchApi.RecordLogTail))
+		mux.HandleFunc("POST /api/filewatchs/script/options", handler.AuthMiddleware(watchApi.ScriptOptions))
 	}
 
 	web, err := fs.Sub(webFS, "web")

@@ -119,12 +119,15 @@ func RestoreZip(zipBytes []byte) error {
 	// Stop every scheduled entry BEFORE touching the database so a cron tick
 	// cannot fire mid-swap and interleave writes with the restore transaction.
 	scheduler.GetRunner().ResetEntries()
+	// Stop every inotify watcher for the same reason: a file event could start
+	// a run while the database is being swapped underneath it.
+	scheduler.GetRunner().StopAllFileWatches()
 
 	if err := ensureIdle(); err != nil {
 		return err
 	}
 
-	cronjobs, records, settings, scripts, scriptRecords, groups, err := readBackupDB(dbFile)
+	cronjobs, records, settings, scripts, scriptRecords, groups, watches, watchRecords, err := readBackupDB(dbFile)
 	if err != nil {
 		return err
 	}
@@ -142,7 +145,7 @@ func RestoreZip(zipBytes []byte) error {
 
 	// swap data in a single transaction
 	err = database.DB.Transaction(func(tx *gorm.DB) error {
-		for _, m := range []interface{}{&model.Cronjob{}, &model.JobRecord{}, &model.Setting{}, &model.ScriptLibrary{}, &model.ScriptRecord{}, &model.Group{}} {
+		for _, m := range []interface{}{&model.Cronjob{}, &model.JobRecord{}, &model.Setting{}, &model.ScriptLibrary{}, &model.ScriptRecord{}, &model.Group{}, &model.FileWatch{}, &model.FileWatchRecord{}} {
 			if err := tx.Where("1 = 1").Delete(m).Error; err != nil {
 				return err
 			}
@@ -177,6 +180,16 @@ func RestoreZip(zipBytes []byte) error {
 				return err
 			}
 		}
+		if len(watches) > 0 {
+			if err := tx.Create(&watches).Error; err != nil {
+				return err
+			}
+		}
+		if len(watchRecords) > 0 {
+			if err := tx.Create(&watchRecords).Error; err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -197,6 +210,7 @@ func RestoreZip(zipBytes []byte) error {
 	// re-register schedulers from the restored database
 	RestoreCronjobs()
 	RestoreScriptRecords()
+	RestoreFilewatches()
 	return nil
 }
 
@@ -210,6 +224,9 @@ func pruneOldRestoreBackups(base string) {
 		return
 	}
 	sort.Sort(sort.Reverse(sort.StringSlice(matches)))
+	if len(matches) <= 2 {
+		return
+	}
 	for _, m := range matches[2:] {
 		_ = os.Remove(m)
 	}
@@ -243,38 +260,38 @@ func ensureIdle() error {
 	if err := database.DB.Model(&model.ScriptRecord{}).Where("status IN ?", []string{model.StatusRunning, model.StatusWaiting}).Count(&count).Error; err == nil && count > 0 {
 		return fmt.Errorf("有脚本正在执行，请稍后再还原")
 	}
-	return nil
+	return ensureFileWatchesIdle()
 }
 
 // readBackupDB extracts 2panel.db from the archive into a temp file and reads
 // every row into memory.
-func readBackupDB(dbFile *zip.File) ([]model.Cronjob, []model.JobRecord, []model.Setting, []model.ScriptLibrary, []model.ScriptRecord, []model.Group, error) {
+func readBackupDB(dbFile *zip.File) ([]model.Cronjob, []model.JobRecord, []model.Setting, []model.ScriptLibrary, []model.ScriptRecord, []model.Group, []model.FileWatch, []model.FileWatchRecord, error) {
 	tmp, err := os.CreateTemp("", "2panel-restore-*.db")
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
 	defer os.Remove(tmp.Name())
 
 	rc, err := dbFile.Open()
 	if err != nil {
 		tmp.Close()
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
 	if _, err := io.Copy(tmp, rc); err != nil {
 		rc.Close()
 		tmp.Close()
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
 	rc.Close()
 	if err := tmp.Sync(); err != nil {
 		tmp.Close()
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
 	tmp.Close()
 
 	bdb, err := gorm.Open(sqlite.Open(tmp.Name()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, fmt.Errorf("读取备份数据库失败: %v", err)
+		return nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("读取备份数据库失败: %v", err)
 	}
 	defer func() {
 		if sqlDB, e := bdb.DB(); e == nil {
@@ -288,25 +305,41 @@ func readBackupDB(dbFile *zip.File) ([]model.Cronjob, []model.JobRecord, []model
 	var scripts []model.ScriptLibrary
 	var scriptRecords []model.ScriptRecord
 	var groups []model.Group
-	if err := bdb.Find(&cronjobs).Error; err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+	var watches []model.FileWatch
+	var watchRecords []model.FileWatchRecord
+	// Backups taken before a table existed (e.g. file_watches, added later)
+	// simply lack that table; skip it so older archives still restore.
+	loadTable := func(m interface{}, dst interface{}) error {
+		if !bdb.Migrator().HasTable(m) {
+			return nil
+		}
+		return bdb.Find(dst).Error
 	}
-	if err := bdb.Find(&records).Error; err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+	if err := loadTable(&model.Cronjob{}, &cronjobs); err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
-	if err := bdb.Find(&settings).Error; err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+	if err := loadTable(&model.JobRecord{}, &records); err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
-	if err := bdb.Find(&scripts).Error; err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+	if err := loadTable(&model.Setting{}, &settings); err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
-	if err := bdb.Find(&scriptRecords).Error; err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+	if err := loadTable(&model.ScriptLibrary{}, &scripts); err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
-	if err := bdb.Find(&groups).Error; err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+	if err := loadTable(&model.ScriptRecord{}, &scriptRecords); err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
-	return cronjobs, records, settings, scripts, scriptRecords, groups, nil
+	if err := loadTable(&model.Group{}, &groups); err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, nil, err
+	}
+	if err := loadTable(&model.FileWatch{}, &watches); err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, nil, err
+	}
+	if err := loadTable(&model.FileWatchRecord{}, &watchRecords); err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, nil, err
+	}
+	return cronjobs, records, settings, scripts, scriptRecords, groups, watches, watchRecords, nil
 }
 
 // extractDataFiles writes log/ and task/ entries from the archive into the
