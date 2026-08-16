@@ -418,12 +418,12 @@ th, td, .code {
 }
 .pwd-wrap input::placeholder { color: var(--text-secondary); opacity: 0.7; }
 .pwd-wrap:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--focus-ring); }
-/* 登录页密码框：点击眼睛或输入密码时，均不显示独立背景/边框高亮（与修改密码页输入一致） */
-.login-card .login-field .pwd-wrap { transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+/* 登录页输入框：聚焦效果与「修改密码」弹窗一致（暗色：底色由输入色提亮为卡片色 + 主色描边 + 光晕） */
+.login-card .login-field .pwd-wrap { transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease; }
 .login-card .login-field .pwd-wrap:focus-within {
-  background: transparent;
-  border: none;
-  box-shadow: none;
+  background: var(--bg-card);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 .login-card .login-field .pwd-wrap input:focus {
   border-color: transparent;
@@ -676,9 +676,9 @@ tbody tr:hover { background: var(--row-hover-bg); background-image: none; }
 }
 [data-theme="light"] .login-card .pwd-wrap:focus-within,
 [data-theme="light"] .login-card .pwd-wrap:has(.eye:focus) {
-  background-color: transparent;
-  border-color: transparent;
-  box-shadow: none;
+  background-color: #ffffff;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 [data-theme="light"] .login-card .login-field input:focus,
 [data-theme="light"] .login-card .login-field input:hover {
@@ -1592,7 +1592,10 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
     </div>
     <div class="login-field">
       <label>用户名</label>
-      <input type="text" id="loginName" value="admin" placeholder="admin" autocomplete="username">
+      <div class="pwd-wrap">
+        <svg class="pwd-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <input type="text" id="loginName" value="admin" placeholder="admin" autocomplete="username">
+      </div>
     </div>
     <div class="login-field">
       <label>密码</label>
@@ -4348,7 +4351,7 @@ async function doBackup() {
     const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `2panel-backup-${stamp}.zip`;
+    a.download = `fn-cronjob-backup-${stamp}.zip`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);

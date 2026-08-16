@@ -87,7 +87,7 @@ func (a *AuthApi) Backup(w http.ResponseWriter, r *http.Request) {
 
 	stamp := time.Now().Format("20060102-150405")
 	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=2panel-backup-%s.zip", stamp))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=fn-cronjob-backup-%s.zip", stamp))
 	if err := service.WriteBackupZip(w, snap); err != nil {
 		// headers are already sent; abort the stream
 		log.Printf("backup stream failed: %v", err)

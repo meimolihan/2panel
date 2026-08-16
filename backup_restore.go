@@ -37,7 +37,7 @@ func cmdBackup(args []string, flagData string) int {
 		dest = args[0]
 	}
 	if dest == "" {
-		dest = fmt.Sprintf("2panel-backup-%s.zip", time.Now().Format("20060102-150405"))
+		dest = fmt.Sprintf("fn-cronjob-backup-%s.zip", time.Now().Format("20060102-150405"))
 	}
 
 	cliSection("备份数据目录")
@@ -69,7 +69,7 @@ func cmdBackup(args []string, flagData string) int {
 	snapName := ""
 	if _, err := os.Stat(dbPath); err == nil {
 		cliHint("正在生成数据库快照 ...")
-		snap, cErr := os.CreateTemp("", "2panel-backup-*.db")
+		snap, cErr := os.CreateTemp("", "fn-cronjob-backup-*.db")
 		if cErr != nil {
 			cliErr("创建临时文件失败: %v", cErr)
 			return 1

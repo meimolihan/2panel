@@ -286,7 +286,7 @@ systemctl restart 2panel   # systemd 模式
 将数据目录（含 `2panel.db` 数据库与 `log/`、`task/` 等全部子目录）打包为 zip。**数据库保存了全部用户数据（管理员账号、密码、任务、脚本库、执行记录）**，一个备份即可完整还原整站。
 
 ```bash
-2panel backup                        # 输出 ./2panel-backup-<时间戳>.zip
+2panel backup                        # 输出 ./fn-cronjob-backup-<时间戳>.zip
 2panel backup /backup/2026-08-05.zip # 指定输出路径
 2panel -data /var/lib/2panel backup  # 显式指定数据目录（未指定时自动探测）
 ```
@@ -343,7 +343,7 @@ unzip -l /root/backup.zip      # 应包含 2panel.db / log/ / task/
 
 登录后点击右上角头像 → 用户菜单「备份还原」，无需命令行即可导出 / 还原全部数据，zip 格式与 `2panel backup` / `2panel restore` 完全互通。
 
-**导出备份**：点「立即备份并下载」，浏览器下载 `2panel-backup-<时间戳>.zip`（含 `2panel.db` 与 `log/`、`task/` 全部数据）。
+**导出备份**：点「立即备份并下载」，浏览器下载 `fn-cronjob-backup-<时间戳>.zip`（含 `2panel.db` 与 `log/`、`task/` 全部数据）。
 
 **还原备份**：选择 `.zip` 备份文件 →「开始还原」→ 确认后原地替换数据：
 

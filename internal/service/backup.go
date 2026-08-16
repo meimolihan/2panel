@@ -27,7 +27,7 @@ const backupDBName = "2panel.db"
 // return a clean error before any zip bytes are written.
 func PrepareBackupSnapshot() (string, error) {
 	dataDir := scheduler.GetRunner().DataDir()
-	snap, err := os.CreateTemp("", "2panel-backup-*.db")
+	snap, err := os.CreateTemp("", "fn-cronjob-backup-*.db")
 	if err != nil {
 		return "", err
 	}
