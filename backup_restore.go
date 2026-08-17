@@ -21,6 +21,7 @@ const backupDBName = "2panel.db"
 // Usage: 2panel [-data /path] backup [输出.zip]
 func cmdBackup(args []string, flagData string) int {
 	cliBanner("备份")
+	cliSep()
 
 	dataDir := flagData
 	if dataDir == "" {
@@ -102,6 +103,7 @@ func cmdBackup(args []string, flagData string) int {
 	cliKV("备份文件", dest)
 	cliKV("文件大小", humanSize(size))
 	cliKV("文件数", fmt.Sprintf("%d 个", files))
+	cliSep()
 	return 0
 }
 
@@ -151,6 +153,7 @@ func cmdRestore(args []string, flagData string) int {
 	}
 
 	cliBanner("还原")
+	cliSep()
 	cliSection("还原备份")
 	cliKV("备份文件", backupFile)
 	cliKV("数据目录", dataDir)
@@ -196,6 +199,7 @@ func cmdRestore(args []string, flagData string) int {
 	}
 	cliSuccessBox(fmt.Sprintf("还原完成（共 %d 个文件）", files))
 	cliKV("启动命令", "systemctl start 2panel")
+	cliSep()
 	return 0
 }
 

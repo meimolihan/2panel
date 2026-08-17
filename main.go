@@ -66,10 +66,12 @@ func main() {
 
 	if showVer {
 		cliBanner("版本信息")
+		cliSep()
 		cliKV("版本", fmt.Sprintf("%s (%s)", version, build))
 		cliKV("Go 版本", runtime.Version())
 		cliKV("平台", fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH))
 		cliKV("编译时间", buildTime)
+		cliSep()
 		os.Exit(0)
 	}
 

@@ -91,6 +91,7 @@ func cmdUninstall(args []string) int {
 	}
 
 	cliBanner("卸载")
+	cliSep()
 
 	reader := bufio.NewReader(os.Stdin)
 	if !opts.yes && !uninstallConfirm(reader, "卸载将停止并移除 2Panel 服务与程序，是否继续？", false) {
