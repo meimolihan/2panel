@@ -26,9 +26,10 @@ var (
 func init() {
 	flag.Usage = func() {
 		fmt.Printf("%s\n", cliPaint("2Panel - 计划任务管理工具", styleCyan))
-		fmt.Printf("  %s %s\n", cliPaint("用法:", styleGreen), cliPaint("2panel [选项] [backup|restore|uninstall]", styleWhite))
+		fmt.Printf("  %s %s\n", cliPaint("用法:", styleGreen), cliPaint("2panel [选项] [status|backup|restore|uninstall]", styleWhite))
 		fmt.Println()
 		fmt.Printf("  %s\n", cliPaint("子命令:", styleYellow))
+		fmt.Printf("    %-30s%s\n", cliPaint("status", styleWhite), cliPaint("查看 2Panel 服务运行状态", styleGrey))
 		fmt.Printf("    %-30s%s\n", cliPaint("backup [输出.zip]", styleWhite), cliPaint("备份数据目录为 zip", styleGrey))
 		fmt.Printf("    %-30s%s\n", cliPaint("restore [-y] <备份.zip>", styleWhite), cliPaint("从备份 zip 还原数据目录（-y 免确认）", styleGrey))
 		fmt.Printf("    %-30s%s\n", cliPaint("uninstall [-y] [--purge|--keep-data]", styleWhite), cliPaint("卸载 2Panel 并（可选）删除数据", styleGrey))
@@ -58,6 +59,8 @@ func main() {
 			os.Exit(cmdBackup(args[1:], dataDir))
 		case "restore":
 			os.Exit(cmdRestore(args[1:], dataDir))
+		case "status":
+			os.Exit(cmdStatus(args[1:]))
 		}
 	}
 
