@@ -7,6 +7,7 @@ type ApiGroup struct {
 	GroupApi      GroupApi
 	UpgradeApi    UpgradeApi
 	FileWatchApi  FileWatchApi
+	AccountApi    AccountApi
 }
 
 var BaseApi = ApiGroup{
@@ -16,4 +17,5 @@ var BaseApi = ApiGroup{
 	GroupApi:     GroupApi{},
 	UpgradeApi:   UpgradeApi{},
 	FileWatchApi: FileWatchApi{},
+	AccountApi:   AccountApi{},
 }

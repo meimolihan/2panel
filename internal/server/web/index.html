@@ -1932,7 +1932,10 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
         </div>
         <div class="form-row">
           <label>执行用户</label>
-          <input type="text" id="f_user" placeholder="留空表示当前用户，如 root">
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="f_user" style="flex:1"><option value="">加载中…</option></select>
+            <button type="button" class="btn small" onclick="loadAccounts('f_user')">刷新</button>
+          </div>
         </div>
         <div class="form-row">
           <label>脚本来源</label>
@@ -2021,7 +2024,10 @@ echo 'hello 2panel'"></textarea>
         </div>
         <div class="form-row">
           <label>执行用户</label>
-          <input type="text" id="wf_user" placeholder="留空表示当前用户，如 root">
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="wf_user" style="flex:1"><option value="">加载中…</option></select>
+            <button type="button" class="btn small" onclick="loadAccounts('wf_user')">刷新</button>
+          </div>
         </div>
         <div class="form-row">
           <label>去抖间隔（秒）</label>
@@ -2635,6 +2641,60 @@ async function request(url, method, body) {
   }
   if (data.code !== 0) throw new Error(data.msg || '请求失败');
   return data.data;
+}
+
+let accountsCache = [];
+let accountsLoading = false;
+async function loadAccounts(selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">加载中…</option>';
+  sel.disabled = true;
+  accountsLoading = true;
+  try {
+    const resp = await request('/api/accounts', 'POST', {});
+    accountsCache = resp.data || [];
+    renderAccountOptions(selectId, prev);
+  } catch (e) {
+    sel.innerHTML = '<option value="">加载失败</option>';
+    toast('加载用户列表失败：' + e.message, 'error');
+  } finally {
+    accountsLoading = false;
+  }
+}
+
+function renderAccountOptions(selectId, selected) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '';
+  sel.disabled = false;
+  if (!accountsCache.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = '无可用用户';
+    opt.disabled = true;
+    opt.selected = true;
+    sel.appendChild(opt);
+    sel.disabled = true;
+    return;
+  }
+  let matched = false;
+  accountsCache.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    if (selected && name === selected) { opt.selected = true; matched = true; }
+    sel.appendChild(opt);
+  });
+  if (!matched && selected) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = selected + ' (已不可用，请重选)';
+    opt.disabled = true;
+    opt.selected = true;
+    sel.insertBefore(opt, sel.firstChild);
+  }
 }
 
 function toast(msg, type) {
@@ -4636,7 +4696,7 @@ document.getElementById('f_spec').addEventListener('input', e => calcNext(e.targ
   // Verify the session cookie server-side; a leftover token in localStorage
   // is no longer trusted.
   request(AUTH_API + '/me', 'POST', {})
-    .then(() => { enterApp(); refreshScriptOptions(); })
+    .then(() => { enterApp(); refreshScriptOptions(); loadAccounts('f_user'); loadAccounts('wf_user'); })
     .catch(() => {});
   // 首屏至少展示 300ms，避免闪屏；随后淡出移除
   setTimeout(() => {
