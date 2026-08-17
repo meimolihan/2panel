@@ -21,7 +21,6 @@ set -e
 
 cd "$(dirname "$0")/.."
 
-# ================== terminal colors (与 install.sh 同款调色板) ==================
 list_color_init() {
     export gl_hui=$'\033[38;5;59m'
     export gl_hong=$'\033[38;5;9m'
@@ -48,7 +47,11 @@ VERSION="${VERSION:-v0.1.1}"
 BUILD="$(date -u +%Y%m%d%H%M%S)"
 LDFLAGS="-s -w -X main.version=${VERSION} -X main.build=${BUILD} -X main.buildTime=${BUILD}"
 
-# ---- minisign signing (optional, 方案 D) ----
+clear
+echo -e ""
+echo -e "${gl_zi}>>> 构建 2Panel 二进制文件${gl_bai}"
+echo -e "${gl_bufan}————————————————————————————————————————————————${gl_bai}"
+    
 SIGNING="n"
 if [ -n "${MINISIGN_KEY}" ]; then
   if ! command -v minisign >/dev/null 2>&1; then
@@ -79,7 +82,7 @@ build linux arm64 2panel_linux_arm64
 
 sep_line
 printf "  %s\n" "${gl_lv}✔ 构建完成${reset}"
-printf "  %s\n" "${gl_hui}发布资产:${reset}"
+printf "%s\n" "${gl_hui}发布资产:${reset}"
 (cd dist && ls -lh)
 sep_line
 if [ "${SIGNING}" = "y" ]; then
@@ -93,3 +96,4 @@ echo ""
 printf "  %s\n" "${gl_huang}启用签名校验：${reset}"
 echo "  minisign -G -p pub.minisign.pub -s 2panel.minisign.key"
 echo "  将 pub.minisign.pub 内容粘贴到 internal/upgrade/upgrade.go 的 MinisignPublicKey 常量"
+echo -e "${gl_bufan}————————————————————————————————————————————————${gl_bai}"
