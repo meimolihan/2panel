@@ -61,7 +61,10 @@ func (u *ScriptRecordRepo) Update(id uint, vars map[string]interface{}) error {
 }
 
 func (u *ScriptRecordRepo) Delete(opts ...DBOption) error {
-	db := database.DB
+	db := database.DB.Model(&model.ScriptRecord{})
+	if len(opts) == 0 {
+		db = db.Where("1 = 1")
+	}
 	for _, opt := range opts {
 		db = opt(db)
 	}

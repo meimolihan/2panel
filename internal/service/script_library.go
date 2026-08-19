@@ -147,6 +147,20 @@ func (u *ScriptService) Delete(ids []uint) error {
 	return nil
 }
 
+func (u *ScriptService) ClearRecords(scriptID uint) error {
+	var opts []repo.DBOption
+	if scriptID != 0 {
+		opts = append(opts, repo.WithByScriptID(scriptID))
+	}
+	records, _ := scriptRecordRepo.List(opts...)
+	for _, record := range records {
+		if len(record.Records) != 0 {
+			_ = os.Remove(record.Records)
+		}
+	}
+	return scriptRecordRepo.Delete(opts...)
+}
+
 // Options returns the lightweight name list used by the cronjob editor.
 func (u *ScriptService) Options() ([]dto.ScriptOption, error) {
 	scripts, err := scriptLibraryRepo.List(repo.WithOrderBy("name", "asc"))

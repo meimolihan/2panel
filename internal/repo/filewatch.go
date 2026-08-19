@@ -127,7 +127,10 @@ func (u *FileWatchRepo) UpdateRecord(id uint, vars map[string]interface{}) error
 }
 
 func (u *FileWatchRepo) DeleteRecords(opts ...DBOption) error {
-	db := database.DB
+	db := database.DB.Model(&model.FileWatchRecord{})
+	if len(opts) == 0 {
+		db = db.Where("1 = 1")
+	}
 	for _, opt := range opts {
 		db = opt(db)
 	}

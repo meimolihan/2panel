@@ -338,6 +338,10 @@ func (u *CronjobService) cleanRecord(cronjobID uint) error {
 	return cronjobRepo.DeleteRecords(repo.WithByCronjobID(cronjobID))
 }
 
+func (u *CronjobService) ClearRecords(cronjobID uint) error {
+	return u.cleanRecord(cronjobID)
+}
+
 func (u *CronjobService) HandleOnce(id uint) error {
 	cronjob, err := cronjobRepo.Get(repo.WithByID(id))
 	if err != nil {

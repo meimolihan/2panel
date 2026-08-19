@@ -411,6 +411,18 @@ func (u *FileWatchService) cleanRecord(watchID uint) error {
 	return fileWatchRepo.DeleteRecords(repo.WithByWatchID(watchID))
 }
 
+func (u *FileWatchService) ClearRecords(watchID uint) error {
+	var opts []repo.DBOption
+	if watchID != 0 {
+		opts = append(opts, repo.WithByWatchID(watchID))
+	}
+	records, _ := fileWatchRepo.ListRecords(opts...)
+	for _, record := range records {
+		_ = os.RemoveAll(record.Records)
+	}
+	return fileWatchRepo.DeleteRecords(opts...)
+}
+
 func (u *FileWatchService) SearchRecords(search dto.SearchFileWatchRecord) (int64, []dto.FileWatchRecord, error) {
 	var opts []repo.DBOption
 	if search.WatchID != 0 {

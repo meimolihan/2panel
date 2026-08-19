@@ -177,6 +177,18 @@ func (a *CronjobApi) SearchRecords(w http.ResponseWriter, r *http.Request) {
 	SuccessWithData(w, dto.PageResult{Items: list, Total: total})
 }
 
+func (a *CronjobApi) ClearRecords(w http.ResponseWriter, r *http.Request) {
+	var req dto.OperateByID
+	if err := decode(&req, w, r); err != nil {
+		return
+	}
+	if err := cronjobService.ClearRecords(req.ID); err != nil {
+		InternalServer(w, err)
+		return
+	}
+	Success(w)
+}
+
 func (a *CronjobApi) RecordLog(w http.ResponseWriter, r *http.Request) {
 	var req dto.OperateByID
 	if err := decode(&req, w, r); err != nil {

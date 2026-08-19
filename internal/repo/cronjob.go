@@ -264,7 +264,10 @@ func (u *CronjobRepo) UpdateRecord(id uint, vars map[string]interface{}) error {
 }
 
 func (u *CronjobRepo) DeleteRecords(opts ...DBOption) error {
-	db := database.DB
+	db := database.DB.Model(&model.JobRecord{})
+	if len(opts) == 0 {
+		db = db.Where("1 = 1")
+	}
 	for _, opt := range opts {
 		db = opt(db)
 	}

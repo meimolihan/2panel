@@ -51,6 +51,7 @@ func New() http.Handler {
 		mux.HandleFunc("POST "+cronjobs+"/search/records", handler.AuthMiddleware(cronApi.SearchRecords))
 		mux.HandleFunc("POST "+cronjobs+"/records/log", handler.AuthMiddleware(cronApi.RecordLog))
 		mux.HandleFunc("POST "+cronjobs+"/records/log/tail", handler.AuthMiddleware(cronApi.RecordLogTail))
+		mux.HandleFunc("POST "+cronjobs+"/records/clear", handler.AuthMiddleware(cronApi.ClearRecords))
 		mux.HandleFunc("POST "+cronjobs+"/export", handler.AuthMiddleware(cronApi.Export))
 		mux.HandleFunc("POST "+cronjobs+"/import", handler.AuthMiddleware(cronApi.Import))
 		mux.HandleFunc("POST "+cronjobs+"/script/options", handler.AuthMiddleware(cronApi.ScriptOptions))
@@ -63,6 +64,7 @@ func New() http.Handler {
 		mux.HandleFunc("POST /api/scripts/run", handler.AuthMiddleware(scriptApi.Run))
 		mux.HandleFunc("POST /api/scripts/run/stop", handler.AuthMiddleware(scriptApi.StopRun))
 		mux.HandleFunc("POST /api/scripts/run/records", handler.AuthMiddleware(scriptApi.SearchRunRecords))
+		mux.HandleFunc("POST /api/scripts/run/records/clear", handler.AuthMiddleware(scriptApi.ClearRunRecords))
 		mux.HandleFunc("POST /api/scripts/run/log", handler.AuthMiddleware(scriptApi.RunLog))
 
 		mux.HandleFunc("POST /api/groups/search", handler.AuthMiddleware(groupApi.Search))
@@ -81,6 +83,7 @@ func New() http.Handler {
 		mux.HandleFunc("POST /api/filewatchs/search/records", handler.AuthMiddleware(watchApi.SearchRecords))
 		mux.HandleFunc("POST /api/filewatchs/records/log", handler.AuthMiddleware(watchApi.RecordLog))
 		mux.HandleFunc("POST /api/filewatchs/records/log/tail", handler.AuthMiddleware(watchApi.RecordLogTail))
+		mux.HandleFunc("POST /api/filewatchs/records/clear", handler.AuthMiddleware(watchApi.ClearRecords))
 		mux.HandleFunc("POST /api/filewatchs/script/options", handler.AuthMiddleware(watchApi.ScriptOptions))
 	}
 

@@ -111,6 +111,18 @@ func (a *ScriptApi) SearchRunRecords(w http.ResponseWriter, r *http.Request) {
 	SuccessWithData(w, dto.PageResult{Items: list, Total: total})
 }
 
+func (a *ScriptApi) ClearRunRecords(w http.ResponseWriter, r *http.Request) {
+	var req dto.OperateByID
+	if err := decode(&req, w, r); err != nil {
+		return
+	}
+	if err := scriptService.ClearRecords(req.ID); err != nil {
+		InternalServer(w, err)
+		return
+	}
+	Success(w)
+}
+
 func (a *ScriptApi) RunLog(w http.ResponseWriter, r *http.Request) {
 	var req dto.ScriptLogReq
 	if err := decode(&req, w, r); err != nil {

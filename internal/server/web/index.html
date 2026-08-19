@@ -2089,6 +2089,7 @@ echo 'hello 2panel'"></textarea>
           <option value="waiting">等待中</option>
         </select>
         <button class="btn small" onclick="loadWatchRecords(currentWatchRecordPage)">刷新</button>
+        <button class="btn small danger" onclick="clearWatchRecords()">清空</button>
       </div>
       <table>
         <thead>
@@ -2200,6 +2201,7 @@ echo 'hello 2panel'"></textarea>
           <option value="waiting">等待中</option>
         </select>
         <button class="btn small" onclick="loadRecords(currentRecordPage)">刷新</button>
+        <button class="btn small danger" onclick="clearRecords()">清空</button>
       </div>
       <table>
         <thead>
@@ -2407,6 +2409,7 @@ echo 'hello 2panel'"></textarea>
           <option value="waiting">等待中</option>
         </select>
         <button class="btn small" onclick="loadScriptRecords(currentScriptRecordPage)">刷新</button>
+        <button class="btn small danger" onclick="clearScriptRecords()">清空</button>
       </div>
       <table>
         <thead>
@@ -3891,6 +3894,16 @@ function closeScriptRecords() {
   document.getElementById('scriptRecordMask').classList.remove('show');
 }
 
+async function clearScriptRecords() {
+  const ok = await showConfirmBox({ title: '清空脚本执行记录', message: '确定要清空所有脚本执行记录和日志吗？此操作不可恢复。', danger: true });
+  if (!ok) return;
+  try {
+    await request('/api/scripts/run/records/clear', 'POST', { id: 0 });
+    toast('已清空脚本执行记录', 'success');
+    loadScriptRecords(1);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
 async function loadScriptRecords(page) {
   if (page < 1) return;
   currentScriptRecordPage = page;
@@ -3967,6 +3980,16 @@ function openRecords(id, name) {
 
 function closeRecords() {
   document.getElementById('recordMask').classList.remove('show');
+}
+
+async function clearRecords() {
+  const ok = await showConfirmBox({ title: '清空执行记录', message: '确定要清空该任务的所有执行记录和日志吗？此操作不可恢复。', danger: true });
+  if (!ok) return;
+  try {
+    await request(API + '/records/clear', 'POST', { id: currentRecordCronjobID });
+    toast('已清空执行记录', 'success');
+    loadRecords(1);
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 async function loadRecords(page) {
@@ -4326,6 +4349,16 @@ function openWatchRecords(id, name) {
 
 function closeWatchRecords() {
   document.getElementById('watchRecordMask').classList.remove('show');
+}
+
+async function clearWatchRecords() {
+  const ok = await showConfirmBox({ title: '清空文件监控执行记录', message: '确定要清空该监控的所有执行记录和日志吗？此操作不可恢复。', danger: true });
+  if (!ok) return;
+  try {
+    await request(WATCH_API + '/records/clear', 'POST', { id: currentWatchRecordID });
+    toast('已清空文件监控执行记录', 'success');
+    loadWatchRecords(1);
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 async function loadWatchRecords(page) {
