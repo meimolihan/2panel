@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201024%201024'%3E%3Cpath%20d='M79.560165%20259.855802v503.572017l435.09465%20250.73251%20434.041152-250.73251-1.053498-502.518519-432.987654-250.73251-435.09465%20249.679012z'%20fill='%23005EFD'/%3E%3Cpath%20d='M93.255638%20268.283786v486.716049l422.452675%20241.251029%20419.292181-242.304527v-485.662551l-421.399177-242.304527-420.345679%20242.304527z'%20fill='%23FFFFFF'/%3E%3Cpath%20d='M139.609547%20294.621235l95.868313%2056.888888%20371.884774-218.074074-93.761317-53.728395-373.99177%20214.913581z'%20fill='%23005EFD'/%3E%3Cpath%20d='M139.609547%20293.567737v435.09465l243.358025%20139.061728%2092.707819-55.835391-241.251029-140.115226%201.053498-320.263375-95.868313-57.942386zM791.269663%20350.096329v321.780412l95.269925%2055.732148V294.364181L645.749992%20154.506008%20551.527243%20210.238156l239.74242%20139.858173z'%20fill='%230854C1'/%3E%3Cpath%20d='M420.893498%20886.470058l93.339918%2056.052411%20372.306172-214.692346-94.387094-57.110123L420.893498%20886.470058z'%20fill='%23005EFD'/%3E%3Cpath%20d='M406%20444%20h212%20v72%20h-212%20z%20M406%20562%20h212%20v72%20h-212%20z'%20fill='%23005EFD'/%3E%3Cpath%20d='M618%20444%20l31.6%20-16.8%20v72%20l-31.6%2016.8%20z%20M618%20562%20l31.6%20-16.8%20v72%20l-31.6%2016.8%20z'%20fill='%230854C1'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20width='512'%20height='512'%20viewBox='0%200%20512%20512'%20xmlns='http://www.w3.org/2000/svg'%20aria-hidden='true'%3E%3Crect%20width='512'%20height='512'%20rx='110'%20fill='%23f4f6f8'/%3E%3Ccircle%20cx='256'%20cy='256'%20r='184'%20fill='%23222222'%20stroke='%23111111'%20stroke-width='12'/%3E%3Ccircle%20cx='256'%20cy='256'%20r='172'%20fill='%232a2a2a'/%3E%3Crect%20x='244'%20y='140'%20width='24'%20height='128'%20rx='12'%20fill='%23ffffff'/%3E%3Cg%20transform='rotate(240,256,256)'%3E%3Crect%20x='248'%20y='256'%20width='16'%20height='130'%20rx='8'%20fill='%23ff2b2b'/%3E%3C/g%3E%3Crect%20x='340'%20y='360'%20width='132'%20height='132'%20rx='24'%20fill='%23ffffff'%20filter='drop-shadow(0%204px%206px%20rgba(0,0,0,0.15))'/%3E%3Cpath%20d='M370%20422%20L402%20454%20L454%20386'%20stroke='%23ff2b2b'%20stroke-width='24'%20stroke-linecap='round'%20stroke-linejoin='round'%20fill='none'/%3E%3C/svg%3E">
 <title>2Panel - 计划任务管理工具</title>
 <script>
 (function () {
@@ -112,7 +112,7 @@ body {
 }
 .header h1 { font-size: 18px; font-weight: 600; cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 8px; }
 .header h1 span { color: var(--primary); }
-.header-logo { width: 22px; height: 22px; display: block; flex: 0 0 auto; }
+.header-logo { width: 44px; height: 44px; display: block; flex: 0 0 auto; }
 .header .env { font-size: 12px; color: var(--text-secondary); }
 .header-right { display: flex; align-items: center; gap: 12px; }
 [data-theme="dark"] .icon-moon { display: none; }
@@ -1041,7 +1041,7 @@ thead th { position: sticky; top: 0; z-index: 2; }
   display: flex; align-items: center; justify-content: center;
   gap: 10px; margin-bottom: 20px;
 }
-.login-logo { width: 32px; height: 32px; display: block; }
+.login-logo { width: 64px; height: 64px; display: block; }
 
 @media (max-width: 767px) {
   .dialog-box { width: 100%; }
@@ -1470,7 +1470,7 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
 }
 #splash.hide { opacity: 0; pointer-events: none; }
 #splash.remove { display: none; }
-.splash-logo { width: 56px; height: 56px; display: block; animation: splash-float 2.4s ease-in-out infinite; }
+.splash-logo { width: 112px; height: 112px; display: block; animation: splash-float 2.4s ease-in-out infinite; }
 .splash-title { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
 .splash-spinner {
   width: 26px; height: 26px; border-radius: 50%;
@@ -1563,14 +1563,16 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
 </head>
 <body>
 <div id="splash">
-  <svg class="splash-logo" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <path d="M79.560165 259.855802v503.572017l435.09465 250.73251 434.041152-250.73251-1.053498-502.518519-432.987654-250.73251-435.09465 249.679012z" fill="#005EFD"/>
-    <path d="M93.255638 268.283786v486.716049l422.452675 241.251029 419.292181-242.304527v-485.662551l-421.399177-242.304527-420.345679 242.304527z" fill="#FFFFFF"/>
-    <path d="M139.609547 294.621235l95.868313 56.888888 371.884774-218.074074-93.761317-53.728395-373.99177 214.913581z" fill="#005EFD"/>
-    <path d="M139.609547 293.567737v435.09465l243.358025 139.061728 92.707819-55.835391-241.251029-140.115226 1.053498-320.263375-95.868313-57.942386zM791.269663 350.096329v321.780412l95.269925 55.732148V294.364181L645.749992 154.506008 551.527243 210.238156l239.74242 139.858173z" fill="#0854C1"/>
-    <path d="M420.893498 886.470058l93.339918 56.052411 372.306172-214.692346-94.387094-57.110123L420.893498 886.470058z" fill="#005EFD"/>
-    <path d="M406 444 h212 v72 h-212 z M406 562 h212 v72 h-212 z" fill="#005EFD"/>
-    <path d="M618 444 l31.6 -16.8 v72 l-31.6 16.8 z M618 562 l31.6 -16.8 v72 l-31.6 16.8 z" fill="#0854C1"/>
+  <svg class="splash-logo" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <rect width="512" height="512" rx="110" fill="#f4f6f8"/>
+    <circle cx="256" cy="256" r="184" fill="#222222" stroke="#111111" stroke-width="12"/>
+    <circle cx="256" cy="256" r="172" fill="#2a2a2a"/>
+    <rect x="244" y="140" width="24" height="128" rx="12" fill="#ffffff"/>
+    <g transform="rotate(240,256,256)">
+      <rect x="248" y="256" width="16" height="130" rx="8" fill="#ff2b2b"/>
+    </g>
+    <rect x="340" y="360" width="132" height="132" rx="24" fill="#ffffff" filter="drop-shadow(0 4px 6px rgba(0,0,0,0.15))"/>
+    <path d="M370 422 L402 454 L454 386" stroke="#ff2b2b" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   </svg>
   <div class="splash-title"><span style="color:var(--primary)">2Panel</span></div>
   <div class="splash-spinner"></div>
@@ -1579,14 +1581,16 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
   <div class="login-card">
   <div class="login-inner">
     <div class="login-brand">
-      <svg class="login-logo" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path d="M79.560165 259.855802v503.572017l435.09465 250.73251 434.041152-250.73251-1.053498-502.518519-432.987654-250.73251-435.09465 249.679012z" fill="#005EFD"/>
-        <path d="M93.255638 268.283786v486.716049l422.452675 241.251029 419.292181-242.304527v-485.662551l-421.399177-242.304527-420.345679 242.304527z" fill="#FFFFFF"/>
-        <path d="M139.609547 294.621235l95.868313 56.888888 371.884774-218.074074-93.761317-53.728395-373.99177 214.913581z" fill="#005EFD"/>
-        <path d="M139.609547 293.567737v435.09465l243.358025 139.061728 92.707819-55.835391-241.251029-140.115226 1.053498-320.263375-95.868313-57.942386zM791.269663 350.096329v321.780412l95.269925 55.732148V294.364181L645.749992 154.506008 551.527243 210.238156l239.74242 139.858173z" fill="#0854C1"/>
-        <path d="M420.893498 886.470058l93.339918 56.052411 372.306172-214.692346-94.387094-57.110123L420.893498 886.470058z" fill="#005EFD"/>
-        <path d="M406 444 h212 v72 h-212 z M406 562 h212 v72 h-212 z" fill="#005EFD"/>
-        <path d="M618 444 l31.6 -16.8 v72 l-31.6 16.8 z M618 562 l31.6 -16.8 v72 l-31.6 16.8 z" fill="#0854C1"/>
+      <svg class="login-logo" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect width="512" height="512" rx="110" fill="#f4f6f8"/>
+        <circle cx="256" cy="256" r="184" fill="#222222" stroke="#111111" stroke-width="12"/>
+        <circle cx="256" cy="256" r="172" fill="#2a2a2a"/>
+        <rect x="244" y="140" width="24" height="128" rx="12" fill="#ffffff"/>
+        <g transform="rotate(240,256,256)">
+          <rect x="248" y="256" width="16" height="130" rx="8" fill="#ff2b2b"/>
+        </g>
+        <rect x="340" y="360" width="132" height="132" rx="24" fill="#ffffff" filter="drop-shadow(0 4px 6px rgba(0,0,0,0.15))"/>
+        <path d="M370 422 L402 454 L454 386" stroke="#ff2b2b" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>
       <h2><span style="color:var(--primary)">2Panel</span></h2>
     </div>
@@ -1622,15 +1626,16 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
 <div id="app">
 <div class="header">
   <h1 id="siteTitle" onclick="location.reload()" title="点击刷新">
-    <svg class="icon header-logo" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M69.530864 0h884.938272v1024H69.530864z" fill="#E0E0E0" fill-opacity="0"/>
-      <path d="M79.560165 259.855802v503.572017l435.09465 250.73251 434.041152-250.73251-1.053498-502.518519-432.987654-250.73251-435.09465 249.679012z" fill="#005EFD"/>
-      <path d="M93.255638 268.283786v486.716049l422.452675 241.251029 419.292181-242.304527v-485.662551l-421.399177-242.304527-420.345679 242.304527z" fill="#FFFFFF"/>
-      <path d="M139.609547 294.621235l95.868313 56.888888 371.884774-218.074074-93.761317-53.728395-373.99177 214.913581z" fill="#005EFD"/>
-      <path d="M139.609547 293.567737v435.09465l243.358025 139.061728 92.707819-55.835391-241.251029-140.115226 1.053498-320.263375-95.868313-57.942386zM791.269663 350.096329v321.780412l95.269925 55.732148V294.364181L645.749992 154.506008 551.527243 210.238156l239.74242 139.858173z" fill="#0854C1"/>
-      <path d="M420.893498 886.470058l93.339918 56.052411 372.306172-214.692346-94.387094-57.110123L420.893498 886.470058z" fill="#005EFD"/>
-      <path d="M406 444 h212 v72 h-212 z M406 562 h212 v72 h-212 z" fill="#005EFD"/>
-      <path d="M618 444 l31.6 -16.8 v72 l-31.6 16.8 z M618 562 l31.6 -16.8 v72 l-31.6 16.8 z" fill="#0854C1"/>
+    <svg class="icon header-logo" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect width="512" height="512" rx="110" fill="#f4f6f8"/>
+      <circle cx="256" cy="256" r="184" fill="#222222" stroke="#111111" stroke-width="12"/>
+      <circle cx="256" cy="256" r="172" fill="#2a2a2a"/>
+      <rect x="244" y="140" width="24" height="128" rx="12" fill="#ffffff"/>
+      <g transform="rotate(240,256,256)">
+        <rect x="248" y="256" width="16" height="130" rx="8" fill="#ff2b2b"/>
+      </g>
+      <rect x="340" y="360" width="132" height="132" rx="24" fill="#ffffff" filter="drop-shadow(0 4px 6px rgba(0,0,0,0.15))"/>
+      <path d="M370 422 L402 454 L454 386" stroke="#ff2b2b" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
     </svg><span style="color:var(--primary)">2Panel</span></h1>
   <div class="header-right">
     <span class="env" id="userInfo" style="display:none"></span>
