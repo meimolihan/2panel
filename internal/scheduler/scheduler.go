@@ -347,7 +347,7 @@ func NonInteractiveEnv() []string {
 		}
 		env = append(env, kv)
 	}
-	return append(env, "TERM=dumb")
+	return append(env, "TERM=xterm")
 }
 
 func (r *Runner) exec(ctx context.Context, cmd *exec.Cmd, log *LogWriter) error {
@@ -355,8 +355,8 @@ func (r *Runner) exec(ctx context.Context, cmd *exec.Cmd, log *LogWriter) error 
 	cmd.Stderr = log
 	// Non-interactive execution: a single newline on stdin lets trailing
 	// "press any key to continue" prompts (read returns 1 on EOF) finish with
-	// exit code 0, and TERM=dumb stops terminal tools such as clear from
-	// printing "TERM environment variable not set." into the log.
+	// exit code 0, and TERM=xterm allows terminal tools such as clear to
+	// run without "TERM environment variable not set." errors.
 	if cmd.Stdin == nil {
 		cmd.Stdin = strings.NewReader("\n")
 	}
