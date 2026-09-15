@@ -138,16 +138,26 @@ git push -u origin main
 GITHUB_OWNER="meimolihan"             # 已配置为你的用户名
 ```
 
-### 3. 构建 release 附件并发布
+### 3. 一键发布（GitHub Actions 自动构建）
 
 ```bash
-# 交叉编译 linux amd64 / arm64 两个二进制（无需目标机器）
-./scripts/build-release.sh                  # 默认 v0.1.1，可用 VERSION=v1.0.0 覆盖
+# bump main.go 版本号 -> push main -> 打 v* tag -> Actions 自动构建发布
+# 可选 -m "备注" 作为 Release 正文（写入 RELEASE_NOTES.md）
+bash scripts/build-and-push.sh v1.0.0 --yes -m "本次发布说明"
+```
 
-# 发布 GitHub Release（需安装 gh CLI）
-VERSION=v0.1.1
-gh release create "$VERSION" dist/2panel_linux_amd64 dist/2panel_linux_arm64 \
-  --title "$VERSION" --notes "2Panel scheduled task manager"
+推送 `v*` tag 后仅产生**一条 workflow run**，自动完成：
+- **二进制**：交叉编译 `2panel_linux_amd64` / `2panel_linux_arm64` + `sha256` 校验和，创建 GitHub Release（正文为 `RELEASE_NOTES.md` + 自动 changelog）
+- **Docker 镜像**：multi-arch（amd64 + arm64）构建并推送 `mobufan/2panel:latest` 与 `mobufan/2panel:<版本>`（`Dockerfile` multi-stage，版本经 ldflags 注入 `main.version`）
+
+日常 push / PR 均不会触发该流程（PR 仅跑 ci.yaml 构建检查）。
+
+查看发布结果：
+
+```bash
+gh run list --workflow=release.yaml --limit 1
+gh release view v1.0.0
+docker pull mobufan/2panel:v1.0.0
 ```
 
 > Release 附件名称必须为 `2panel_linux_amd64` 与 `2panel_linux_arm64`，install.sh 依赖该命名下载。
@@ -381,7 +391,8 @@ unzip -l /root/backup.zip      # 应包含 2panel.db / log/ / task/
 ├── install.sh                       # 远程一键安装脚本（交互式输入端口等）
 ├── uninstall.sh                     # 卸载脚本（停服务/删进程/删二进制/可选删数据）
 ├── scripts/
-│   └── build-release.sh             # 交叉编译 GitHub Release 附件
+│   ├── build-and-push.sh             # 一键发布（bump 版本 -> push main -> tag v* 触发 Actions）
+│   └── build-release.sh              # 本地交叉编译 GitHub Release 附件（可选）
 ├── internal/
 │   ├── database/database.go         # SQLite 初始化与自动建表
 │   ├── model/cronjob.go             # Cronjob / JobRecord 数据模型
