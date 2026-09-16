@@ -212,7 +212,7 @@ info "写入发版备注 RELEASE_NOTES.md"
 
 # ===================== Git 提交 & Tag =====================
 info "提交版本变更"
-git add main.go RELEASE_NOTES.md
+git add .
 git commit -q -m "chore: bump version to ${TAG}" || warn "无变更可提交？"
 info "推送 main"
 git push origin main
