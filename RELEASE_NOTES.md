@@ -1,3 +1,1 @@
-本文件由 `scripts/build-and-push.sh` 在每次发版时自动写入发布备注
-（`build-and-push.sh vX.Y.Z --yes -m "备注内容"`），并作为 GitHub Release 正文，
-与自动生成的 changelog 一同展示。
+单一流水线链式整合，添加同步到 CNB 仓库
