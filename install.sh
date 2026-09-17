@@ -64,6 +64,37 @@ DEFAULT_PORT=8080
 DEFAULT_DATA_DIR="/var/lib/2panel"
 # ==================================================
 
+# ================== GitHub 下载加速镜像 ==================
+# 原始 GitHub 地址超时/失败时，按下列顺序依次尝试（末尾必须带斜杠）
+GITHUB_MIRRORS=(
+  "https://ghfast.top/"
+  "https://ghproxy.net/"
+  "https://gh.xxooo.cf/"
+  "https://v6.gh-proxy.org/"
+  "https://githubproxy.cc/"
+)
+# v6.gh-proxy.org 为纯 IPv6 代理：本机未配置 IPv6 地址时剔除，避免空等超时
+if [ ! -s /proc/net/if_inet6 ]; then
+  _no_v6=()
+  for _m in "${GITHUB_MIRRORS[@]}"; do
+    case "${_m}" in
+      *v6.gh-proxy.org*) continue ;;
+    esac
+    _no_v6+=("${_m}")
+  done
+  GITHUB_MIRRORS=("${_no_v6[@]}")
+fi
+
+# 原始 GitHub URL -> 候选地址列表（原始优先，再依次套用各镜像）
+make_url_candidates() {
+  local github_url="$1" p
+  printf '%s\n' "${github_url}"
+  for p in "${GITHUB_MIRRORS[@]}"; do
+    printf '%s\n' "${p}${github_url}"
+  done
+}
+# ==========================================================
+
 PORT=""
 DATA_DIR=""
 SILENT="n"
@@ -224,7 +255,6 @@ fi
 BIN_DIR="/usr/local/bin"
 BIN_PATH="${BIN_DIR}/2panel"
 BIN_URL="https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest/download/2panel_linux_${ARCH}"
-SHA_URL="${BIN_URL}.sha256"
 TMP_BIN="${BIN_PATH}.download"
 TMP_SHA="${BIN_PATH}.sha256"
 
@@ -238,39 +268,66 @@ sep_line
 section "安装程序"
 ok "正在下载 ${gl_bai}2panel${reset} (${gl_lan}${ARCH}${reset}) ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
 
-# ========== 下载+进度条核心逻辑 进度条输出至stderr，避免stdout乱码 ==========
-if [ -t 1 ] && command -v pv >/dev/null 2>&1; then
-  SIZE=$(curl -sIL --retry 2 "${BIN_URL}" 2>/dev/null | awk 'BEGIN{IGNORECASE=1}/^content-length:/{print $2}')
-  if [[ -n "${SIZE}" && "${SIZE}" =~ ^[0-9]+$ ]]; then
-    (set -o pipefail; curl -fsSL --retry 3 "${BIN_URL}" | pv -p -t -e -b -s "${SIZE}" -o "${TMP_BIN}" >&2) || error "下载失败(pv)"
+# ========== 下载+校验：原始 GitHub 优先（TTY 下带进度条），超时后按镜像静默重试 ==========
+installed="n"
+first=1
+while IFS= read -r u; do
+  printf "  %s 尝试下载 %s\n" "${gl_lan}↓${reset}" "${gl_bai}${u}${reset}"
+  rm -f "${TMP_BIN}" "${TMP_SHA}"
+  if [ "${first}" = "1" ] && [ -t 1 ] && command -v pv >/dev/null 2>&1; then
+    # pv 进度条（进度输出到 stderr，避免污染 stdout）
+    SIZE=$(curl -sIL --connect-timeout 10 --max-time 30 "${u}" 2>/dev/null | awk 'BEGIN{IGNORECASE=1}/^content-length:/{print $2}') || true
+    if [[ -n "${SIZE}" && "${SIZE}" =~ ^[0-9]+$ ]]; then
+      (set -o pipefail; timeout 120 curl -fsSL --connect-timeout 10 --max-time 120 "${u}" | pv -p -t -e -b -s "${SIZE}" -o "${TMP_BIN}" >&2) || true
+    else
+      timeout 120 curl -fSL --progress-bar --connect-timeout 10 --max-time 120 -o "${TMP_BIN}" "${u}" 2>&1 || true
+    fi
+  elif command -v curl >/dev/null 2>&1; then
+    if command -v timeout >/dev/null 2>&1; then
+      timeout 120 curl -fsSL --connect-timeout 10 --max-time 120 -o "${TMP_BIN}" "${u}" 2>/dev/null || true
+    else
+      curl -fsSL --connect-timeout 10 --max-time 120 -o "${TMP_BIN}" "${u}" 2>/dev/null || true
+    fi
   else
-    curl -fSL --progress-bar --retry 3 -o "${TMP_BIN}" "${BIN_URL}" 2>&1 || error "下载失败(curl)"
+    wget -qO "${TMP_BIN}" --timeout=120 --tries=1 "${u}" 2>/dev/null || true
   fi
-elif [ -t 1 ]; then
-  # TTY终端，curl原生进度条输出stderr，不污染标准输出
-  curl -fSL --progress-bar --retry 3 -o "${TMP_BIN}" "${BIN_URL}" 2>&1 || error "下载失败(curl)"
-else
-  # 非终端：管道、日志重定向，完全静默，关闭动画
-  curl -fsSL --retry 3 -o "${TMP_BIN}" "${BIN_URL}" || error "下载失败(非tty)"
+  first=0
+
+  if [ ! -s "${TMP_BIN}" ]; then
+    printf "  %s\n" "${gl_huang}[警告]${reset} 下载失败，换源重试。"
+    continue
+  fi
+  # 内容必须是 ELF 可执行文件（镜像可能返回 HTML 错误页）
+  magic="$(head -c4 "${TMP_BIN}" | od -An -tx1 | tr -d ' \n')"
+  if [ "${magic}" != "7f454c46" ]; then
+    printf "  %s\n" "${gl_huang}[警告]${reset} 下载内容不是可执行程序，换源重试。"
+    continue
+  fi
+  # sha256 校验（校验文件缺失时跳过，仅依赖 ELF 魔数兜底）
+  if command -v sha256sum >/dev/null 2>&1; then
+    if curl -fsSL --connect-timeout 10 --max-time 60 -o "${TMP_SHA}" "${u}.sha256" 2>/dev/null && [ -s "${TMP_SHA}" ]; then
+      EXPECTED=$(awk '{print $1}' "${TMP_SHA}" | tr '[:upper:]' '[:lower:]')
+      if [ -n "${EXPECTED}" ]; then
+        ACTUAL=$(sha256sum "${TMP_BIN}" | awk '{print $1}')
+        if [ "${ACTUAL}" != "${EXPECTED}" ]; then
+          printf "  %s\n" "${gl_huang}[警告]${reset} SHA-256 校验失败，换源重试。"
+          continue
+        fi
+        ok "SHA‑256 校验通过"
+      fi
+    else
+      printf "  %s %s\n" "${gl_huang}[警告]${reset}" "未找到 SHA‑256 校验文件，已跳过完整性校验。"
+    fi
+  fi
+  installed="y"
+  break
+done < <(make_url_candidates "${BIN_URL}")
+
+if [ "${installed}" != "y" ]; then
+  error "所有下载源均失败，请检查网络后重试"
 fi
 
 ok "下载完成，正在校验并安装 ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
-
-# sha256校验
-if command -v sha256sum >/dev/null 2>&1; then
-  if curl -fsSL --retry 2 -o "${TMP_SHA}" "${SHA_URL}"; then
-    EXPECTED=$(awk '{print $1}' "${TMP_SHA}" | tr '[:upper:]' '[:lower:]')
-    if [ -n "${EXPECTED}" ]; then
-      ACTUAL=$(sha256sum "${TMP_BIN}" | awk '{print $1}')
-      if [ "${ACTUAL}" != "${EXPECTED}" ]; then
-        error "下载文件校验失败（SHA‑256 不匹配），已中止安装，请检查发布资产或网络是否被劫持"
-      fi
-      ok "SHA‑256 校验通过"
-    fi
-  else
-    printf "  %s %s\n" "${gl_huang}[警告]${reset}" "未找到 SHA‑256 校验文件，已跳过完整性校验。"
-  fi
-fi
 
 chmod +x "${TMP_BIN}"
 mv "${TMP_BIN}" "${BIN_PATH}"
