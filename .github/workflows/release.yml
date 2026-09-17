@@ -1,99 +1,226 @@
-name: Release
+name: Release Pipeline
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-    - 'v*'
+    inputs:
+      tag:
+        description: '要构建的标签 (例如: v1.0.4)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
 
 concurrency:
-  group: release
+  group: release-${{ github.ref_name || github.event.inputs.tag }}
   cancel-in-progress: false
 
+env:
+  RELEASE_TAG: ${{ github.ref_name || github.event.inputs.tag }}
+  DOCKERHUB_IMAGE: mobufan/2panel
+  GHCR_IMAGE: ghcr.io/${{ github.repository }}
+
 jobs:
-  release:
-    name: Publish Binaries
-    permissions:
-      contents: write
+  build-binaries:
+    name: 编译二进制 (linux amd64 + arm64)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      built: ${{ steps.build.outputs.built }}
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Check Tag
-      id: check-tag
-      shell: bash
-      run: |
-        ver=${GITHUB_REF##*/}
-        echo "version=$ver" >> $GITHUB_OUTPUT
-
-    - name: Verify main.go version matches tag
-      shell: bash
-      run: |
-        ver=${GITHUB_REF##*/}
-        want=${ver#v}
-        got=$(grep -E '^\s*version\s*=\s*"' main.go | head -1 | sed -E 's/.*"v([0-9][^"]*)".*/\1/')
-        echo "tag version=${want}, main.go version=${got}"
-        if [[ "$got" != "$want" ]]; then
-          echo "ERROR: main.go version (v${got}) does not match tag (${ver}). Run scripts/build-and-push.sh to release." >&2
-          exit 1
-        fi
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: go.mod
-
-    - name: Build binaries
-      shell: bash
-      run: |
-        set -euxo pipefail
-        BUILD="$(date -u +%Y%m%d%H%M%S)"
-        LDFLAGS="-s -w -X main.version=${GITHUB_REF_NAME} -X main.build=${BUILD} -X main.buildTime=${BUILD}"
-        mkdir -p dist
-        for spec in "linux amd64" "linux arm64"; do
-          set -- $spec
-          os=$1; arch=$2
-          name=2panel_${os}_${arch}
-          CGO_ENABLED=0 GOOS="${os}" GOARCH="${arch}" go build -trimpath -ldflags "${LDFLAGS}" -o "dist/${name}" .
-          (cd dist && sha256sum "${name}" > "${name}.sha256")
-        done
-
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: |
-          dist/2panel_linux_amd64
-          dist/2panel_linux_amd64.sha256
-          dist/2panel_linux_arm64
-          dist/2panel_linux_arm64.sha256
-        body_path: RELEASE_NOTES.md
-        generate_release_notes: true
-
-  docker:
-    name: Publish Docker Image
-    runs-on: ubuntu-latest
-    needs: release
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
+      - uses: actions/checkout@v5
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME || 'mobufan' }}
+          ref: ${{ format('refs/tags/{0}', github.event.inputs.tag) }}
+
+      - name: Validate tag format
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [[ ! "${{ github.event.inputs.tag }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
+            echo "错误: 标签格式无效，必须以 'v' 开头，例如: v1.0.4"
+            exit 1
+          fi
+
+      - name: Verify main.go version matches tag
+        run: |
+          ver=${RELEASE_TAG}
+          want=${ver#v}
+          got=$(grep -E '^\s*version\s*=\s*"' main.go | head -1 | sed -E 's/.*"v([0-9][^"]*)".*/\1/')
+          echo "tag version=${want}, main.go version=${got}"
+          if [[ "$got" != "$want" ]]; then
+            echo "ERROR: main.go version (v${got}) does not match tag (${ver}). Run scripts/build-and-push.sh to release." >&2
+            exit 1
+          fi
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build binaries
+        env:
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
+        run: |
+          set -euxo pipefail
+          BUILD="$(date -u +%Y%m%d%H%M%S)"
+          LDFLAGS="-s -w -X main.version=${RELEASE_TAG} -X main.build=${BUILD} -X main.buildTime=${BUILD}"
+          mkdir -p dist
+          for spec in "linux amd64" "linux arm64"; do
+            set -- $spec
+            os=$1; arch=$2
+            name=2panel_${os}_${arch}
+            CGO_ENABLED=0 GOOS="${os}" GOARCH="${arch}" go build -trimpath -ldflags "${LDFLAGS}" -o "dist/${name}" .
+            (cd dist && sha256sum "${name}" > "${name}.sha256")
+          done
+          ls -lh dist/
+
+      - name: Verify build outputs
+        id: build
+        run: |
+          set -e
+          ls -lh dist/2panel_linux_amd64 dist/2panel_linux_arm64
+          echo "built=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload binaries as artifacts
+        if: steps.build.outputs.built == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: 2panel-binaries
+          path: |
+            dist/2panel_linux_amd64
+            dist/2panel_linux_amd64.sha256
+            dist/2panel_linux_arm64
+            dist/2panel_linux_arm64.sha256
+          if-no-files-found: error
+
+  publish-release:
+    name: 发布 Release (附带二进制)
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ format('refs/tags/{0}', github.event.inputs.tag) }}
+
+      - name: Download binaries
+        if: needs.build-binaries.outputs.built == 'true'
+        uses: actions/download-artifact@v7
+        with:
+          name: 2panel-binaries
+          path: ./
+
+      - name: Prepare release body
+        run: |
+          if [ -f RELEASE_NOTES.md ]; then
+            cp RELEASE_NOTES.md _release_body.md
+          else
+            {
+              echo "2Panel ${{ env.RELEASE_TAG }}"
+              echo ""
+              echo "Docker 镜像："
+              echo "  - Docker Hub：docker pull ${{ env.DOCKERHUB_IMAGE }}:${{ env.RELEASE_TAG }}"
+              echo "  - GHCR：docker pull ${{ env.GHCR_IMAGE }}:${{ env.RELEASE_TAG }}"
+            } > _release_body.md
+          fi
+
+      - name: Create / update Release with binaries
+        run: |
+          TAG="${{ env.RELEASE_TAG }}"
+          gh release delete "$TAG" --yes 2>/dev/null || true
+          FILES=""
+          [ -f dist/2panel_linux_amd64 ] && FILES="$FILES dist/2panel_linux_amd64"
+          [ -f dist/2panel_linux_amd64.sha256 ] && FILES="$FILES dist/2panel_linux_amd64.sha256"
+          [ -f dist/2panel_linux_arm64 ] && FILES="$FILES dist/2panel_linux_arm64"
+          [ -f dist/2panel_linux_arm64.sha256 ] && FILES="$FILES dist/2panel_linux_arm64.sha256"
+          gh release create "$TAG" \
+            --title "2Panel $TAG" \
+            --notes-file _release_body.md \
+            $FILES
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-docker:
+    name: 构建推送 Docker 镜像 (Docker Hub + GHCR)
+    needs: publish-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ format('refs/tags/{0}', github.event.inputs.tag) }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push
-        uses: docker/build-push-action@v5
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image tags
+        id: tags
+        run: |
+          VER="${{ env.RELEASE_TAG }}"
+          VER_NO_V="${VER#v}"
+          TAGS="${{ env.DOCKERHUB_IMAGE }}:${VER},${{ env.DOCKERHUB_IMAGE }}:latest"
+          TAGS="${TAGS},${{ env.GHCR_IMAGE }}:${VER},${{ env.GHCR_IMAGE }}:${VER_NO_V}"
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v7
         with:
           context: .
-          file: Dockerfile
-          build-args: |
-            VERSION=${{ github.ref_name }}
-            BUILD=${{ github.run_id }}
-          platforms: |
-            linux/amd64
-            linux/arm64
+          file: ./Dockerfile
           push: true
-          tags: mobufan/2panel:latest, mobufan/2panel:${{ github.ref_name }}
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            VERSION=${{ env.RELEASE_TAG }}
+            BUILD=${{ github.run_id }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  sync-cnb:
+    name: 同步到 CNB 镜像仓库
+    needs: build-docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ format('refs/tags/{0}', github.event.inputs.tag) }}
+
+      - name: Sync to CNB Repository
+        if: ${{ env.CNB_TOKEN != '' }}
+        env:
+          CNB_TOKEN: ${{ secrets.CNB_ACCESS_TOKEN }}
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:${{ github.workspace }} \
+            -w ${{ github.workspace }} \
+            -e PLUGIN_TARGET_URL="https://cnb.cool/meimolihan/2panel.git" \
+            -e PLUGIN_AUTH_TYPE="https" \
+            -e PLUGIN_USERNAME="cnb" \
+            -e PLUGIN_PASSWORD="$CNB_TOKEN" \
+            -e PLUGIN_FORCE="true" \
+            -e PLUGIN_PUSH_TAGS="true" \
+            tencentcom/git-sync
+
+      - name: Skip CNB sync
+        if: ${{ env.CNB_TOKEN == '' }}
+        env:
+          CNB_TOKEN: ${{ secrets.CNB_ACCESS_TOKEN }}
+        run: echo "::warning::CNB_ACCESS_TOKEN 未配置，跳过同步到 CNB 镜像仓库"
