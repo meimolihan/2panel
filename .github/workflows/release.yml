@@ -13,11 +13,11 @@ permissions:
   packages: write
 
 concurrency:
-  group: release-${{ github.ref_name || github.event.inputs.tag }}
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 env:
-  RELEASE_TAG: ${{ github.ref_name || github.event.inputs.tag }}
+  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
   DOCKERHUB_IMAGE: mobufan/2panel
   GHCR_IMAGE: ghcr.io/${{ github.repository }}
 
