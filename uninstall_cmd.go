@@ -26,12 +26,14 @@ import (
 )
 
 const (
-	uninstallBinPath     = "/usr/local/bin/2panel"
-	uninstallServiceName = "2panel"
-	uninstallServiceFile = "/etc/systemd/system/2panel.service"
-	uninstallConfigFile  = "/etc/2panel/config"
-	uninstallDefaultData = "/var/lib/2panel"
-	uninstallDefaultPort = 8080
+	uninstallBinPath         = "/usr/local/bin/2panel"
+	uninstallServiceName     = "2panel"
+	uninstallServiceFile     = "/etc/systemd/system/2panel.service"
+	uninstallConfigFile      = "/etc/2panel.conf"
+	uninstallLegacyConfigDir = "/etc/2panel"
+	uninstallLegacyConfig    = uninstallLegacyConfigDir + "/config"
+	uninstallDefaultData     = "/var/lib/2panel"
+	uninstallDefaultPort     = 8080
 )
 
 type uninstallOptions struct {
@@ -113,8 +115,7 @@ func cmdUninstall(args []string) int {
 		}
 	} else {
 		cliOK("未检测到数据目录 %s，跳过删除。", dataDir)
-		_ = os.Remove(uninstallConfigFile)
-		_ = os.Remove(filepath.Dir(uninstallConfigFile))
+		removeInstallRecord()
 		cliSuccessBox("2Panel 卸载完成")
 		fmt.Println(cliPaint("如需重新安装，请再次运行 install.sh 安装脚本。", styleGrey))
 		return 0
@@ -142,14 +143,7 @@ func cmdUninstall(args []string) int {
 		cliOK("已保留数据目录 %s", dataDir)
 	}
 	// remove the installation record written by install.sh
-	if _, err := os.Stat(uninstallConfigFile); err == nil {
-		if err := os.Remove(uninstallConfigFile); err != nil {
-			cliWarn("删除安装记录 %s 失败: %v", uninstallConfigFile, err)
-		} else {
-			cliOK("已删除安装记录 %s", uninstallConfigFile)
-		}
-		_ = os.Remove(filepath.Dir(uninstallConfigFile))
-	}
+	removeInstallRecord()
 
 	cliSuccessBox("2Panel 卸载完成")
 	fmt.Println(cliPaint("如需重新安装，请再次运行 install.sh 安装脚本。", styleGrey))
@@ -211,34 +205,62 @@ func extractDataArg(s string) string {
 // binary path, so uninstall works even when no process is running and no
 // systemd unit exists (the previous behavior silently left custom data dirs
 // behind and a reinstall resurrected all user data).
+// New installs write /etc/2panel.conf; the legacy /etc/2panel/config written
+// by older install.sh versions is read as a fallback.
 func readConfigFile() (portS, data, bin string) {
-	content, err := os.ReadFile(uninstallConfigFile)
-	if err != nil {
-		return "", "", ""
+	for _, path := range []string{uninstallConfigFile, uninstallLegacyConfig} {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(content), "\n") {
+			line = strings.TrimSpace(line)
+			if len(line) == 0 || strings.HasPrefix(line, "#") {
+				continue
+			}
+			key, value, ok := strings.Cut(line, "=")
+			if !ok {
+				continue
+			}
+			value = strings.TrimSpace(value)
+			if len(value) == 0 {
+				continue
+			}
+			switch strings.TrimSpace(key) {
+			case "PORT":
+				portS = value
+			case "DATA_DIR":
+				data = value
+			case "BIN_PATH":
+				bin = value
+			}
+		}
+		if portS != "" || data != "" || bin != "" {
+			return portS, data, bin
+		}
 	}
-	for _, line := range strings.Split(string(content), "\n") {
-		line = strings.TrimSpace(line)
-		if len(line) == 0 || strings.HasPrefix(line, "#") {
+	return "", "", ""
+}
+
+// removeInstallRecord removes the installation record written by install.sh
+// (both the new /etc/2panel.conf and the legacy /etc/2panel/config), then
+// cleans up the now-empty legacy config directory.
+func removeInstallRecord() {
+	removed := false
+	for _, path := range []string{uninstallConfigFile, uninstallLegacyConfig} {
+		if _, err := os.Stat(path); err != nil {
 			continue
 		}
-		key, value, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-		value = strings.TrimSpace(value)
-		if len(value) == 0 {
-			continue
-		}
-		switch strings.TrimSpace(key) {
-		case "PORT":
-			portS = value
-		case "DATA_DIR":
-			data = value
-		case "BIN_PATH":
-			bin = value
+		if err := os.Remove(path); err != nil {
+			cliWarn("删除安装记录 %s 失败: %v", path, err)
+		} else {
+			cliOK("已删除安装记录 %s", path)
+			removed = true
 		}
 	}
-	return portS, data, bin
+	if removed {
+		_ = os.Remove(uninstallLegacyConfigDir)
+	}
 }
 
 // detectUninstallConfig resolves the actual port and data dir used by the

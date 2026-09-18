@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 #
-# 2Panel - uninstall script.
-# Stops the service/process, removes the binary and (optionally) the data
-# directory created by install.sh.
+# 2Panel - 定时任务管理器 卸载脚本
+# 停止并移除 systemd 服务 / 后台进程，删除二进制与安装记录，可选删除数据目录。
 #
-# Usage: bash uninstall.sh [-y] [--purge|--keep-data] [-q]
+# Usage: bash scripts/uninstall.sh [-y] [--purge|--keep-data] [-q]
 
 set -e
 
-BIN_PATH="/usr/local/bin/2panel"
-SERVICE_NAME="2panel"
-DEFAULT_DATA_DIR="/var/lib/2panel"
+APP_NAME="2panel"
+BIN_PATH="/usr/local/bin/${APP_NAME}"
+DEFAULT_DATA_DIR="/var/lib/${APP_NAME}"
 DEFAULT_PORT=8080
-CONFIG_FILE="/etc/2panel/config"
+RECORD_FILE="/etc/${APP_NAME}.conf"
+LEGACY_RECORD_FILE="/etc/${APP_NAME}/config"
+SERVICE_FILE="/etc/systemd/system/${APP_NAME}.service"
 
 # ================== terminal colors ==================
 list_color_init() {
@@ -59,16 +60,8 @@ print_banner() {
     ""
 }
 
-break_end() {
-    echo -e "${gl_lv}操作完成${gl_bai}"
-    echo -e "${gl_bai}按任意键继续 ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}\c"
-    read -r -n 1 -s -r -p ""
-    echo ""
-    clear
-}
-
 error() { printf "  %s %s\n" "${gl_hong}[错误]${reset}" "$1" >&2; exit 1; }
-[ "$(id -u)" != "0" ] && error "请以 root 身份运行（sudo bash uninstall.sh）"
+[ "$(id -u)" != "0" ] && error "请以 root 身份运行（sudo bash scripts/uninstall.sh）"
 
 UNINSTALL_YES=0
 DELETE_DATA=0
@@ -77,7 +70,7 @@ QUIET=0
 
 usage() {
   printf '%s\n' \
-    "用法: bash uninstall.sh [选项]" \
+    "用法: bash scripts/uninstall.sh [选项]" \
     "" \
     "选项:" \
     "  -y, --yes        免确认，自动同意卸载" \
@@ -87,8 +80,8 @@ usage() {
     "  -h, --help       显示帮助" \
     "" \
     "示例:" \
-    "  bash uninstall.sh -y                   免确认卸载，保留数据目录" \
-    "  bash uninstall.sh -y --purge           免确认卸载，并删除数据目录"
+    "  bash scripts/uninstall.sh -y               免确认卸载，保留数据目录" \
+    "  bash scripts/uninstall.sh -y --purge       免确认卸载，并删除数据目录"
   exit 0
 }
 
@@ -118,27 +111,33 @@ done
   skip() { :; }
 }
 
+# read_config 读取安装记录：优先新版 /etc/2panel.conf，回退旧版 /etc/2panel/config
 read_config() {
-  [ -f "$CONFIG_FILE" ] || return 0
-  while IFS='=' read -r KEY VALUE; do
-    KEY=$(printf '%s' "$KEY" | tr -d ' ')
-    VALUE=$(printf '%s' "$VALUE" | tr -d '\r')
-    case "$KEY" in
-      BIN_PATH) [ -n "$VALUE" ] && BIN_PATH="$VALUE" ;;
-      PORT) [ -n "$VALUE" ] && PORT="$VALUE" ;;
-      DATA_DIR) [ -n "$VALUE" ] && DATA_DIR="$VALUE" ;;
-    esac
-  done < "$CONFIG_FILE"
+  local f=""
+  for f in "${RECORD_FILE}" "${LEGACY_RECORD_FILE}"; do
+    [ -f "$f" ] || continue
+    while IFS='=' read -r KEY VALUE; do
+      KEY=$(printf '%s' "$KEY" | tr -d ' ')
+      VALUE=$(printf '%s' "$VALUE" | tr -d '\r')
+      case "$KEY" in
+        BIN_PATH) [ -n "$VALUE" ] && BIN_PATH="$VALUE" ;;
+        PORT) [ -n "$VALUE" ] && PORT="$VALUE" ;;
+        DATA_DIR) [ -n "$VALUE" ] && DATA_DIR="$VALUE" ;;
+      esac
+    done < "$f"
+    return 0
+  done
+  return 0
 }
 
-find_2panel_pids() {
+find_app_pids() {
   local d pid exe
   for d in /proc/[0-9]*; do
     [ -d "$d" ] || continue
     pid="${d#/proc/}"
     [ "$pid" = "$$" ] && continue
     exe=$(readlink "$d/exe" 2>/dev/null) || continue
-    [ "$(basename "$exe")" = "2panel" ] || continue
+    [ "$(basename "$exe")" = "${APP_NAME}" ] || continue
     echo "$pid"
   done
 }
@@ -168,13 +167,13 @@ close_firewall_port() {
 sep_line
 section "卸载确认"
 if [ "$UNINSTALL_YES" = "1" ]; then
-  ok "开始卸载 2Panel ..."
+  ok "开始卸载 ${APP_NAME} ${gl_hong}.${gl_huang}.${gl_lv}.${reset}"
 else
   while :; do
-    read -r -p "${gl_huang}卸载将停止并移除 2Panel 服务与程序，是否继续？${gl_bai}[y/N]${reset}: " CONFIRM
+    read -r -p "${gl_huang}卸载将停止并移除 ${APP_NAME} 服务与程序，是否继续？${gl_bai}[y/N]${reset}: " CONFIRM
     case "$CONFIRM" in
       y|Y|yes|YES)
-        ok "开始卸载 2Panel ..."
+        ok "开始卸载 ${APP_NAME} ${gl_hong}.${gl_huang}.${gl_lv}.${reset}"
         break
         ;;
       n|N|no|NO|"")
@@ -189,19 +188,36 @@ else
 fi
 
 PORT="$DEFAULT_PORT"
-DATA_DIR="${DATA_DIR:-}"
+DATA_DIR=""
 read_config
 
-sep_line
-section "停止服务"
-if command -v systemctl >/dev/null 2>&1 && [ -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
-  SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+# 从 systemd 服务文件回退读取安装参数（安装记录缺失时）
+if [ -f "$SERVICE_FILE" ]; then
   [ -z "$PORT" ] && PORT=$(grep -oE '\-port [0-9]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
   [ -z "$PORT" ] && PORT="$DEFAULT_PORT"
   [ -z "$DATA_DIR" ] && DATA_DIR=$(grep -oE '\-data [^ ]+' "$SERVICE_FILE" | awk '{print $2}' | head -n1)
-  ok "正在停止并移除 systemd 服务 ${gl_bai}${SERVICE_NAME}${reset} ..."
-  systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
-  systemctl disable "${SERVICE_NAME}" 2>/dev/null || true
+fi
+
+# 从运行中进程命令行回退读取（非 systemd 安装）
+if [ -z "$DATA_DIR" ] || [ -z "$PORT" ]; then
+  for PID in $(find_app_pids); do
+    [ -d "/proc/$PID" ] || continue
+    CMD=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null)
+    [ -z "$PORT" ] && PORT=$(printf '%s' "$CMD" | grep -oE '\-port [0-9]+' | awk '{print $2}' | head -n1)
+    [ -z "$DATA_DIR" ] && DATA_DIR=$(printf '%s' "$CMD" | grep -oE '\-data [^ ]+' | awk '{print $2}' | head -n1)
+    [ -n "$PORT" ] && [ -n "$DATA_DIR" ] && break
+  done
+fi
+[ -z "$PORT" ] && PORT="$DEFAULT_PORT"
+[ -z "$DATA_DIR" ] && DATA_DIR="$DEFAULT_DATA_DIR"
+
+sep_line
+section "停止服务"
+if command -v systemctl >/dev/null 2>&1 && [ -f "$SERVICE_FILE" ]; then
+  ok "正在停止并移除 systemd 服务 ${gl_bai}${APP_NAME}${reset} ..."
+  systemctl stop "${APP_NAME}" 2>/dev/null || true
+  systemctl disable "${APP_NAME}" 2>/dev/null || true
+  systemctl reset-failed "${APP_NAME}" 2>/dev/null || true
   rm -f "$SERVICE_FILE"
   systemctl daemon-reload 2>/dev/null || true
 else
@@ -210,18 +226,9 @@ fi
 
 sep_line
 section "停止进程"
-PIDS=$(find_2panel_pids)
+PIDS=$(find_app_pids)
 if [ -n "$PIDS" ]; then
-  if [ -z "$DATA_DIR" ]; then
-    for PID in $PIDS; do
-      [ -d "/proc/$PID" ] || continue
-      CMD=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null)
-      [ -z "$PORT_CMD" ] && PORT_CMD=$(printf '%s' "$CMD" | grep -oE '\-port [0-9]+' | awk '{print $2}')
-      [ -z "$DATA_DIR" ] && DATA_DIR=$(printf '%s' "$CMD" | grep -oE '\-data [^ ]+' | awk '{print $2}')
-      [ -n "$PORT_CMD" ] && [ -n "$DATA_DIR" ] && break
-    done
-  fi
-  ok "正在停止 2panel 进程: ${gl_bai}$PIDS${reset} ..."
+  ok "正在停止 ${APP_NAME} 进程: ${gl_bai}$PIDS${reset} ..."
   for PID in $PIDS; do
     [ -d "/proc/$PID" ] || continue
     kill "$PID" 2>/dev/null || true
@@ -232,11 +239,8 @@ if [ -n "$PIDS" ]; then
     kill -9 "$PID" 2>/dev/null || true
   done
 else
-  skip "未发现运行中的 2panel 进程，跳过。"
+  skip "未发现运行中的 ${APP_NAME} 进程，跳过。"
 fi
-
-[ -z "$PORT" ] && [ -n "$PORT_CMD" ] && PORT="$PORT_CMD"
-[ -n "$DATA_DIR" ] && DEFAULT_DATA_DIR="$DATA_DIR"
 
 sep_line
 section "删除二进制"
@@ -249,8 +253,6 @@ fi
 
 sep_line
 section "删除数据目录"
-[ -z "$DATA_DIR" ] && [ -d "${DEFAULT_DATA_DIR}" ] && DATA_DIR="${DEFAULT_DATA_DIR}"
-
 if [ -n "$DATA_DIR" ] && [ -d "$DATA_DIR" ]; then
   ok "检测到数据目录: ${gl_bai}${DATA_DIR}${reset}"
   if [ "$KEEP_DATA" = "1" ]; then
@@ -278,12 +280,18 @@ fi
 
 sep_line
 section "删除安装记录"
-if [ -f "$CONFIG_FILE" ]; then
-  rm -f "$CONFIG_FILE"
-  ok "已删除安装记录 ${gl_bai}$CONFIG_FILE${reset}"
-  rmdir "$(dirname "$CONFIG_FILE")" 2>/dev/null || true
-else
-  skip "未找到安装记录 ${gl_bai}$CONFIG_FILE${reset}，跳过。"
+REMOVED_RECORD="n"
+for f in "${RECORD_FILE}" "${LEGACY_RECORD_FILE}"; do
+  if [ -f "$f" ]; then
+    rm -f "$f"
+    ok "已删除安装记录 ${gl_bai}$f${reset}"
+    REMOVED_RECORD="y"
+  else
+    skip "未找到安装记录 ${gl_bai}$f${reset}，跳过。"
+  fi
+done
+if [ "$REMOVED_RECORD" = "y" ]; then
+  rmdir "$(dirname "${LEGACY_RECORD_FILE}")" 2>/dev/null || true
 fi
 
 sep_line
@@ -291,8 +299,6 @@ section "关闭防火墙"
 close_firewall_port "$PORT"
 
 sep_line
-printf "  %s\n" "${gl_lv}✔ 2Panel 已卸载完成${reset}"
-printf "  %s\n" "${gl_hui}如需重新安装，请再次运行 install.sh 安装脚本。${reset}"
+printf "  %s\n" "${gl_lv}✔ ${APP_NAME} 已卸载完成${reset}"
+printf "  %s\n" "${gl_hui}如需重新安装，请再次运行 scripts/install.sh 安装脚本。${reset}"
 sep_line
-break_end_guard() { [ -t 0 ] && break_end; }
-break_end_guard

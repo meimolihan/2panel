@@ -78,7 +78,7 @@ curl -sS -X POST -H "Content-Type: application/json" \
 
 ### 3. systemd 开机自启（推荐）
 
-> 使用 `install.sh` 安装时**自动注册 systemd 服务**（开机自启 + 崩溃自动重启 + 日志统一由 journalctl 管理），无需手动配置。
+> 使用 `scripts/install.sh` 安装时**自动注册 systemd 服务**（开机自启 + 崩溃自动重启 + 日志统一由 journalctl 管理），无需手动配置。
 > 只有系统没有 systemd（如容器环境）时才回退为后台运行模式。
 
 手动部署（例如本地 `go build` 生成二进制）时，可按下述步骤注册：
@@ -129,13 +129,14 @@ git remote add origin https://github.com/meimolihan/2Panel.git
 git push -u origin main
 ```
 
-### 2. 修改 install.sh 中的占位符
+### 2. 修改 scripts/install.sh 中的占位符
 
-打开 `install.sh`，把 `GITHUB_OWNER` 改成你的 GitHub 用户名，然后推送：
+打开 `scripts/install.sh`，把 `GITHUB_OWNER` 改成你的 GitHub 用户名，然后推送：
 
 ```bash
-# install.sh 顶部
+# scripts/install.sh 顶部
 GITHUB_OWNER="meimolihan"             # 已配置为你的用户名
+GITHUB_REPO="2Panel"                  # GitHub repository name
 ```
 
 ### 3. 一键发布（GitHub Actions 自动构建）
@@ -160,50 +161,54 @@ gh release view v1.0.0
 docker pull mobufan/2panel:v1.0.0
 ```
 
-> Release 附件名称必须为 `2panel_linux_amd64` 与 `2panel_linux_arm64`，install.sh 依赖该命名下载。
+> Release 附件名称必须为 `2panel_linux_amd64` 与 `2panel_linux_arm64`，`scripts/install.sh` 依赖该命名下载。
 
 ### 4. 在其他机器上一键安装
 
 在任意 Linux 服务器（root 或 sudo）上执行：
 
 ```bash
-bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)"
+bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/scripts/install.sh)"
 ```
 
 **带参数静默安装**（跳过交互提示，指定端口 / 数据目录）：
 
 ```bash
 # 方式一：一行式 + 参数（推荐，不依赖进程替换）
-bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)" -p 8080 -d /var/lib/2panel
+bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/scripts/install.sh)" -p 8080 -d /var/lib/2panel
 
 # 方式二：下载后带参执行（最稳妥）
-curl -fsSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh -o /tmp/2panel-install.sh && \
+curl -fsSL https://raw.githubusercontent.com/meimolihan/2Panel/main/scripts/install.sh -o /tmp/2panel-install.sh && \
 bash /tmp/2panel-install.sh -p 8080 -d /var/lib/2panel
 ```
 
 > 说明：
 > - 脚本已兼容 `bash -c "$(curl ...)" args` 的一行式写法（`-c` 模式下首个参数会成为 `$0`，脚本会自动将其并入参数），无需额外的 `_` 占位符。
 > - `bash <(curl ...) -p 8080` 的进程替换写法依赖 bash 且部分环境（sh/dash、sudo 包装、部分 CI）不展开进程替换，参数会丢失导致退回交互模式，不推荐。
+> - 本地仓库已克隆时可直接运行 `bash scripts/install.sh`；脚本优先使用本地产物，其次才从 GitHub Release 下载。
 
 | 参数 | 说明 | 默认值 |
 | --- | --- | --- |
 | `-p, --port <PORT>` | 监听端口（1-65535，非法值报错退出） | `8080` |
 | `-d, --data <DIR>` | 数据目录 | `/var/lib/2panel` |
+| `-b, --bin <PATH>` | 二进制源路径（显式指定；本地无产物时自动从 GitHub Release 下载） | 自动探测本地产物 |
+| `-y, --yes` | 免交互，未指定项全部使用默认值 | - |
 | `-h, --help` | 显示帮助 | - |
 
-指定任意参数即进入静默安装，未指定的项用默认值，全程无交互；不带参数时仍为交互式提示。查看参数说明：`bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)" -h`
+指定任意参数即进入静默安装，未指定的项用默认值，全程无交互；不带参数时仍为交互式提示。查看参数说明：`bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/scripts/install.sh)" -h`
 
 安装脚本会自动完成：
 
-1. 检测系统架构（amd64 / arm64），从 GitHub Release 下载对应二进制
+1. 检测系统架构（amd64 / arm64）；优先使用本地构建产物（`go build -o 2panel .`、`dist/2panel_linux_amd64` / `arm64` 等），本地没有时从 GitHub Release 下载对应二进制（多镜像加速 + SHA-256 校验）
 2. **交互式提示输入监听端口**（默认 8080，校验 1-65535）
 3. 提示输入数据目录（默认 `/var/lib/2panel`）
-4. **自动注册为 systemd 服务**（开机自启 + 崩溃自动重启 + journald 日志）；系统无 systemd（如容器）时自动回退为后台运行并给出提示
-5. **自动开放防火墙端口**（自动检测 firewalld → ufw → iptables，仅放行实际启用的防火墙，并打印状态）
-6. 打印访问地址 `http://<服务器IP>:<端口>`
+4. 写入安装记录 `/etc/2panel.conf`（重新安装/升级时自动预填上一次的端口与数据目录）
+5. **自动注册为 systemd 服务**（开机自启 + 崩溃自动重启 + journald 日志）；系统无 systemd（如容器）时自动回退为后台运行并给出提示
+6. **自动开放防火墙端口**（自动检测 firewalld → ufw → iptables，仅放行实际启用的防火墙，并打印状态）
+7. 打印访问地址 `http://<服务器IP>:<端口>`
 
 ```bash
-$ bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)"
+$ bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/scripts/install.sh)"
 ============================================================
  正在安装 2Panel
    系统 : Linux x86_64
@@ -220,19 +225,19 @@ $ bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/
 
 ```bash
 # 方式一：使用卸载脚本（本地克隆或下载后执行）
-bash uninstall.sh
+bash scripts/uninstall.sh
 # 或远程执行
-bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)"
+bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/scripts/uninstall.sh)"
 ```
 
 **带参数静默卸载**（免确认，自动完成全部卸载流程）：
 
 ```bash
 # 方式一：一行式 + 参数（推荐，不依赖进程替换）
-bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)" -y --purge
+bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/scripts/uninstall.sh)" -y --purge
 
 # 方式二：下载后带参执行（最稳妥）
-curl -fsSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh -o /tmp/2panel-uninstall.sh && \
+curl -fsSL https://raw.githubusercontent.com/meimolihan/2Panel/main/scripts/uninstall.sh -o /tmp/2panel-uninstall.sh && \
 bash /tmp/2panel-uninstall.sh -y --purge
 ```
 
@@ -245,9 +250,9 @@ bash /tmp/2panel-uninstall.sh -y --purge
 | `-h, --help` | 显示帮助 |
 
 - 不带任何参数时仍为交互式提示；非交互环境（如无 TTY）下默认保留数据目录，如需删除请显式加 `--purge`。
-- 查看参数说明：`bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/uninstall.sh)" -h`
+- 查看参数说明：`bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/scripts/uninstall.sh)" -h`
 
-脚本会依次：停止并移除 systemd 服务 → 结束后台运行进程 → 删除二进制 → **询问是否删除数据目录**（默认删除，按 `n` 可保留；数据目录含数据库/脚本/日志）→ 关闭安装时开放的防火墙端口。数据目录会从 systemd 服务文件中自动解析，无需手动指定。
+脚本会依次：停止并移除 systemd 服务 → 结束后台运行进程 → 删除二进制 → **询问是否删除数据目录**（默认删除，按 `n` 可保留；数据目录含数据库/脚本/日志）→ 删除安装记录（`/etc/2panel.conf`，兼容旧版 `/etc/2panel/config`）→ 关闭安装时开放的防火墙端口。端口与数据目录从安装记录 / systemd 服务文件 / 运行进程命令行自动解析，无需手动指定。
 
 ```bash
 # 方式二：手动卸载
@@ -261,8 +266,8 @@ rm -rf /var/lib/2panel                                    # 删除数据（数�
 ### 升级
 
 ```bash
-# 直接替换二进制后重启
-bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/install.sh)"   # 重跑即覆盖二进制
+# 直接替换二进制后重启（重跑即覆盖二进制，并按安装记录预填参数）
+bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/scripts/install.sh)"
 systemctl restart 2panel   # systemd 模式
 ```
 
@@ -279,7 +284,7 @@ systemctl restart 2panel   # systemd 模式
 
 `2panel` 支持若干子命令，统一由二进制入口分发，与 systemd 服务解耦，可在任意机器上对目标数据目录操作。
 
-> **关于输出颜色**：`install.sh` / `uninstall.sh` / `2panel` 的 CLI 输出统一使用同一套终端配色（`>>>` 绿色、`[错误]` 红色、`[警告]` 黄色、`[提示]` 青色）。输出被重定向/管道化时自动去掉颜色，日志仍可 grep。
+> **关于输出颜色**：`scripts/install.sh` / `scripts/uninstall.sh` / `2panel` 的 CLI 输出统一使用同一套终端配色（`>>>` 绿色、`[错误]` 红色、`[警告]` 黄色、`[提示]` 青色）。输出被重定向/管道化时自动去掉颜色，日志仍可 grep。
 
 ### 1. `2panel`（默认）— 启动服务
 
@@ -388,11 +393,11 @@ unzip -l /root/backup.zip      # 应包含 2panel.db / log/ / task/
 ├── main.go                          # 入口：参数解析、数据库、调度器、启动 HTTP、子命令分发
 ├── uninstall_cmd.go                 # 卸载子命令（数据目录探测 / 进程识别 / 停服 / 删数据）
 ├── backup_restore.go                # 备份 / 还原子命令（zip 打包与安全解压）
-├── install.sh                       # 远程一键安装脚本（交互式输入端口等）
-├── uninstall.sh                     # 卸载脚本（停服务/删进程/删二进制/可选删数据）
 ├── scripts/
-│   ├── build-and-push.sh             # 一键发布（bump 版本 -> push main -> tag v* 触发 Actions）
-│   └── build-release.sh              # 本地交叉编译 GitHub Release 附件（可选）
+│   ├── install.sh                   # 一键安装脚本（本地产物优先 / GitHub 下载兜底，交互式或静默）
+│   ├── uninstall.sh                 # 卸载脚本（停服务/删进程/删二进制/可选删数据）
+│   ├── build-and-push.sh            # 一键发布（bump 版本 -> push main -> tag v* 触发 Actions）
+│   └── build-release.sh             # 本地交叉编译 GitHub Release 附件（可选）
 ├── internal/
 │   ├── database/database.go         # SQLite 初始化与自动建表
 │   ├── model/cronjob.go             # Cronjob / JobRecord 数据模型

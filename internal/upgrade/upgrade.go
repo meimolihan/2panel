@@ -479,7 +479,8 @@ type installConfig struct {
 	DataDir string
 }
 
-// loadConfig resolves the running installation. Priority: /etc/2panel/config,
+// loadConfig resolves the running installation. Priority: the installation
+// record written by install.sh (/etc/2panel.conf, legacy /etc/2panel/config),
 // then the current process command line, then sane defaults.
 func loadConfig() (installConfig, error) {
 	exe, err := os.Executable()
@@ -488,13 +489,10 @@ func loadConfig() (installConfig, error) {
 	}
 	cfg := installConfig{BinPath: exe, Port: flagFromArgs("-port", "8080"), DataDir: filepath.Join(filepath.Dir(exe), "data")}
 
-	if b, err := os.ReadFile("/etc/2panel/config"); err == nil {
-		vals := make(map[string]string)
-		for _, line := range strings.Split(string(b), "\n") {
-			line = strings.TrimSpace(line)
-			if i := strings.Index(line, "="); i > 0 {
-				vals[strings.TrimSpace(line[:i])] = strings.TrimSpace(line[i+1:])
-			}
+	for _, path := range []string{"/etc/2panel.conf", "/etc/2panel/config"} {
+		vals, err := readRecordFile(path)
+		if err != nil {
+			continue
 		}
 		if v := vals["BIN_PATH"]; v != "" {
 			cfg.BinPath = v
@@ -505,8 +503,25 @@ func loadConfig() (installConfig, error) {
 		if v := vals["DATA_DIR"]; v != "" {
 			cfg.DataDir = v
 		}
+		break
 	}
 	return cfg, nil
+}
+
+// readRecordFile parses the KEY=VALUE installation record written by install.sh.
+func readRecordFile(path string) (map[string]string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	vals := make(map[string]string)
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if i := strings.Index(line, "="); i > 0 {
+			vals[strings.TrimSpace(line[:i])] = strings.TrimSpace(line[i+1:])
+		}
+	}
+	return vals, nil
 }
 
 func flagFromArgs(name, def string) string {

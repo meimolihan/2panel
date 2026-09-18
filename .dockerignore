@@ -2,8 +2,6 @@
 2panel
 data
 dist
-install.sh
-uninstall.sh
 get-docker.sh
 lint.log
 *.minisig
