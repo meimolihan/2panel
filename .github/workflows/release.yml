@@ -24,7 +24,7 @@ env:
 jobs:
   build-binaries:
     name: 编译二进制 (linux amd64 + arm64)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     outputs:
       built: ${{ steps.build.outputs.built }}
@@ -94,7 +94,7 @@ jobs:
   publish-release:
     name: 发布 Release (附带二进制)
     needs: build-binaries
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
@@ -106,7 +106,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: 2panel-binaries
-          path: ./
+          path: dist
 
       - name: Prepare release body
         run: |
@@ -141,7 +141,7 @@ jobs:
   build-docker:
     name: 构建推送 Docker 镜像 (Docker Hub + GHCR)
     needs: publish-release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
@@ -193,7 +193,7 @@ jobs:
   sync-cnb:
     name: 同步到 CNB 镜像仓库
     needs: build-docker
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
