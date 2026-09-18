@@ -53,13 +53,11 @@ jobs:
           fi
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
       - name: Build binaries
-        env:
-          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: |
           set -euxo pipefail
           BUILD="$(date -u +%Y%m%d%H%M%S)"
