@@ -165,6 +165,39 @@ VER_RE='^v[0-9]+\.[0-9]+\.[0-9]+$'
 
 cd "$(dirname "$0")/.."
 
+# ===================== CNB 同名仓库检测与自动创建 =====================
+ensure_cnb_repo() {
+    local token="${CNB_ACCESS_TOKEN:-}"
+    if [ -z "${token}" ] && [ -f "${HOME}/.cnb_token" ]; then
+        token=$(<"${HOME}/.cnb_token")
+    fi
+    if [ -z "${token}" ]; then
+        warn "未配置 CNB_ACCESS_TOKEN 或 ~/.cnb_token，跳过 CNB 仓库检测"
+        return 0
+    fi
+    local origin repo cname code
+    origin=$(git config --get remote.origin.url 2>/dev/null || true)
+    repo=$(basename "${origin}" .git 2>/dev/null || true)
+    [ -z "${repo}" ] && repo=$(basename "$(pwd)" 2>/dev/null || true)
+    cname="cnb.cool/meimolihan/${repo}"
+    if GIT_TERMINAL_PROMPT=0 git ls-remote "https://cnb:${token}@${cname}.git" >/dev/null 2>&1; then
+        info "CNB 同名仓库已存在：${cname}，跳过创建"
+        return 0
+    fi
+    info "CNB 仓库不存在：${cname}，正在自动创建 ..."
+    code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "https://api.cnb.cool/meimolihan/-/repos" \
+        -H "Authorization: Bearer ${token}" \
+        -H "Accept: application/vnd.cnb.api+json" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\":\"${repo}\",\"visibility\":\"public\"}")
+    if [ "${code}" = "201" ] || [ "${code}" = "200" ]; then
+        info "CNB 仓库创建成功：${cname}（HTTP ${code}）"
+    else
+        warn "CNB 仓库创建返回 HTTP ${code}（可能已存在或权限不足），继续发布"
+    fi
+}
+ensure_cnb_repo
+
 if [ "${YES_MODE}" = "0" ]; then
     read -r -p "即将发布 ${TAG}，将 bump main.go 版本号并推送 main + tag，确认? [y/N] " ans
     [[ "${ans}" =~ ^[Yy]$ ]] || { echo "已取消"; exit 1; }
@@ -210,10 +243,28 @@ info "写入发版备注 RELEASE_NOTES.md"
     printf '\n'
   fi
   printf 'docker pull mobufan/2panel:latest\n'
-  printf 'docker pull mobufan/2panel:%s\n' "${TAG}"
   printf '\n'
+  printf '```bash\n'
+  printf 'docker pull mobufan/2panel:%s\n' "${TAG}"
+  printf '```\n'
+  printf '\n'
+  printf '```bash\n'
   printf 'docker pull ghcr.io/meimolihan/2panel:latest\n'
+  printf '```\n'
+  printf '\n'
+  printf '```bash\n'
   printf 'docker pull ghcr.io/meimolihan/2panel:%s\n' "${TAG}"
+  printf '```\n'
+  printf '\n'
+  printf '## 二进制安装\n'
+  printf '```bash\n'
+  printf 'bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/scripts/install.sh)" -p 8080 -d /var/lib/2panel\n'
+  printf '```\n'
+  printf '\n'
+  printf '## 二进制卸载\n'
+  printf '```bash\n'
+  printf 'bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/scripts/uninstall.sh)" -y --purge\n'
+  printf '```\n'
 } > RELEASE_NOTES.md
 
 # ===================== Git 提交 & Tag =====================
