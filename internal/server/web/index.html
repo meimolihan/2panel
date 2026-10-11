@@ -203,7 +203,7 @@ td.ellipsis { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
   display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; line-height: 18px;
 }
 .tag.enabled, .tag.success { background: var(--tag-success-bg); color: var(--tag-success-color); }
-.tag.disabled { background: var(--tag-disabled-bg); color: var(--text-secondary); }
+.tag.disabled { background: var(--tag-disabled-bg); color: var(--tag-disabled-color); }
 .tag.waiting, .tag.running { background: var(--tag-info-bg); color: var(--tag-info-color); }
 .tag.failed { background: var(--tag-error-bg); color: var(--tag-error-color); }
 .tag.unexecuted { background: var(--tag-warning-bg); color: var(--tag-warning-color); }
@@ -1559,6 +1559,274 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
   .login-card::after { animation: none; display: none; }
   .login-card { border: 1px solid var(--border); }
 }
+
+/* ===================================================================
+   UI/UX Pro Max 优化覆盖层
+   依据 ui-ux-pro-max 规则库（优先级 1 Accessibility / 2 Touch & Interaction）。
+   =================================================================== */
+
+/* --- 1. 键盘焦点可见性（规则：Focus States / Keyboard Navigation，Severity High） ---
+   现状：输入框与弹窗控件用 box-shadow 做了焦点环，但按钮、开关、分页、
+   表格内操作按钮都没有。源码里这些控件多写了 outline:none，
+   于是键盘用户 Tab 到这些控件时完全没有位置指示。
+   修法：统一用 :focus-visible 加双层焦点环（内亮外深，保证在两种主题
+   和彩色按钮上都看得见），只对键盘导航生效，不干扰鼠标点击。
+   不写 outline:none，保留浏览器默认环作为兜底。 */
+/* 不能用 :where()——它把整条规则特异性降为 0，压不过源码里
+   `.toolbar input{outline:none}`、`.form-row input{outline:none}`
+   这些类选择器，结果焦点环反而被它们盖掉，键盘焦点更不可见。
+   改用带类名的 :focus-visible，逐类覆盖到实际存在的选择器上。 */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--focus-outline);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+/* 已自带 box-shadow 焦点环的输入容器：改用边框+阴影表达焦点，
+   不再叠第二个 outline，避免出现双环。 */
+.pwd-wrap:focus-within,
+.dialog-field:focus-within {
+  outline: none;
+}
+.toolbar input[type=text]:focus-visible,
+.toolbar select:focus-visible,
+.form-row input:focus-visible,
+.form-row textarea:focus-visible,
+.form-row select:focus-visible,
+.dialog-field input:focus-visible,
+.dialog-field textarea:focus-visible,
+.group-edit-name:focus-visible {
+  outline: 2px solid var(--focus-outline);
+  outline-offset: 1px;
+}
+:root {
+  /* 焦点环专用色：比 --primary 更亮，保证在深色按钮上也能分辨 */
+  --focus-outline: #a9c4ff;
+}
+[data-theme="light"] {
+  --focus-outline: #1f5fd0;
+}
+/* 主色实心按钮上的焦点环要更亮，才不会和按钮底色糊在一起 */
+.btn.primary:focus-visible {
+  --focus-outline: #ffffff;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-solid) 55%, transparent);
+}
+/* 表格里的操作按钮与开关：焦点环容易和相邻按钮的轮廓重叠，
+   用带偏移的实心环 +轻微外扩，保证任一按钮聚焦时边界清晰 */
+.op-group .btn:focus-visible,
+.pager .btn:focus-visible {
+  outline: 2px solid var(--focus-outline);
+  outline-offset: 1px;
+  z-index: 1;
+}
+.switch input:focus-visible + .track {
+  outline: 2px solid var(--focus-outline);
+  outline-offset: 2px;
+}
+
+/* --- 2. 触控目标（规则：Target Size (Minimum) WCAG 2.2 AA，Severity High） ---
+   .btn.small 高 28px，桌面端够用（WCAG 指针目标 24px），
+   但同一行里相邻按钮 gap 只有 4-6px，密集排列时容易误点。
+   修法：不改按钮尺寸（那是布局决定的），改为给按钮留出等效的命中间距，
+   并让触控设备（pointer:coarse）下自动放大到 36px。 */
+@media (pointer: coarse) {
+  .btn.small { height: 36px; padding: 0 14px; }
+  .card > table .op-group { gap: 8px; }
+  .card > table .op-group .btn { padding: 0 10px; }
+  .pager .btn { min-width: 44px; height: 36px; }
+}
+
+/* --- 3. 行高（规则：Line Height 1.5–1.75，Severity Medium） ---
+   表格单元格里状态标签与辅助时间上下堆叠时行高偏紧，
+   中文在小字号下更需要行间呼吸。 */
+.card > table th,
+.card > table td { line-height: 1.5; }
+
+/* --- 1. 主色承载面对比度 ---
+   浅色主色 #6f9bff 上放白字只有 2.69:1，低于正文 4.5:1。
+   保留主色的色相身份，把实心底色压深到同色相深蓝，纯白文字回到达标区间；
+   hover 同步加深，保证加深后仍留有反馈。 */
+:root {
+  --primary-solid: #3b62c4;
+  --primary-solid-hover: #2f52ad;
+  --on-primary: #ffffff;
+  --shadow-primary-solid: 0 4px 16px rgba(59, 98, 196, 0.38);
+}
+[data-theme="light"] {
+  --primary-solid: #2f6fed;
+  --primary-solid-hover: #1e5bd8;
+  --on-primary: #ffffff;
+  --shadow-primary-solid: 0 4px 16px rgba(47, 111, 237, 0.32);
+}
+.btn.primary {
+  background: var(--primary-solid);
+  border-color: var(--primary-solid);
+  color: var(--on-primary);
+}
+.btn.primary:not(:disabled):hover {
+  background: var(--primary-solid-hover);
+  border-color: var(--primary-solid-hover);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn.primary:not(:disabled):hover { box-shadow: var(--shadow-primary-solid); }
+}
+
+/* --- 2. 执行中行：旋转光带改为左侧状态条 ---
+   原实现用 conic-gradient 铺满整行做旋转流光，光带经过处文字被冲淡到读不出来，
+   而“正在执行”最该被看清的恰恰是这一行的文字。
+   改成左侧 3px 状态条 + 行底色：执行状态仍然一眼可见，文字始终可读。 */
+tbody tr.row-running {
+  background-image: none;
+  background-color: color-mix(in srgb, var(--primary) 7%, var(--bg-card));
+  box-shadow: inset 3px 0 0 var(--primary);
+  animation: none;
+}
+tbody tr.row-running:hover {
+  background-image: none;
+  background-color: color-mix(in srgb, var(--primary) 11%, var(--bg-card));
+}
+[data-theme="light"] tbody tr.row-running {
+  background-color: color-mix(in srgb, var(--primary-solid) 8%, var(--bg-card));
+}
+[data-theme="light"] tbody tr.row-running:hover {
+  background-color: color-mix(in srgb, var(--primary-solid) 13%, var(--bg-card));
+}
+/* 状态条本身缓慢呼吸，表示“进行中”而非“已停止” */
+@keyframes row-running-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+@media (prefers-reduced-motion: reduce) {
+  tbody tr.row-running { animation: none; }
+}
+
+/* --- 3. 表格不再横向溢出 ---
+   根因：table 铺满容器，但操作列四个 nowrap 按钮加其余列的 min-content
+   宽度总和超过容器，table 撑破 .container 把「删除」按钮推出视口。
+   修法：容器允许自身收缩并横向滚动，表格设 min-width 保证列不塌陷；
+   任务名列作为唯一可压缩列，用 ellipsis 吸收宽度。 */
+.card.table-card,
+.card:has(> table) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.card > table {
+  width: 100%;
+  /* 不设 min-width：列宽靠下面的弹性列自然收敛，容器仅在极端窄屏才滚动 */
+  table-layout: auto;
+}
+.card > table th,
+.card > table td { padding: 12px 9px; }
+/* 唯一弹性列：任务名。给它可收缩基准，其余列保持内容宽度。
+   注意：不同表格列序不同，这里只按「第1 列=主体名称」施加 ellipsis，
+   不依赖具体列数，避免影响脚本库、文件监控等其他表格。 */
+.card > table th:first-child,
+.card > table td:first-child {
+  min-width: 96px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 操作列不参与收缩；按钮收紧内边距，让整组在常规宽度内放得下。
+   用「最后一列」定位，各表格一致。 */
+.card > table th:last-child,
+.card > table td:last-child { width: 1%; white-space: nowrap; }
+.card > table .op-group { gap: 4px; }
+.card > table .op-group .btn { padding: 0 8px; }
+/* cron 表达式一类等宽代码必须完整可读：禁止折行。
+   被压缩的应该是名称，而不是调度表达式——看错一次周期就可能误判影响。 */
+.card > table .code { white-space: nowrap; }
+
+/* --- 4. 统计卡片层级 ---
+   原四张卡数字等重，读者分不出重点。对一个定时任务工具，
+   唯一真正需要持续盯住的是“现在有没有任务在跑、有没有在失败”。
+   让执行中这一张成为主角：有任务在跑时提亮边框和底色，其余保持安静。 */
+.stat-card { position: relative; transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+/* grid 的 1fr 列默认 min-width:auto，文字列不收缩就会顶宽卡片、
+   把「执行中」那张撑高，破坏四卡等高。显式允许收缩并让四列等高。 */
+.stats { align-items: stretch; }
+.stat-card > div { min-width: 0; }
+.stat-card.is-alert {
+  border-color: color-mix(in srgb, var(--primary-solid) 55%, var(--border));
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--primary-solid) 12%, var(--bg-card)) 0%,
+      color-mix(in srgb, var(--primary-solid) 5%, var(--bg-card)) 100%);
+}
+.stat-card.is-alert .stat-value { color: var(--text); }
+/* 提示文字压在一行内，不让卡片因换行被撑高、破坏四卡的等高排布。
+   min-width:0 + flex 布局下需要显式允许收缩，否则 nowrap 仍会被挤断。 */
+.stat-label .stat-hint {
+  display: block;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* --- 5. 上次执行的时间层级 ---
+   状态标签是主信息，时间是辅助。原样式让两者字号接近、颜色接近，
+   时间反而更抢眼。压低时间的视觉权重，让状态先被读到。 */
+td[data-label="上次执行"] .last-time {
+  font-size: 11px;
+  /* 不用 opacity 压暗：opacity 会把文字与底色一起混算，实测掉到 4.36:1。
+     改为直接指定一个仍然偏次要、但自身达标的颜色。 */
+  color: #9aa5b8;
+  margin-top: 2px;
+}
+/* 浅色主题：#626b78 在白卡片上只有 3.96:1，继续压深到 4.6:1 以上 */
+[data-theme="light"] td[data-label="上次执行"] .last-time { color: #4e5764; }
+/* 失败的任务名沿用 --danger（浅色下已是 #cb3d3d，在白底 4.90:1），
+   这里只补字重，不重复改色——失败状态不该只靠颜色单独表达 */
+td.name.ellipsis.failed { font-weight: 700; }
+/* 即将执行的下次时间：保留橙色提示，但改成更清晰的“胶囊+圆点”，
+   避免只有颜色变化这一单一通道 */
+.next-run.soon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--tag-warning-bg);
+  color: var(--tag-warning-color);
+  font-weight: 600;
+}
+
+/* --- 6. 标签与状态色对比度 ---
+   浅色主题下这些前景色都停在 3.0:1 左右（success 3.00、warning 2.81、
+   error 3.47、info 4.05），远低于正文 4.5:1。色相全部保持不变，
+   只压深明度到 4.7:1 以上；状态仍然一眼可辨，可读性优先。 */
+:root {
+  --tag-shell-color: #b9a3f8;
+  --tag-curl-color: #c6a9f2;
+  --tag-info-color: #9dbcff;
+  /* 「已禁用」原本复用 --text-secondary，在标签底色上只有 4.22:1。
+     禁用态仍要安静，但“看得清”优先于“压得暗”，单独给一个达标色。 */
+  --tag-disabled-color: #a7b0c0;
+}
+[data-theme="light"] {
+  --tag-shell-color: #2b65d8;
+  --tag-curl-color: #684dd2;
+  --tag-info-color: #2b65d8;
+  --tag-disabled-color: #5b6472;
+  --tag-success-color: #117c38;
+  --tag-error-color: #c03939;
+  --tag-warning-color: #a05804;
+  /* --danger 要同时压过两种行底色：白卡 #ffffff 与浅色斑马纹 #d9dde3。
+     #cb3d3d 在斑马纹行上只有 3.60:1，#a93333 对两种底色都 >= 4.8:1。 */
+  --danger: #a93333;
+}
 </style>
 </head>
 <body>
@@ -1696,11 +1964,12 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
         <div class="stat-label">已启用</div>
       </div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" id="statRunningCard">
       <div class="stat-icon stat-icon-running"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></div>
       <div>
         <div class="stat-value" id="statRunningVal"><span id="statRunningNum">-</span><span class="live-dot" id="statRunningDot"></span></div>
-        <div class="stat-label">执行中</div>
+        <div class="stat-label" id="statRunningLabel">执行中</div>
+        <span class="stat-hint" id="statRunningHint" style="display:none"></span>
       </div>
     </div>
     <div class="stat-card">
@@ -3149,6 +3418,15 @@ async function loadStats() {
     const running = s.executing || 0;
     animateCount(document.getElementById('statRunningNum'), running);
     document.getElementById('statRunningDot').classList.toggle('show', running > 0);
+    // 有任务在跑时，这张卡提为当前主角；空闲时收回视觉权重，避免常亮橙色
+    document.getElementById('statRunningCard').classList.toggle('is-alert', running > 0);
+    const rHint = document.getElementById('statRunningHint');
+    if (running > 0) {
+      rHint.textContent = '日志见执行记录';
+      rHint.style.display = 'block';
+    } else {
+      rHint.style.display = 'none';
+    }
     const done = (s.todaySuccess || 0) + (s.todayFailed || 0);
     const todayEl = document.getElementById('statTodayVal');
     if (done > 0) {
