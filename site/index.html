@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2Panel · 把服务器上的定时任务收进一个能看见的地方</title>
+<meta name="description" content="2Panel 是一个单二进制的自托管 Linux 计划任务管理器。SQLite 持久化，无需 Node、CGO 或外部数据库。支持 shell 脚本与 curl 请求两类任务，含脚本库、导入导出、备份还原与崩溃自愈。">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0iIzA0MDUwQiIvPjxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjYiIGZpbGw9IiMyREU4RkYiLz48L3N2Zz4=">
+<style>
+/* ============================================================
+   2Panel 落地页 · 全面重构（赛博幻彩霓虹风）
+   近黑底 + 动态霓虹网格 + 漂移青/粉/紫发光球体 + CRT 扫描线
+   霓虹描边发光 · 渐变文字 glow · 强发光状态点 · 终端光晕
+   结构/文案/JS 全部保留，对齐仓库真实信息
+   ============================================================ */
+@font-face{font-family:'Outfit';font-style:normal;font-weight:300;font-display:swap;src:local('Outfit')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400;font-display:swap;src:local('JetBrains Mono')}
+
+:root{
+  /* 基底 */
+  --bg:#04050B;
+  --bg-2:#070914;
+  --panel:rgba(13,17,34,.55);
+  --panel-2:rgba(11,15,30,.40);
+  --panel-solid:#0A0E1F;
+  --line:rgba(120,200,255,.12);
+  --line-2:rgba(120,220,255,.30);
+  --text:#E9F4FF;
+  --muted:#9DB2D8;
+  --dim:#65789E;
+
+  /* 霓虹调色板 */
+  --neon-cyan:#2DE8FF;
+  --neon-pink:#FF3DA0;
+  --neon-violet:#A468FF;
+  --neon-green:#2BFFB0;
+  --neon-blue:#5B8CFF;
+  --neon-amber:#FFC24B;
+
+  /* 渐变 */
+  --grad:linear-gradient(120deg,#2DE8FF 0%,#A468FF 50%,#FF3DA0 100%);
+  --grad-2:linear-gradient(120deg,#2BFFB0 0%,#2DE8FF 52%,#5B8CFF 100%);
+  --grad-text:linear-gradient(100deg,#2DE8FF 0%,#A468FF 48%,#FF3DA0 100%);
+  --grad-text-2:linear-gradient(100deg,#2BFFB0 0%,#2DE8FF 52%,#5B8CFF 100%);
+  --grad-soft:linear-gradient(120deg,rgba(45,232,255,.18),rgba(164,104,255,.16),rgba(255,61,160,.14));
+
+  /* 发光 */
+  --g-cyan:0 0 22px rgba(45,232,255,.55);
+  --g-pink:0 0 22px rgba(255,61,160,.55);
+  --g-violet:0 0 22px rgba(164,104,255,.55);
+  --g-soft:0 0 20px -4px rgba(45,232,255,.45);
+  --g-strong:0 0 30px -2px rgba(164,104,255,.55),0 0 60px -10px rgba(255,61,160,.40);
+
+  --run:#2BFFB0;
+  --warn:#FFC24B;
+  --stop:#FF3D7A;
+  --accent:#A468FF;
+  --on-run:#04050B;
+  --sel-bg:rgba(164,104,255,.12);
+  --sel-bar:var(--neon-pink);
+  --code-bg:rgba(5,8,18,.74);
+  --log-t:#6E86B0;
+  --nav-bg:rgba(6,9,20,.62);
+  --hover:rgba(120,200,255,.06);
+  --brand-dot-glow:rgba(45,232,255,.65);
+  --primary-btn:var(--grad);
+  --glass-shadow:0 0 60px -22px rgba(164,104,255,.75);
+
+  --sans:'Outfit','PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+  --mono:'JetBrains Mono','SFMono-Regular',ui-monospace,'Courier New',monospace;
+
+  --pad:clamp(20px,5vw,64px);
+}
+
+:root[data-theme="light"]{
+  --bg:#EAEEF7;
+  --bg-2:#E2E8F4;
+  --panel:rgba(255,255,255,.72);
+  --panel-2:rgba(255,255,255,.55);
+  --panel-solid:#FFFFFF;
+  --line:rgba(20,40,80,.12);
+  --line-2:rgba(20,40,80,.26);
+  --text:#0C1428;
+  --muted:#3C4A6B;
+  --dim:#6A7898;
+
+  --grad:linear-gradient(120deg,#0E8FB0 0%,#7C3AED 50%,#DB2777 100%);
+  --grad-2:linear-gradient(120deg,#0E8F6B 0%,#0E8FB0 52%,#3B5BDB 100%);
+  --grad-text:linear-gradient(100deg,#0E8FB0 0%,#7C3AED 48%,#DB2777 100%);
+  --grad-text-2:linear-gradient(100deg,#0E8F6B 0%,#0E8FB0 52%,#3B5BDB 100%);
+  --grad-soft:linear-gradient(120deg,rgba(14,143,176,.10),rgba(124,58,237,.08),rgba(219,39,119,.08));
+
+  --g-cyan:0 0 16px -4px rgba(14,143,176,.30);
+  --g-pink:0 0 16px -4px rgba(219,39,119,.30);
+  --g-violet:0 0 16px -4px rgba(124,58,237,.30);
+  --g-soft:0 0 14px -6px rgba(14,143,176,.28);
+  --g-strong:0 0 24px -8px rgba(124,58,237,.40);
+
+  --run:#0E9F73;
+  --warn:#C7791A;
+  --stop:#E11D5A;
+  --accent:#7C3AED;
+  --on-run:#FFFFFF;
+  --sel-bg:rgba(124,58,237,.10);
+  --sel-bar:var(--neon-pink);
+  --code-bg:#EEF2FA;
+  --log-t:#6A7898;
+  --nav-bg:rgba(234,238,247,.74);
+  --hover:rgba(20,40,80,.05);
+  --brand-dot-glow:rgba(14,143,176,.35);
+  --primary-btn:var(--grad);
+  --glass-shadow:0 18px 50px -28px rgba(124,58,237,.40);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:auto}
+body{
+  margin:0;background:transparent;color:var(--text);
+  font-family:var(--sans);font-size:16px;line-height:1.7;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+  position:relative;min-height:100vh;
+}
+img,svg{display:block;max-width:100%}
+a{color:inherit}
+h1,h2,h3{margin:0;font-weight:400;letter-spacing:-.02em;line-height:1.2}
+p{margin:0}
+
+::selection{background:var(--neon-pink);color:#fff;text-shadow:0 0 8px rgba(255,61,160,.6)}
+:focus-visible{outline:3px solid var(--neon-cyan);outline-offset:3px;border-radius:4px;box-shadow:var(--g-cyan)}
+
+/* ---------- 背景：霓虹网格 + 漂移球体 + 扫描线 ---------- */
+.bg{position:fixed;inset:0;z-index:-2;overflow:hidden;background:radial-gradient(135% 120% at 50% -10%,#0B1233 0%,#070914 46%,#04050B 100%);transition:background-color .3s ease}
+.bg__grid{position:absolute;inset:-2px;background-image:linear-gradient(rgba(80,180,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(80,180,255,.07) 1px,transparent 1px);background-size:46px 46px;mask-image:radial-gradient(125% 95% at 50% 0%,#000 28%,transparent 82%);-webkit-mask-image:radial-gradient(125% 95% at 50% 0%,#000 28%,transparent 82%);opacity:.75;animation:grid-pan 20s linear infinite}
+.bg__orb{position:absolute;border-radius:50%;filter:blur(64px);opacity:.6;mix-blend-mode:screen;will-change:transform;animation:orb-float 18s ease-in-out infinite}
+.bg__orb--cyan{width:50vw;height:50vw;left:-8vw;top:-12vw;background:radial-gradient(circle,#2DE8FF,transparent 62%)}
+.bg__orb--pink{width:46vw;height:46vw;right:-9vw;top:-6vw;background:radial-gradient(circle,#FF3DA0,transparent 62%);animation-delay:-6s}
+.bg__orb--violet{width:56vw;height:56vw;left:18vw;bottom:-24vw;background:radial-gradient(circle,#A468FF,transparent 62%);animation-delay:-12s}
+.bg__scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0,rgba(0,0,0,0) 2px,rgba(0,0,0,.16) 3px,rgba(0,0,0,0) 4px);opacity:.45;mix-blend-mode:multiply;pointer-events:none}
+.bg__veil{position:absolute;inset:0;background:radial-gradient(120% 80% at 50% 0%,transparent 38%,rgba(4,5,11,.6) 100%)}
+:root[data-theme="light"] .bg{background:radial-gradient(135% 120% at 50% -10%,#F4F7FC 0%,#E8EDF7 46%,#DEE4F0 100%)}
+:root[data-theme="light"] .bg__grid{background-image:linear-gradient(rgba(20,50,90,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(20,50,90,.08) 1px,transparent 1px);opacity:.6}
+:root[data-theme="light"] .bg__orb{opacity:.18;mix-blend-mode:normal;filter:blur(70px)}
+:root[data-theme="light"] .bg__scan{opacity:.12;mix-blend-mode:multiply}
+:root[data-theme="light"] .bg__veil{background:radial-gradient(120% 80% at 50% 0%,transparent 50%,rgba(222,228,240,.5) 100%)}
+@keyframes grid-pan{0%{background-position:0 0,0 0}100%{background-position:0 46px,46px 0}}
+@keyframes orb-float{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(3vw,4vh) scale(1.12)}}
+
+.wrap{max-width:1280px;margin:0 auto;padding-inline:var(--pad)}
+
+.nav{position:sticky;top:0;z-index:60;background:var(--nav-bg);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);border-bottom:1px solid var(--line-2);box-shadow:0 1px 0 rgba(45,232,255,.18),0 8px 30px -16px rgba(45,232,255,.35)}
+.progress{position:absolute;left:0;bottom:-1px;height:2px;width:0;background:var(--grad);z-index:1;box-shadow:var(--g-cyan);transition:width .1s linear}
+.nav__in{display:flex;align-items:center;gap:32px;height:60px}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:15px;font-weight:500;text-decoration:none;white-space:nowrap}
+.brand__dot{width:9px;height:9px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#A7F6FF,var(--neon-cyan));box-shadow:0 0 14px var(--brand-dot-glow);animation:dot-pulse 2.6s ease-in-out infinite}
+@keyframes dot-pulse{0%,100%{box-shadow:0 0 8px var(--brand-dot-glow)}50%{box-shadow:0 0 18px var(--brand-dot-glow)}}
+.nav__links{display:flex;gap:26px;margin-left:auto;font-size:14px}
+.nav__links a{color:var(--muted);text-decoration:none;padding:6px 0;position:relative;transition:color .15s ease;text-shadow:0 0 10px transparent}
+.nav__links a:hover{color:var(--text);text-shadow:0 0 12px rgba(45,232,255,.55)}
+.nav__links a::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:0;background:var(--grad);box-shadow:var(--g-cyan);transition:width .2s ease}
+.nav__links a:hover::after{width:100%}
+.nav__tail{display:flex;align-items:center;gap:18px;margin-left:auto}
+.nav__links+.nav__tail{margin-left:26px}
+.nav__meta{font-family:var(--mono);font-size:12.5px;color:var(--dim);white-space:nowrap}
+
+.theme{position:relative;flex:none;width:58px;height:30px;min-height:30px;border:1px solid var(--line-2);background:var(--panel-2);border-radius:15px;cursor:pointer;padding:0;display:flex;align-items:center;transition:border-color .16s ease,background-color .16s ease,box-shadow .16s ease;box-shadow:var(--g-soft)}
+.theme:hover{border-color:var(--neon-cyan);box-shadow:var(--g-cyan)}
+.theme__thumb{position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--neon-cyan),var(--neon-violet));display:grid;place-items:center;color:#04050B;transition:transform .26s cubic-bezier(.2,.7,.3,1),background .16s ease,color .16s ease,box-shadow .16s ease;box-shadow:var(--g-cyan)}
+:root[data-theme="light"] .theme__thumb{transform:translateX(28px);background:linear-gradient(135deg,var(--neon-amber),var(--neon-pink));color:#fff;box-shadow:var(--g-pink)}
+.theme__icon{width:14px;height:14px;display:block}
+.theme__icon path{stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.theme__icon--moon{display:none}
+:root[data-theme="light"] .theme__icon--sun{display:none}
+:root[data-theme="light"] .theme__icon--moon{display:block}
+.theme__tip{position:absolute;top:calc(100% + 8px);right:0;font-family:var(--mono);font-size:11.5px;color:var(--dim);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .14s ease}
+.theme:hover .theme__tip,.theme:focus-visible .theme__tip{opacity:1}
+
+@media (max-width:900px){.nav__links{display:none}.nav__meta{display:none}}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:48px;padding:0 22px;border-radius:12px;font-family:var(--sans);font-size:15px;font-weight:500;text-decoration:none;white-space:nowrap;cursor:pointer;border:1px solid var(--line-2);background:var(--panel);color:var(--text);backdrop-filter:blur(8px);transition:background-color .15s ease,color .15s ease,border-color .15s ease,transform .12s ease,box-shadow .15s ease}
+.btn:hover{border-color:var(--neon-cyan);background:var(--hover);box-shadow:var(--g-cyan)}
+.btn:active{transform:scale(.975)}
+.btn--primary{background:var(--grad);border-color:transparent;color:#fff;font-weight:600;box-shadow:var(--g-pink),var(--g-violet)}
+.btn--primary:hover{color:#fff;background:linear-gradient(120deg,#5CF2FF 0%,#B98CFF 50%,#FF6FB8 100%);border-color:transparent;box-shadow:0 0 30px rgba(255,61,160,.7),0 0 48px rgba(164,104,255,.5)}
+.btn--sm{min-height:40px;padding:0 15px;font-size:14px}
+.btn--mono{font-family:var(--mono);font-size:13.5px;font-weight:400}
+.btn__arrow{transition:transform .18s cubic-bezier(.2,.7,.3,1)}
+.btn:hover .btn__arrow{transform:translateX(3px)}
+
+/* ============================================================
+   首屏
+   ============================================================ */
+.hero{padding:clamp(40px,6vh,72px) 0 clamp(48px,6vh,80px);position:relative}
+.hero__top{max-width:880px;position:relative;z-index:1}
+.hero__install{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 clamp(20px,2.6vh,28px);padding:14px 16px;border:1px solid transparent;border-radius:12px;background:linear-gradient(var(--panel-solid),var(--panel-solid)) padding-box,var(--grad) border-box;box-shadow:var(--g-strong);font-family:var(--mono);font-size:13px;position:relative;z-index:1}
+.hero__install-tag{font-family:var(--mono);font-size:12px;color:var(--neon-cyan);white-space:nowrap;text-shadow:0 0 10px rgba(45,232,255,.5);flex:none}
+.hero__install .install__cmd{flex:1;min-width:0}
+.hero__demo{margin-top:clamp(36px,5vh,60px);position:relative}
+.hero__demo-label{font-family:var(--mono);font-size:12px;letter-spacing:.16em;color:var(--dim);margin:0 0 14px;display:flex;align-items:center;gap:9px}
+.hero__demo-label::before{content:"";width:18px;height:2px;border-radius:2px;background:var(--grad);box-shadow:var(--g-cyan)}
+.hero__screen{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line-2);border-radius:16px;overflow:hidden;position:relative;box-shadow:var(--g-soft),0 0 70px -34px rgba(164,104,255,.7);background:linear-gradient(180deg,rgba(13,17,34,.5),rgba(10,14,31,.3))}
+.hero__screen::before{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(45,232,255,.05),transparent 40%);pointer-events:none;z-index:0}
+@media (max-width:1000px){.hero__screen{grid-template-columns:1fr}}
+
+.pane{padding:clamp(24px,3.2vw,42px) clamp(20px,3vw,40px);min-width:0}
+.pane--list{border-right:1px solid var(--line);display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(13,17,34,.4),transparent);position:relative}
+.pane--list::before{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(45,232,255,.05),transparent 40%);pointer-events:none}
+@media (max-width:1000px){.pane--list{border-right:none;border-bottom:1px solid var(--line)}}
+
+.pane__meta{display:flex;justify-content:space-between;align-items:baseline;gap:16px;font-family:var(--mono);font-size:12px;color:var(--dim);padding-bottom:14px;margin-bottom:clamp(20px,3vh,34px);position:relative;z-index:1}
+.pane__meta b{color:var(--muted);font-weight:400}
+
+.hero__title{font-size:clamp(28px,3.4vw,46px);line-height:1.2;font-weight:400;margin-bottom:18px;max-width:none;text-wrap:balance;position:relative;z-index:1}
+.hero__title em{font-style:normal;background:var(--grad-text);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 18px rgba(45,232,255,.40)) drop-shadow(0 0 34px rgba(255,61,160,.22))}
+.hero__title br{display:none}
+@media (max-width:600px){.hero__title{max-width:13ch}.hero__title br{display:inline}.sec__title br{display:inline}.closer__title{max-width:14ch}.closer__title br{display:inline}}
+.hero__lede{font-size:clamp(15px,1.1vw,17px);line-height:1.75;color:var(--muted);max-width:none;margin-bottom:clamp(22px,3vh,32px);position:relative;z-index:1}
+.hero__lede b{color:var(--text);font-weight:500;text-shadow:0 0 14px rgba(45,232,255,.35)}
+
+.hero__acts{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:clamp(18px,2.4vh,24px);position:relative;z-index:1}
+.hero__trust{display:flex;flex-wrap:wrap;gap:8px 20px;list-style:none;padding:0;margin:0 0 clamp(20px,2.6vh,28px);position:relative;z-index:1}
+.hero__trust li{font-family:var(--mono);font-size:12.5px;color:var(--dim);display:flex;align-items:center;gap:8px}
+.hero__trust li::before{content:"";width:6px;height:6px;border-radius:50%;flex:none;background:var(--neon-cyan);box-shadow:var(--g-cyan)}
+
+.hero__stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 clamp(14px,2vw,28px);padding:16px 0 0;margin:0 0 clamp(18px,2.4vh,26px);border-top:1px solid var(--line);position:relative;z-index:1}
+.stat{display:flex;flex-direction:column;gap:5px;min-width:0}
+.stat dt{font-size:12.5px;color:var(--dim);line-height:1.4}
+.stat dd{margin:0;font-family:var(--mono);font-size:15px;color:var(--text);line-height:1.3;letter-spacing:-.01em;text-shadow:0 0 12px rgba(164,104,255,.35)}
+
+.jobs{border-top:1px solid var(--line);position:relative;z-index:1}
+.job{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 12px;border-bottom:1px solid var(--line);text-align:left;width:100%;background:none;border-left:0;border-right:0;border-top:0;font-family:inherit;color:inherit;cursor:pointer;border-radius:8px;transition:background-color .15s ease,transform .15s ease,box-shadow .15s ease}
+.job:hover{background:var(--hover);transform:translateX(2px);box-shadow:inset 2px 0 0 rgba(45,232,255,.5),-8px 0 24px -18px rgba(45,232,255,.7)}
+.job.is-active{background:var(--sel-bg);box-shadow:inset 3px 0 0 var(--sel-bar),0 0 26px -10px rgba(255,61,160,.7)}
+.job__state{width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 12px currentColor}
+.job__state--ok{background:var(--run);color:var(--run)}
+.job__state--run{background:var(--warn);color:var(--warn);animation:pulse 1.8s ease-in-out infinite}
+.job__state--err{background:var(--stop);color:var(--stop)}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 14px currentColor}50%{opacity:.4;box-shadow:0 0 5px currentColor}}
+.job__name{font-size:15px;line-height:1.4}
+.job__spec{display:block;font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.job__when{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right;white-space:nowrap}
+.job__when small{display:block;color:var(--muted);margin-top:2px}
+
+.pane--log{background:linear-gradient(180deg,rgba(13,17,34,.5),rgba(10,14,31,.3));display:flex;flex-direction:column;min-height:clamp(340px,52vh,560px);position:relative}
+.pane--log::before{content:"";position:absolute;inset:0;padding:1px;background:linear-gradient(160deg,rgba(45,232,255,.6),rgba(164,104,255,.4),transparent 60%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;opacity:.9}
+.pane--log::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 60px -30px rgba(45,232,255,.5);pointer-events:none}
+.log__head{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px clamp(20px,3vw,40px);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12.5px}
+.log__id{color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 0 12px rgba(45,232,255,.35)}
+.log__badge{display:flex;align-items:center;gap:7px;color:var(--run);white-space:nowrap;text-shadow:0 0 10px currentColor}
+.log__badge i{width:7px;height:7px;border-radius:50%;background:currentColor;font-style:normal;box-shadow:0 0 10px currentColor}
+.log__badge.is-run{color:var(--warn)}
+.log__badge.is-err{color:var(--stop)}
+.log__body{position:relative;z-index:1;flex:1;margin:0;padding:clamp(16px,2vw,26px) clamp(20px,3vw,40px);font-family:var(--mono);font-size:13px;overflow:hidden;min-height:0}
+.log__row{display:flex;align-items:baseline;height:1.9em;line-height:1.9;white-space:nowrap}
+.log__row > .t{color:var(--log-t);flex:0 0 9.5em}
+.log__row > .m{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.log__body .k{color:var(--muted)}
+.log__body .ok{color:var(--run);text-shadow:0 0 10px rgba(43,255,176,.5)}
+.log__body .warn{color:var(--warn);text-shadow:0 0 10px rgba(255,194,75,.5)}
+.log__body .err{color:var(--stop);text-shadow:0 0 10px rgba(255,61,122,.55)}
+
+.install{position:relative;z-index:1;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px clamp(20px,3vw,40px);border-top:1px solid var(--line);font-family:var(--mono);font-size:12.5px;color:var(--dim);background:rgba(5,8,18,.5)}
+:root[data-theme="light"] .install{background:rgba(255,255,255,.45)}
+.install__cmd{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;text-shadow:0 0 10px rgba(45,232,255,.25)}
+.copy{display:inline-flex;align-items:center;gap:7px;min-height:32px;padding:0 11px;background:none;border:1px solid var(--line-2);color:var(--muted);font-family:var(--mono);font-size:12px;cursor:pointer;white-space:nowrap;border-radius:7px;transition:color .15s ease,border-color .15s ease,background-color .15s ease,box-shadow .15s ease}
+.copy:hover{color:var(--text);border-color:var(--neon-cyan);background:var(--hover);box-shadow:var(--g-cyan)}
+.copy.is-done{color:#04050B;border-color:transparent;background:var(--grad);box-shadow:var(--g-pink)}
+
+.deploy{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:clamp(28px,3.6vw,52px);margin-bottom:clamp(40px,5vh,64px)}
+.deploy__info{display:flex;flex-direction:column;gap:clamp(18px,2.2vh,24px)}
+.verified{border-left:3px solid transparent;border-image:var(--grad) 1;padding:2px 0 2px 16px;box-shadow:-6px 0 24px -18px rgba(164,104,255,.8)}
+.verified__k{font-family:var(--mono);font-size:12px;color:var(--dim);margin-bottom:8px}
+.verified__v{font-family:var(--mono);font-size:16px;color:var(--run);line-height:1.5;letter-spacing:-.01em;text-shadow:0 0 12px rgba(43,255,176,.4)}
+.verified__n{font-size:13.5px;line-height:1.6;color:var(--dim);margin-top:6px}
+.matrix__k{font-family:var(--mono);font-size:12px;color:var(--dim);margin-bottom:4px}
+.matrix__list{margin:0}
+.matrix__row{display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:4px 16px;padding:11px 0;border-top:1px solid var(--line);transition:background-color .15s ease}
+.matrix__row:hover{background:var(--hover)}
+.matrix__row:last-child{border-bottom:1px solid var(--line)}
+.matrix__row dt{font-size:14px;color:var(--dim);line-height:1.6}
+.matrix__row dd{font-size:14.5px;color:var(--muted);line-height:1.6;margin:0}
+.matrix__row dd code{font-family:var(--mono);font-size:13px;color:var(--neon-cyan);background:var(--code-bg);padding:1px 5px;border-radius:4px;text-shadow:0 0 10px rgba(45,232,255,.35)}
+
+.deploy__warn{display:flex;gap:11px;align-items:flex-start;font-size:13.5px;line-height:1.7;color:var(--muted);padding:13px 15px;background:rgba(255,61,160,.08);border:1px solid rgba(255,61,160,.3);border-radius:10px;box-shadow:var(--g-pink)}
+.deploy__warn-i{flex:none;width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,var(--neon-pink),var(--neon-amber));color:#fff;font-family:var(--mono);font-size:12px;font-weight:700;display:grid;place-items:center;margin-top:1px;box-shadow:var(--g-pink)}
+
+.term{border:1px solid transparent;border-radius:12px;overflow:hidden;background:linear-gradient(var(--panel-solid),var(--panel-solid)) padding-box,var(--grad) border-box;box-shadow:var(--g-strong)}
+.term__bar{display:flex;align-items:center;gap:10px;padding:0 14px;height:38px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.03)}
+.term__dots{display:flex;gap:6px;margin-right:2px}
+.term__dots i{width:11px;height:11px;border-radius:50%;display:block}
+.term__dots i:nth-child(1){background:var(--neon-pink);box-shadow:var(--g-pink)}
+.term__dots i:nth-child(2){background:var(--neon-amber);box-shadow:0 0 14px rgba(255,194,75,.6)}
+.term__dots i:nth-child(3){background:var(--neon-green);box-shadow:0 0 14px rgba(43,255,176,.55)}
+.term__host{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.term__p{font-family:var(--mono);font-size:13px;background:var(--grad-text);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:600;filter:drop-shadow(0 0 8px rgba(45,232,255,.4))}
+.term__body{padding:clamp(18px,2.2vw,26px) clamp(18px,2.2vw,26px) clamp(20px,2.4vw,28px)}
+.term__label{font-size:15px;font-weight:500;color:var(--text);margin-bottom:12px;text-shadow:0 0 12px rgba(164,104,255,.4)}
+.term__cmd{display:flex;gap:12px;align-items:flex-start}
+.term__cmd code{flex:1;min-width:0;font-family:var(--mono);font-size:13.5px;line-height:1.85;color:var(--text);word-break:break-all;text-shadow:0 0 10px rgba(45,232,255,.25)}
+.copy--term{flex:none}
+.term__note{font-size:13px;line-height:1.65;color:var(--dim);margin-top:14px}
+.deploy__after{margin-top:16px;padding-left:15px;border-left:2px solid var(--line-2)}
+.deploy__after-k{font-family:var(--mono);font-size:12px;color:var(--dim);margin-bottom:6px}
+.deploy__after-v{font-size:14.5px;line-height:1.7;color:var(--muted)}
+
+@media (max-width:900px){.deploy{grid-template-columns:1fr}.matrix__row{grid-template-columns:6.5em minmax(0,1fr)}}
+
+.section{padding:clamp(64px,8.5vh,112px) 0;border-bottom:1px solid var(--line);position:relative}
+.section:last-of-type{border-bottom:none}
+.sec__head{margin-bottom:clamp(40px,5vh,64px)}
+.sec__label{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);font-size:12px;letter-spacing:.16em;color:var(--neon-cyan);margin-bottom:18px;padding:5px 12px;border:1px solid var(--line-2);border-radius:999px;background:var(--panel);box-shadow:var(--g-soft);text-shadow:0 0 10px rgba(45,232,255,.4)}
+.sec__label::before{content:"";width:18px;height:2px;border-radius:2px;background:var(--grad);box-shadow:var(--g-cyan)}
+.sec__title{font-size:clamp(26px,3vw,40px);line-height:1.22;margin-bottom:16px;text-wrap:balance;position:relative;display:inline-block}
+.sec__title br{display:none}
+.sec__title::after{content:"";display:block;width:64px;height:4px;border-radius:4px;margin-top:16px;background:var(--grad);box-shadow:var(--g-pink)}
+.sec__lede{font-size:17px;line-height:1.75;color:var(--muted);max-width:42ch}
+
+.feat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;border-top:1px solid var(--line)}
+@media (max-width:860px){.feat{grid-template-columns:1fr}}
+.feat__cell{position:relative;display:flex;flex-direction:column;padding:clamp(28px,3.5vw,40px) clamp(20px,2.6vw,36px) clamp(28px,3.5vw,40px) 0;border-right:1px solid var(--line);transition:box-shadow .2s ease,background-color .2s ease}
+.feat__cell::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--grad);box-shadow:var(--g-violet)}
+.feat__cell:nth-child(1)::before{background:linear-gradient(90deg,var(--neon-cyan),var(--neon-violet));box-shadow:var(--g-cyan)}
+.feat__cell:nth-child(2)::before{background:linear-gradient(90deg,var(--neon-violet),var(--neon-pink));box-shadow:var(--g-violet)}
+.feat__cell:nth-child(3)::before{background:linear-gradient(90deg,var(--neon-pink),var(--neon-amber));box-shadow:var(--g-pink)}
+.feat__cell:not(:first-child){padding-left:clamp(20px,2.6vw,36px)}
+.feat__cell:last-child{border-right:none}
+.feat__cell:hover{background:var(--hover);box-shadow:inset 0 0 40px -28px rgba(45,232,255,.6)}
+@media (max-width:860px){.feat__cell{border-right:none;border-bottom:1px solid var(--line);padding-inline:0}.feat__cell:not(:first-child){padding-left:0}.feat__cell:last-child{border-bottom:none}}
+.feat__no{font-family:var(--mono);font-size:12px;color:var(--dim);margin-bottom:16px;letter-spacing:.1em}
+.feat__title{font-size:20px;font-weight:500;margin-bottom:12px;letter-spacing:-.01em;color:var(--text)}
+.feat__text{font-size:15.5px;line-height:1.75;color:var(--muted);margin-bottom:20px}
+.feat__text code{font-family:var(--mono);font-size:13px;color:var(--neon-cyan);background:var(--code-bg);padding:1px 5px;border-radius:4px;text-shadow:0 0 8px rgba(45,232,255,.35)}
+.feat__note{font-family:var(--mono);font-size:12px;color:var(--dim);line-height:1.9;margin-top:auto;padding-top:18px;border-top:1px solid var(--line)}
+
+.feat--duo{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:860px){.feat--duo{grid-template-columns:1fr}.feat--duo .feat__cell{border-right:none !important}}
+
+.bounds{margin-top:clamp(44px,6vh,72px);padding-top:clamp(32px,4vh,44px);border-top:1px solid var(--line)}
+.bounds__head{margin-bottom:clamp(24px,3vh,32px)}
+.bounds__title{font-size:clamp(20px,2vw,25px);font-weight:500;letter-spacing:-.015em;margin-bottom:10px}
+.bounds__lede{font-size:15.5px;line-height:1.75;color:var(--muted);max-width:50ch}
+.bounds__list{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 clamp(20px,2.6vw,36px)}
+.bounds__list li{font-size:15px;line-height:1.7;color:var(--muted);padding:15px 0;border-top:1px solid var(--line);position:relative;padding-left:16px}
+.bounds__list li::before{content:"";position:absolute;left:0;top:22px;width:6px;height:6px;border-radius:50%;background:var(--neon-cyan);box-shadow:var(--g-cyan)}
+.bounds__list b{color:var(--text);font-weight:500}
+@media (max-width:900px){.bounds__list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.bounds__list{grid-template-columns:1fr}}
+
+.recs{border-top:1px solid var(--line)}
+.recs__foot{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;padding:16px 0 0}
+.recs__foot-k{font-family:var(--mono);font-size:12px;color:var(--dim);padding:3px 9px;border:1px solid var(--line-2);border-radius:999px;background:var(--panel);box-shadow:var(--g-soft)}
+.recs__foot-v{font-family:var(--mono);font-size:13.5px;background:var(--grad-text);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:600;filter:drop-shadow(0 0 8px rgba(45,232,255,.35))}
+.recs__foot-note{font-size:13.5px;color:var(--dim);line-height:1.6}
+.rec{display:grid;grid-template-columns:72px minmax(0,1fr) 84px 190px;gap:24px;align-items:baseline;padding:14px 14px;border-bottom:1px solid var(--line);font-size:14.5px;border-radius:8px;transition:background-color .15s ease,box-shadow .15s ease}
+.rec:hover{background:var(--hover);box-shadow:inset 2px 0 0 rgba(45,232,255,.6),-10px 0 28px -20px rgba(45,232,255,.7)}
+@media (max-width:760px){.rec{grid-template-columns:70px 1fr;gap:6px 16px;row-gap:6px}.rec__dur,.rec__status{grid-column:2;text-align:left}}
+.rec__id{font-family:var(--mono);font-size:12.5px;color:var(--dim)}
+.rec__name{font-weight:400}
+.rec__name small{display:block;font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:2px}
+.rec__dur{font-family:var(--mono);font-size:13px;color:var(--muted);white-space:nowrap;text-align:right}
+.rec__status{display:inline-flex;align-items:center;gap:8px;justify-self:end;font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+.rec__status i{width:7px;height:7px;border-radius:50%;background:currentColor;font-style:normal;box-shadow:0 0 10px currentColor}
+.s-ok{color:var(--run)} .s-run{color:var(--warn)} .s-err{color:var(--stop)}
+
+.steps{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line)}
+@media (max-width:860px){.steps{grid-template-columns:1fr}}
+.step{display:flex;flex-direction:column;position:relative;padding:clamp(26px,3vw,36px) clamp(20px,2.6vw,32px) clamp(26px,3vw,36px) 0;border-right:1px solid var(--line);transition:box-shadow .2s ease,background-color .2s ease}
+.step:not(:first-child){padding-left:clamp(20px,2.6vw,32px)}
+.step:last-child{border-right:none}
+.step:hover{background:var(--hover);box-shadow:inset 0 0 40px -30px rgba(164,104,255,.6)}
+@media (max-width:860px){.step{border-right:none;border-bottom:1px solid var(--line);padding-inline:0}.step:last-child{border-bottom:none}}
+.step__no{font-family:var(--mono);font-size:12px;color:var(--neon-cyan);margin-bottom:14px;display:inline-flex;width:34px;height:34px;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--line-2);background:var(--panel);background-image:var(--grad-soft);font-weight:600;box-shadow:var(--g-soft);text-shadow:0 0 8px rgba(45,232,255,.5)}
+.step__title{font-size:18px;font-weight:500;margin-bottom:10px}
+.step__text{font-size:15px;line-height:1.75;color:var(--muted);margin-bottom:16px}
+
+.specs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 clamp(20px,2.6vw,36px);margin-top:clamp(40px,5vh,64px);padding-top:clamp(28px,3.6vh,40px);border-top:1px solid var(--line)}
+.specs__cell{padding:14px 0}
+.specs__k{font-family:var(--mono);font-size:12px;color:var(--dim);margin-bottom:7px}
+.specs__v{font-size:15px;line-height:1.65;color:var(--muted)}
+.specs__v code{font-family:var(--mono);font-size:13.5px;color:var(--neon-cyan);background:var(--code-bg);padding:1px 5px;border-radius:4px;text-shadow:0 0 8px rgba(45,232,255,.3)}
+@media (max-width:860px){.specs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.specs{grid-template-columns:1fr}}
+
+.code{font-family:var(--mono);font-size:12.5px;line-height:2;background:var(--code-bg);border:1px solid var(--line);padding:15px 17px;overflow-x:auto;white-space:pre;color:var(--muted);border-radius:10px;box-shadow:inset 0 0 30px -22px rgba(45,232,255,.5)}
+.code .p{color:var(--neon-cyan);text-shadow:0 0 8px rgba(45,232,255,.4)}
+.code .c{color:var(--dim)}
+.steps .step .code{margin-top:auto}
+
+.faq{border-top:1px solid var(--line)}
+.faq__i{border-bottom:1px solid var(--line)}
+.faq__q{display:flex;align-items:flex-start;gap:16px;padding:22px 0;margin:0;cursor:pointer;font-size:clamp(16px,1.5vw,19px);font-weight:500;line-height:1.5;list-style:none;transition:color .2s ease,text-shadow .2s ease}
+.faq__q::-webkit-details-marker{display:none}
+.faq__q:hover{background:var(--grad-text);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 10px rgba(45,232,255,.4))}
+.faq__q::after{content:'+';margin-left:auto;flex:none;font-family:var(--mono);font-size:20px;font-weight:400;color:var(--muted);line-height:1.35;transition:transform .2s cubic-bezier(.2,.7,.3,1),background .2s ease;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 8px rgba(255,61,160,.4))}
+.faq__i[open] .faq__q::after{transform:rotate(45deg)}
+.faq__a{font-size:15.5px;line-height:1.8;color:var(--muted);padding:0 0 24px;max-width:62ch}
+.faq__a code{font-family:var(--mono);font-size:13px;color:var(--neon-cyan);background:var(--code-bg);padding:1px 5px;border-radius:4px;text-shadow:0 0 8px rgba(45,232,255,.3)}
+
+.closer{position:relative;overflow:hidden;border-top:1px solid var(--line);background:radial-gradient(120% 140% at 0% 0%,rgba(45,232,255,.22),transparent 55%),radial-gradient(120% 140% at 100% 100%,rgba(255,61,160,.20),transparent 55%),var(--grad-soft)}
+.closer::before{content:"";position:absolute;inset:0;background:var(--grad);opacity:.10;pointer-events:none}
+.closer::after{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(80,180,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(80,180,255,.06) 1px,transparent 1px);background-size:46px 46px;mask-image:radial-gradient(120% 120% at 50% 50%,#000 10%,transparent 70%);-webkit-mask-image:radial-gradient(120% 120% at 50% 50%,#000 10%,transparent 70%);opacity:.4;pointer-events:none}
+.closer__in{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:clamp(26px,3.4vh,38px);z-index:1}
+.closer__title{font-size:clamp(28px,4vw,52px);line-height:1.14;max-width:none;text-wrap:balance;margin-bottom:14px;background:var(--grad-text);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 22px rgba(45,232,255,.45)) drop-shadow(0 0 40px rgba(255,61,160,.25))}
+.closer__title br{display:none}
+.closer__lede{font-size:16px;line-height:1.7;color:var(--muted);max-width:46ch}
+.closer__acts{display:flex;gap:12px;flex-wrap:wrap;flex:none}
+
+.foot{border-top:1px solid var(--line-2);padding:28px 0;background:rgba(5,8,18,.4);box-shadow:0 -1px 0 rgba(45,232,255,.18)}
+:root[data-theme="light"] .foot{background:rgba(255,255,255,.4)}
+.foot__in{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;font-family:var(--mono);font-size:12.5px;color:var(--dim)}
+.foot__links{display:flex;gap:22px}
+.foot__links a{color:var(--dim);text-decoration:none;transition:color .15s ease,text-shadow .15s ease}
+.foot__links a:hover{background:var(--grad-text);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 10px rgba(45,232,255,.4))}
+
+@media (prefers-reduced-motion:reduce){.bg__grid,.bg__orb{animation:none}.brand__dot{animation:none}.job__state--run{animation:none}*{transition-duration:.01ms !important}}
+
+/* ============================================================
+   UI 审查修复（纯 CSS：仅补充色彩 / 热区 / 动画统一，不改布局、DOM、JS）
+   ============================================================ */
+
+/* 修复问题#1：浅色主题霓虹色变量未覆盖，作为代码/标签文字色在浅底对比度不足（WCAG 不达标） */
+:root[data-theme="light"]{
+  --neon-cyan:#0E8FB0;
+  --neon-violet:#7C3AED;
+  --neon-pink:#DB2777;
+  --neon-green:#0E9F73;
+  --neon-blue:#3B5BDB;
+  --neon-amber:#C7791A;
+}
+
+/* 修复问题#2：浅色主题首屏预览卡背景硬编码深色半透明，浅底上叠暗面板致文字对比塌陷 */
+:root[data-theme="light"] .hero__screen{background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,.35))}
+:root[data-theme="light"] .pane--list{background:linear-gradient(180deg,rgba(255,255,255,.5),transparent)}
+:root[data-theme="light"] .pane--log{background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,.35))}
+
+/* 修复问题#3：浅色主题主按钮悬停渐变极浅青+白字，悬停态白字近白底不可见 */
+:root[data-theme="light"] .btn--primary:hover{color:#06121f;background:var(--grad);box-shadow:var(--g-strong)}
+
+/* 修复问题#4：移动端主题切换热区 58×30 < 44px，伪元素扩展可点击区域（不改视觉尺寸） */
+@media (max-width:900px){
+  .theme{position:relative}
+  .theme::after{content:"";position:absolute;inset:-7px 0}
+}
+
+/* 修复问题#5：移动端 .btn--sm(40px)/.copy(32px) 热区 < 44px */
+@media (max-width:900px){
+  .btn--sm,.copy{min-height:44px}
+}
+
+/* 修复问题#6：移动端触屏 hover 伪类残留，禁用 hover 态避免点击后样式卡住 */
+@media (hover:none){
+  .btn:hover{border-color:var(--line-2);background:var(--panel);box-shadow:none}
+  .btn--primary:hover{color:#fff;background:var(--grad);box-shadow:var(--g-pink),var(--g-violet)}
+  .copy:hover{color:var(--muted);border-color:var(--line-2);background:none;box-shadow:none}
+  .job:hover{transform:none;box-shadow:none}
+  .rec:hover{background:none;box-shadow:none}
+  .feat__cell:hover{background:none;box-shadow:none}
+  .step:hover{background:none;box-shadow:none}
+  .matrix__row:hover{background:none}
+  .theme:hover{border-color:var(--line-2);box-shadow:var(--g-soft)}
+  .nav__links a:hover{color:var(--muted);text-shadow:none}
+  .nav__links a:hover::after{width:0}
+  .faq__q:hover{background:none;color:var(--text);-webkit-text-fill-color:initial;-webkit-background-clip:initial;text-shadow:none}
+  .foot__links a:hover{background:none;color:var(--dim);-webkit-text-fill-color:initial;-webkit-background-clip:initial;text-shadow:none}
+}
+
+/* 修复问题#7：统一过渡动画为 0.2s ease，去除自定义缓动曲线与越界时长 */
+.btn,.copy,.job,.rec,.feat__cell,.step,.theme,.btn__arrow{transition-duration:.2s;transition-timing-function:ease}
+.theme__thumb,.faq__q::after,.nav__links a::after{transition-timing-function:ease}
+
+/* ============================================================
+   UI 审查修复（补充 · 第二轮，纯 CSS）
+   ============================================================ */
+
+/* 修复问题#A：暗色主题主按钮悬停仍为白字 + 近白渐变（浅青→浅紫→浅粉），白字落浅底对比度不满足 WCAG AA；上一轮仅修了浅色悬停。改为深色文字保证可读。 */
+:root[data-theme="dark"] .btn--primary:hover{color:#06121f}
+
+/* 修复问题#B：主按钮（明暗双主题）渐变底左端为浅青，白字在左端对比不足；加深色文字投影提升可读性（完整达标需重设更暗渐变，属设计遗留）。 */
+.btn--primary{text-shadow:0 1px 3px rgba(4,5,11,.45)}
+
+/* 修复问题#C：过渡动画时长未统一到 0.2s（导航链接 .15s / 矩阵行 .15s / 主题提示 .14s / 主题滑块子属性 .16s），与全局 0.2s–0.3s ease 规范冲突。 */
+.nav__links a,.matrix__row,.theme__tip{transition-duration:.2s}
+.theme__thumb{transition-duration:.2s}
+
+</style>
+<script>
+/* ---------- 主题：默认值在样式之前解析，避免首屏闪一下 ---------- */
+(function () {
+  var KEY = '2panel-theme';
+  var root = document.documentElement;
+  function read() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+  var saved = read();
+  var prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+  root.setAttribute('data-theme', saved || (prefersLight ? 'light' : 'dark'));
+
+  if (!saved && window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: light)');
+    var onChange = function (e) { root.setAttribute('data-theme', e.matches ? 'light' : 'dark'); };
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else if (mq.addListener) mq.addListener(onChange);
+  }
+
+  window.addEventListener('DOMContentLoaded', function () {
+    var btn = document.getElementById('themeBtn');
+    var tip = document.getElementById('themeTip');
+    if (!btn) return;
+    function label() {
+      var light = root.getAttribute('data-theme') === 'light';
+      btn.setAttribute('aria-label', light ? '切换到深色主题' : '切换到浅色主题');
+      tip.textContent = light ? '深色' : '浅色';
+    }
+    label();
+    btn.addEventListener('click', function () {
+      var light = root.getAttribute('data-theme') === 'light';
+      root.setAttribute('data-theme', light ? 'dark' : 'light');
+      try { localStorage.setItem(KEY, light ? 'dark' : 'light'); } catch (e) {}
+      label();
+    });
+  });
+})();
+</script>
+</head>
+<body>
+
+<div class="bg" aria-hidden="true">
+  <div class="bg__grid"></div>
+  <div class="bg__orb bg__orb--cyan"></div>
+  <div class="bg__orb bg__orb--pink"></div>
+  <div class="bg__orb bg__orb--violet"></div>
+  <div class="bg__scan"></div>
+  <div class="bg__veil"></div>
+</div>
+
+<header class="nav">
+  <div class="wrap nav__in">
+    <a class="brand" href="#top"><span class="brand__dot"></span>2Panel</a>
+    <nav class="nav__links">
+      <a href="#ability">能力</a>
+      <a href="#records">执行记录</a>
+      <a href="#migrate">数据安全</a>
+      <a href="#install">安装</a>
+      <a href="#faq">常见问题</a>
+    </nav>
+    <div class="nav__tail">
+      <span class="nav__meta">v1.0.10 · 单二进制</span>
+      <button class="theme" type="button" id="themeBtn" aria-label="切换到浅色主题" aria-live="polite">
+        <span class="theme__thumb">
+          <svg class="theme__icon theme__icon--sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6"/>
+          </svg>
+          <svg class="theme__icon theme__icon--moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 14.4A8.6 8.6 0 1 1 9.6 4a6.9 6.9 0 0 0 10.4 10.4z"/>
+          </svg>
+        </span>
+        <span class="theme__tip" id="themeTip">浅色</span>
+      </button>
+    </div>
+  </div>
+  <span class="progress" id="progress" aria-hidden="true"></span>
+</header>
+
+<main id="top">
+
+<!-- ===================== 首屏 ===================== -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero__top">
+      <div class="pane__meta">
+        <span>计划任务 · <b>7 个任务 / 5 个已启用</b></span>
+        <span>127.0.0.1:8080</span>
+      </div>
+
+      <h1 class="hero__title">你的定时任务，<br>不该只活在<br><em>crontab</em> 里</h1>
+      <p class="hero__lede">
+        单 Go 二进制，内置 Web 管理页面，<b>不需要 Node、CGO 或外部数据库</b>。
+        shell 脚本与 curl 请求两类任务，执行历史、耗时与实时日志全都看得见——跑挂了、错在哪一行，翻得到。
+      </p>
+
+      <div class="hero__acts">
+        <a class="btn btn--primary" href="#install">装到服务器上<span class="btn__arrow">→</span></a>
+        <a class="btn btn--sm" href="https://github.com/meimolihan/2Panel" target="_blank" rel="noopener">看源码<span class="btn__arrow">↗</span></a>
+      </div>
+
+      <div class="hero__install">
+        <span class="hero__install-tag">一键安装</span>
+        <span class="install__cmd" id="installCmd">bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/scripts/install.sh)" -p 8080 -d /var/lib/2panel</span>
+        <button class="copy" type="button" id="copyBtn">复制</button>
+      </div>
+
+      <ul class="hero__trust">
+        <li>单个二进制</li>
+        <li>纯 Go SQLite，无 CGO</li>
+        <li>amd64 / arm64</li>
+        <li>MIT 开源</li>
+      </ul>
+
+      <dl class="hero__stats">
+        <div class="stat">
+          <dt>安装耗时</dt>
+          <dd>约 30 秒</dd>
+        </div>
+        <div class="stat">
+          <dt>运行时依赖</dt>
+          <dd>0 个</dd>
+        </div>
+        <div class="stat">
+          <dt>二进制体积</dt>
+          <dd>约 15 MB</dd>
+        </div>
+      </dl>
+    </div>
+
+    <div class="hero__demo">
+      <p class="hero__demo-label">实时预览 · 任务与日志</p>
+      <div class="hero__screen">
+
+        <div class="pane pane--list">
+          <div class="jobs" id="jobs">
+            <button class="job is-active" type="button" data-job="0">
+              <span class="job__state job__state--ok"></span>
+              <span class="job__name">数据库备份 · 每日 03:00
+                <small class="job__spec">0 3 * * * · shell · scripts/backup-db.sh</small></span>
+              <span class="job__when">02:59:58<small>1.2s</small></span>
+            </button>
+            <button class="job" type="button" data-job="1">
+              <span class="job__state job__state--ok"></span>
+              <span class="job__name">证书续签检查
+                <small class="job__spec">@daily · curl · GET /acme/renew</small></span>
+              <span class="job__when">09:00:01<small>0.4s</small></span>
+            </button>
+            <button class="job" type="button" data-job="2">
+              <span class="job__state job__state--run"></span>
+              <span class="job__name">磁盘占用巡检
+                <small class="job__spec">0 */6 * * * · shell · scripts/disk-check.sh</small></span>
+              <span class="job__when">运行中<small>12s</small></span>
+            </button>
+            <button class="job" type="button" data-job="3">
+              <span class="job__state job__state--ok"></span>
+              <span class="job__name">清理 Docker 悬空镜像
+                <small class="job__spec">@weekly · shell · 脚本库: 运维巡检/prune.sh</small></span>
+              <span class="job__when">周日 04:00<small>3.8s</small></span>
+            </button>
+            <button class="job" type="button" data-job="4">
+              <span class="job__state job__state--err"></span>
+              <span class="job__name">上游 API 健康探测
+                <small class="job__spec">*/5 * * * * · curl · 连续 3 次超时后告警</small></span>
+              <span class="job__when">08:55:02<small>退出码 7</small></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="pane pane--log">
+          <div class="log__head">
+            <span class="log__id" id="logId">#1843 磁盘占用巡检</span>
+            <span class="log__badge" id="logBadge"><i></i>running</span>
+          </div>
+          <div class="log__body" id="logBody" role="log" aria-live="polite"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 能力 ===================== -->
+<section class="section" id="ability">
+  <div class="wrap">
+    <div class="sec__head">
+      <p class="sec__label">能力</p>
+      <h2 class="sec__title">只做计划任务，<br>把它做完整</h2>
+      <p class="sec__lede">不是又一个服务器面板。没有应用商店、网站管理和容器编排，只有一个二进制和它管好的那批任务。</p>
+    </div>
+
+    <div class="feat">
+      <div class="feat__cell">
+        <p class="feat__no">01</p>
+        <h3 class="feat__title">两类任务，完整 cron</h3>
+        <p class="feat__text">shell 脚本（bash / sh / python3 任一带解释器）和 curl 请求（多个 URL 依次访问）。5 段 cron 表达式，也支持 @every / @daily 快捷写法，多周期用 &amp;&amp; 拼。</p>
+        <p class="feat__note">*/5 * * * *<br>0 3 * * * &amp;&amp; 0 3 * * 0</p>
+      </div>
+      <div class="feat__cell">
+        <p class="feat__no">02</p>
+        <h3 class="feat__title">脚本库，改一次全生效</h3>
+        <p class="feat__text">可复用脚本集中管理，任务只引用不复制。脚本改了，引用它的所有任务立刻用上新的内容，无需重新保存任务。</p>
+        <p class="feat__note">运维巡检/prune.sh<br>↳ 3 个任务正在引用</p>
+      </div>
+      <div class="feat__cell">
+        <p class="feat__no">03</p>
+        <h3 class="feat__title">崩了会自愈</h3>
+        <p class="feat__text">服务重启时自动清理残留的执行中状态，恢复全部已启用任务的调度。被中断的记录会标上「interrupted by service restart」。</p>
+        <p class="feat__note">interrupted by service restart</p>
+      </div>
+    </div>
+
+    <div class="bounds" id="bounds">
+      <div class="bounds__head">
+        <h3 class="bounds__title">刻意不做的部分</h3>
+        <p class="bounds__lede">少即是这里的意思。每一项砍掉的东西，都换来了单二进制和零外部依赖。</p>
+      </div>
+      <ul class="bounds__list">
+        <li><b>网站与 Nginx</b>不做反向代理和虚拟主机配置</li>
+        <li><b>应用商店</b>不装 WordPress、数据库和 Java 应用</li>
+        <li><b>数据库管理</b>不内嵌数据库运维模块</li>
+        <li><b>容器编排</b>不拉镜像、不管 compose 项目</li>
+        <li><b>告警通知</b>不接邮件、飞书、企微等外推</li>
+        <li><b>AI Agent</b>不带任何大模型对话能力</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 执行记录 ===================== -->
+<section class="section" id="records">
+  <div class="wrap">
+    <div class="sec__head">
+      <p class="sec__label">执行记录</p>
+      <h2 class="sec__title">每一次执行都留下痕迹</h2>
+      <p class="sec__lede">耗时、退出码、完整日志（支持 ANSI 彩色）。任务排了二十条 cron，也不靠记忆猜今天哪条跑挂了。</p>
+    </div>
+
+    <div class="recs">
+      <div class="rec">
+        <span class="rec__id">#1843</span>
+        <span class="rec__name">磁盘占用巡检<small>0 */6 * * * · shell</small></span>
+        <span class="rec__dur">4.0s</span>
+        <span class="rec__status s-ok"><i></i>成功</span>
+      </div>
+      <div class="rec">
+        <span class="rec__id">#1842</span>
+        <span class="rec__name">上游 API 健康探测<small>*/5 * * * * · curl</small></span>
+        <span class="rec__dur">12.6s</span>
+        <span class="rec__status s-err"><i></i>退出码 7 · 超时</span>
+      </div>
+      <div class="rec">
+        <span class="rec__id">#1841</span>
+        <span class="rec__name">数据库备份<small>0 3 * * * · shell</small></span>
+        <span class="rec__dur">1.2s</span>
+        <span class="rec__status s-ok"><i></i>成功</span>
+      </div>
+      <div class="rec">
+        <span class="rec__id">#1840</span>
+        <span class="rec__name">清理 Docker 悬空镜像<small>@weekly · shell</small></span>
+        <span class="rec__dur">3.8s</span>
+        <span class="rec__status s-ok"><i></i>成功</span>
+      </div>
+      <div class="rec">
+        <span class="rec__id">#1839</span>
+        <span class="rec__name">证书续签检查<small>@daily · curl</small></span>
+        <span class="rec__dur">0.4s</span>
+        <span class="rec__status s-run"><i></i>已中断 · 服务重启</span>
+      </div>
+    </div>
+
+    <div class="recs__foot">
+      <span class="recs__foot-k">最近 5 次</span>
+      <span class="recs__foot-v">累计 1843 次执行 · 平均耗时 4.4s · 成功率 92%</span>
+      <span class="recs__foot-note">历史保留最近 500 条，可在界面里按任务筛选</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 数据安全 / 迁移 ===================== -->
+<section class="section" id="migrate">
+  <div class="wrap">
+    <div class="sec__head">
+      <p class="sec__label">数据安全</p>
+      <h2 class="sec__title">任务能带走，<br>整站也能搬走</h2>
+      <p class="sec__lede">任务一键导出为 JSON，脚本库与执行记录随整站备份还原一起迁移——换机器、做灾备都不丢。</p>
+    </div>
+
+    <div class="feat feat--duo">
+      <div class="feat__cell">
+        <p class="feat__no">04</p>
+        <h3 class="feat__title">导入 / 导出</h3>
+        <p class="feat__text">全部任务一键导出为 JSON 文件；导入时自动跳过重名任务，并统计成功、跳过与失败项，迁移整批配置不丢不重。</p>
+        <p class="feat__note">{ "created": 12, "skipped": 3, "failed": 0 }</p>
+      </div>
+      <div class="feat__cell">
+        <p class="feat__no">05</p>
+        <h3 class="feat__title">备份 / 还原</h3>
+        <p class="feat__text">命令行 <code>2panel backup</code> / <code>restore</code> 与 Web 备份还原通用一份 zip：管理员、任务、脚本库、执行记录整站还原。还原前自动停服并保留回退副本，解压带 zip-slip 防护。</p>
+        <p class="feat__note">2panel.db · log/ · task/ → 一个 zip</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 安装 ===================== -->
+<section class="section" id="install">
+  <div class="wrap">
+    <div class="sec__head">
+      <p class="sec__label">安装</p>
+      <h2 class="sec__title">三步，root 权限，<br>其余交给脚本</h2>
+      <p class="sec__lede">自动注册 systemd 服务、开放防火墙端口；机器上没有 systemd 就回退成后台运行并给出提示。</p>
+    </div>
+
+    <div class="deploy">
+      <div class="deploy__info">
+        <div class="verified">
+          <p class="verified__k">安装脚本会帮你做完</p>
+          <p class="verified__v">注册 systemd + 开放防火墙</p>
+          <p class="verified__n">检测到 firewalld → ufw → iptables，仅放行实际启用的防火墙</p>
+        </div>
+
+        <div class="matrix">
+          <p class="matrix__k">支持矩阵</p>
+          <dl class="matrix__list">
+            <div class="matrix__row">
+              <dt>运行基础</dt><dd>单个静态二进制，无运行时依赖</dd>
+            </div>
+            <div class="matrix__row">
+              <dt>发布架构</dt><dd>AMD64 · ARM64（多镜像加速 + SHA-256 校验）</dd>
+            </div>
+            <div class="matrix__row">
+              <dt>系统支持</dt><dd>Ubuntu / Debian / CentOS 等，有 systemd 即注册服务</dd>
+            </div>
+            <div class="matrix__row">
+              <dt>数据结构</dt><dd>SQLite 单文件，纯 Go 驱动，无需 CGO</dd>
+            </div>
+            <div class="matrix__row">
+              <dt>默认端口</dt><dd>8080，安装时用 <code>-p</code> 更改</dd>
+            </div>
+            <div class="matrix__row">
+              <dt>数据目录</dt><dd><code>-d</code> 指定，默认 <code>/var/lib/2panel</code></dd>
+            </div>
+            <div class="matrix__row">
+              <dt>许可</dt><dd>MIT，可自建镜像分发</dd>
+            </div>
+          </dl>
+        </div>
+
+        <p class="deploy__warn">
+          <span class="deploy__warn-i" aria-hidden="true">!</span>
+          生产环境请先备份现有配置，并为 8080 入口配置访问控制——
+          默认监听所有网卡。
+        </p>
+      </div>
+
+      <div class="deploy__act">
+        <div class="term">
+          <div class="term__bar">
+            <span class="term__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="term__host">root@server</span>
+            <span class="term__p">$</span>
+          </div>
+          <div class="term__body">
+            <p class="term__label">安装 2Panel</p>
+            <div class="term__cmd">
+              <code id="deployCmd">bash -c "$(curl -sSL https://raw.githubusercontent.com/meimolihan/2Panel/main/scripts/install.sh)" -p 8080 -d /var/lib/2panel</code>
+              <button class="copy copy--term" type="button" id="deployCopy" data-target="deployCmd">复制</button>
+            </div>
+            <p class="term__note">以 root 运行。不带参数为交互式提问，带参数则全程静默。</p>
+          </div>
+        </div>
+        <div class="deploy__after">
+          <p class="deploy__after-k">装好之后</p>
+          <p class="deploy__after-v">首次启动会生成随机默认密码，日志里能查到，登录后请立刻改掉。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <p class="step__no">01</p>
+        <h3 class="step__title">执行安装命令</h3>
+        <p class="step__text">在任意 Linux 服务器上以 root 或 sudo 运行。不带参数是交互式提问，指定任意参数则全程静默。</p>
+        <pre class="code"><span class="c"># 交互式</span>
+bash -c "$(curl -sSL https://raw.githubusercontent.com/
+meimolihan/2Panel/main/scripts/install.sh)"
+
+<span class="c"># 静默：指定端口与数据目录</span>
+bash -c "$(curl -sSL .../install.sh)" \
+  -p <span class="p">8080</span> -d <span class="p">/var/lib/2panel</span></pre>
+      </div>
+      <div class="step">
+        <p class="step__no">02</p>
+        <h3 class="step__title">打开地址，登录</h3>
+        <p class="step__text">首次启动生成随机默认密码，日志里能查到。登录后请立刻改掉它。</p>
+        <pre class="code"><span class="c"># systemd 方式</span>
+journalctl -u 2panel -n 20 | grep "default password"
+
+<span class="c"># nohup 方式</span>
+grep "default password" data/2panel.log
+
+<span class="c"># 或走状态接口（改密前可用）</span>
+curl -sS -X POST -H "Content-Type: application/json" -d '{}' \
+  http://127.0.0.1:8080/api/auth/status</pre>
+      </div>
+      <div class="step">
+        <p class="step__no">03</p>
+        <h3 class="step__title">建第一个任务</h3>
+        <p class="step__text">填名字、选 shell 或 curl、写下周期，保存即生效。想先试试就直接手动执行一次。</p>
+        <pre class="code"><span class="c"># 常用管理命令</span>
+systemctl status  2panel
+journalctl -u 2panel -f
+systemctl restart 2panel</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FAQ ===================== -->
+<section class="section" id="faq">
+  <div class="wrap">
+    <div class="sec__head">
+      <p class="sec__label">常见问题</p>
+      <h2 class="sec__title">装之前可能想问的</h2>
+    </div>
+
+    <div class="faq">
+      <details class="faq__i">
+        <summary class="faq__q">和 1Panel 的计划任务有什么区别？</summary>
+        <p class="faq__a">2Panel 参考 1Panel 的计划任务功能重构，但砍掉了网站、应用商店、数据库管理、容器编排、告警、AI Agent 等无关模块，只保留 shell / curl 两类任务及执行记录。代价是没有全家桶，换来的是单个二进制、不装 Node、不用备数据库，任务调度和日志读起来也更直接。</p>
+      </details>
+      <details class="faq__i">
+        <summary class="faq__q">需要装 Go、Node 或数据库吗？</summary>
+        <p class="faq__a">都不需要。Go 只是构建期的依赖，发布的是编译好的二进制。运行时用 SQLite，驱动是纯 Go 实现，不需要 CGO 或 GCC。</p>
+      </details>
+      <details class="faq__i">
+        <summary class="faq__q">任务能用现有的 crontab 吗？</summary>
+        <p class="faq__a">可以，任务支持标准 5 段 cron 表达式，也支持 @every、@daily 这类快捷语法。已有的 crontab 行搬过来基本不用改写，只是从 crontab 文件挪到界面里，之后就有了历史和日志。</p>
+      </details>
+      <details class="faq__i">
+        <summary class="faq__q">支持哪些系统？</summary>
+        <p class="faq__a">Ubuntu、Debian、CentOS 等主流发行版，amd64 与 arm64 都有构建产物（SHA-256 校验）。有 systemd 的机器自动注册成常驻服务，没有的（比如容器里）回退成后台运行。</p>
+      </details>
+      <details class="faq__i">
+        <summary class="faq__q">怎么备份和迁移？</summary>
+        <p class="faq__a">两种方式：任务层面可一键导出 / 导入 JSON（导入自动跳过重名、统计失败项）；整站层面用 <code>2panel backup</code> / <code>restore</code> 或 Web 端「备份还原」，把管理员、任务、脚本库、执行记录打包成一个 zip，换机器直接还原。</p>
+      </details>
+      <details class="faq__i">
+        <summary class="faq__q">怎么卸载？</summary>
+        <p class="faq__a">一条命令即可，脚本会停服务、删二进制、关掉安装时开放的防火墙端口，并询问是否保留数据目录；加 <code>--purge</code> 才会连数据一起删。</p>
+      </details>
+    </div>
+
+    <div class="deploy" style="margin-top:clamp(36px,4.5vh,56px);margin-bottom:0">
+      <div class="deploy__info" style="gap:14px">
+        <div class="verified">
+          <p class="verified__k">卸载（保留数据目录）</p>
+          <p class="verified__v" style="font-size:14px">bash -c "$(curl -sSL .../uninstall.sh)"</p>
+        </div>
+        <div class="verified">
+          <p class="verified__k">卸载（连数据一起删）</p>
+          <p class="verified__v" style="font-size:14px">bash -c "$(curl -sSL .../uninstall.sh)" -y --purge</p>
+        </div>
+      </div>
+      <div class="deploy__act">
+        <p class="deploy__after-v" style="padding-left:0;border-left:none">脚本会先停并移除 systemd 服务（或结束后台进程），再删除二进制、关闭防火墙端口，最后按提示处理数据目录。端口与数据目录自动从安装记录 / 服务文件 / 进程命令行解析，无需手动指定。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 结尾 ===================== -->
+<section class="closer section">
+  <div class="wrap closer__in">
+    <div class="closer__copy">
+      <h2 class="closer__title">下一条 cron，<br>不用再靠猜</h2>
+      <p class="closer__lede">一条命令装完，不用碰数据库，也不用配环境。</p>
+    </div>
+    <div class="closer__acts">
+      <a class="btn btn--primary" href="#install">装到服务器上<span class="btn__arrow">→</span></a>
+      <a class="btn" href="https://github.com/meimolihan/2Panel" target="_blank" rel="noopener">看源码<span class="btn__arrow">↗</span></a>
+      <a class="btn" href="https://hub.docker.com/r/mobufan/2panel" target="_blank" rel="noopener">Docker<span class="btn__arrow">↗</span></a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot__in">
+    <span>2Panel · MIT · v1.0.10</span>
+    <span class="foot__links">
+      <a href="https://github.com/meimolihan/2Panel" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://hub.docker.com/r/mobufan/2panel" target="_blank" rel="noopener">Docker Hub</a>
+      <a href="https://ghcr.io/meimolihan/2panel" target="_blank" rel="noopener">GHCR</a>
+    </span>
+  </div>
+</footer>
+
+<script src="vendor/gsap.min.js"></script>
+<script src="vendor/ScrollTrigger.min.js"></script>
+<script src="vendor/lenis.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- 日志数据：每条任务有自己的那一段输出 ---------- */
+  var LOGS = {
+    0: {
+      id: '#1841 数据库备份',
+      state: 'ok',
+      lines: [
+        ['t','09:00:00.031'],['k','spawn  '],['ok','sh scripts/backup-db.sh'],
+        ['t','09:00:00.104'],['k','dump   '],['ok','mysqldump -u backup app_v3 | gzip'],
+        ['t','09:00:00.882'],['k','write  '],['ok','/data/backup/app_v3-1011.sql.gz'],
+        ['t','09:00:01.020'],['k','rotate '],['ok','保留最近 7 份，清理 12 份'],
+        ['t','09:00:01.198'],['k','done   '],['ok','退出码 0 · 耗时 1.2s']
+      ]
+    },
+    1: {
+      id: '#1840 证书续签检查',
+      state: 'ok',
+      lines: [
+        ['t','09:00:01.002'],['k','GET    '],['ok','https://acme.example.com/renew'],
+        ['t','09:00:01.118'],['k','cert   '],['ok','not_after = 2026-12-04T00:00:00Z'],
+        ['t','09:00:01.260'],['k','renew  '],['ok','剩余 54 天，暂不需要续签'],
+        ['t','09:00:01.402'],['k','done   '],['ok','退出码 0 · 耗时 0.4s']
+      ]
+    },
+    2: {
+      id: '#1843 磁盘占用巡检',
+      state: 'run',
+      lines: [
+        ['t','09:00:00.114'],['k','spawn  '],['ok','sh scripts/disk-check.sh'],
+        ['t','09:00:00.208'],['k','mount  '],['ok','/dev/vda1 → /        79% used'],
+        ['t','09:00:00.310'],['k','mount  '],['warn','/dev/vdb1 → /data    94% used ▲ 超过阈值'],
+        ['t','09:00:00.512'],['k','warn   '],['warn','/data 剩余 4.1G，低于 8G 阈值'],
+        ['t','09:00:02.043'],['k','scan   '],['ok','扫描 /data/logs · 214 个文件'],
+        ['t','09:00:02.688'],['k','rotate '],['ok','已轮转 3 个历史日志'],
+        ['t','09:00:04.117'],['k','done   '],['ok','退出码 0 · 耗时 4.0s']
+      ]
+    },
+    3: {
+      id: '#1838 清理 Docker 悬空镜像',
+      state: 'ok',
+      lines: [
+        ['t','04:00:00.007'],['k','source '],['ok','脚本库: 运维巡检/prune.sh'],
+        ['t','04:00:02.116'],['k','docker '],['ok','dangling image · 41 个'],
+        ['t','04:00:03.780'],['k','docker '],['ok','已回收 12.4G'],
+        ['t','04:00:03.780'],['k','done   '],['ok','退出码 0 · 耗时 3.8s']
+      ]
+    },
+    4: {
+      id: '#1842 上游 API 健康探测',
+      state: 'err',
+      lines: [
+        ['t','08:55:00.002'],['k','GET    '],['ok','https://api.upstream.io/v1/health'],
+        ['t','08:55:05.001'],['k','retry  1/3'],['warn','连接超时（5s）'],
+        ['t','08:55:10.003'],['k','retry  2/3'],['warn','连接超时（5s）'],
+        ['t','08:55:15.004'],['k','retry  3/3'],['err','连接超时（5s）'],
+        ['t','08:55:15.006'],['k','exit   '],['err','退出码 7 · 连续 3 次失败']
+      ]
+    }
+  };
+
+  var logId   = document.getElementById('logId');
+  var logBody = document.getElementById('logBody');
+  var logBadge = document.getElementById('logBadge');
+  var jobs    = Array.prototype.slice.call(document.querySelectorAll('.job'));
+  var current = -1;
+
+  function paintLog(key) {
+    var data = LOGS[key];
+    logId.textContent = data.id;
+    logBadge.className = 'log__badge' + (data.state === 'run' ? ' is-run' : data.state === 'err' ? ' is-err' : '');
+    logBadge.innerHTML = '<i></i>' + (data.state === 'run' ? 'running' : data.state === 'err' ? 'failed' : 'succeeded');
+
+    var frag = document.createDocumentFragment();
+    data.lines.forEach(function (row) {
+      var line = document.createElement('div');
+      line.className = 'log__row';
+      var ts = document.createElement('span');
+      ts.className = 't';
+      ts.textContent = row[1];
+      line.appendChild(ts);
+      var body = document.createElement('span');
+      body.className = 'm';
+      for (var c = 2; c < row.length; c += 2) {
+        var seg = document.createElement('span');
+        seg.className = row[c];
+        seg.textContent = row[c + 1];
+        if (c > 2) body.appendChild(document.createTextNode(' '));
+        body.appendChild(seg);
+      }
+      line.appendChild(body);
+      frag.appendChild(line);
+    });
+    logBody.replaceChildren(frag);
+
+    if (reduce || !window.gsap) return;
+    gsap.fromTo(logBody.querySelectorAll('.log__row'),
+      { opacity: 0, x: -8 },
+      { opacity: 1, x: 0, duration: .34, ease: 'power2.out', stagger: .035, overwrite: true });
+  }
+
+  jobs.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var key = parseInt(btn.getAttribute('data-job'), 10);
+      if (key === current) return;
+      current = key;
+      jobs.forEach(function (b) { b.classList.remove('is-active'); });
+      btn.classList.add('is-active');
+      paintLog(key);
+    });
+  });
+
+  function bindCopy(btn, targetId, okText) {
+    if (!btn) return;
+    var node = document.getElementById(targetId);
+    if (!node) return;
+    var reset = function () { btn.textContent = '复制'; btn.classList.remove('is-done'); };
+    btn.addEventListener('click', function () {
+      var cmd = node.textContent.trim();
+      var done = function () { btn.textContent = okText; btn.classList.add('is-done'); setTimeout(reset, 2200); };
+      var fail = function () { btn.textContent = '请手动选中复制'; setTimeout(reset, 2200); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(cmd).then(done, fail);
+      } else { fail(); }
+    });
+  }
+  bindCopy(document.getElementById('copyBtn'), 'installCmd', '已复制：install.sh 命令');
+  bindCopy(document.getElementById('deployCopy'), 'deployCmd', '已复制：安装命令');
+
+  if (!reduce && window.gsap && window.ScrollTrigger) {
+    gsap.registerPlugin(ScrollTrigger);
+
+    gsap.from('.nav__in > *', { opacity: 0, y: -10, duration: .5, stagger: .06, ease: 'power2.out' });
+    gsap.from('.pane__meta', { opacity: 0, y: 14, duration: .5, ease: 'power2.out' });
+    gsap.from('.hero__title', { opacity: 0, y: 26, duration: .62, ease: 'power3.out', delay: .08 });
+    gsap.from('.hero__lede',  { opacity: 0, y: 20, duration: .58, ease: 'power3.out', delay: .16 });
+    gsap.from('.hero__acts',  { opacity: 0, y: 16, duration: .5, ease: 'power2.out', delay: .22 });
+    gsap.from('.hero__trust', { opacity: 0, y: 12, duration: .5, ease: 'power2.out', delay: .28 });
+    gsap.from('.job',        { opacity: 0, y: 16, duration: .5, stagger: .06, ease: 'power2.out', delay: .24 });
+    gsap.from('.log__head',   { opacity: 0, duration: .5, delay: .34 });
+    gsap.from('.hero__install', { opacity: 0, y: 12, duration: .5, delay: .4 });
+    gsap.from('.hero__demo-label', { opacity: 0, y: 12, duration: .5, delay: .42 });
+
+    var mm = gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: no-preference)', function () {
+      gsap.utils.toArray('.section').forEach(function (sec) {
+        var head = sec.querySelectorAll('.sec__label, .sec__title, .sec__lede');
+        if (head.length) {
+          gsap.from(head, {
+            opacity: 0, y: 22, duration: .55, stagger: .07, ease: 'power3.out',
+            scrollTrigger: { trigger: sec, start: 'top 78%', once: true }
+          });
+        }
+
+        var recs = sec.querySelectorAll('.rec');
+        if (recs.length) {
+          gsap.from(recs, {
+            opacity: 0, x: -26, duration: .42, stagger: .045, ease: 'power2.out',
+            scrollTrigger: { trigger: sec.querySelector('.recs'), start: 'top 88%', once: true }
+          });
+        }
+
+        var cells = sec.querySelectorAll('.feat__cell, .step');
+        if (cells.length) {
+          gsap.from(cells, {
+            opacity: 0, y: 34, duration: .58, stagger: .07,
+            ease: 'back.out(1.12)',
+            scrollTrigger: { trigger: cells[0].parentNode, start: 'top 86%', once: true }
+          });
+        }
+
+        var dep = sec.querySelectorAll('.verified, .matrix, .deploy__warn, .term, .deploy__after');
+        if (dep.length) {
+          gsap.from(dep, {
+            opacity: 0, y: 24, duration: .5, stagger: .07, ease: 'power3.out',
+            scrollTrigger: { trigger: sec.querySelector('.deploy'), start: 'top 84%', once: true }
+          });
+        }
+
+        var faqs = sec.querySelectorAll('.faq__i');
+        if (faqs.length) {
+          gsap.from(faqs, {
+            opacity: 0, y: 18, rotate: .3, duration: .4, stagger: .035, ease: 'power2.out',
+            scrollTrigger: { trigger: faqs[0].parentNode, start: 'top 92%', once: true }
+          });
+        }
+      });
+
+      var story = document.querySelector('.hero__screen');
+      if (story) {
+        gsap.timeline({
+          scrollTrigger: {
+            trigger: '.hero', start: 'top top', end: '+=70%',
+            scrub: 1, pin: true, pinSpacing: true, anticipatePin: 1
+          }
+        })
+          .to('.pane--list', { scale: .9, opacity: .3, transformOrigin: 'left center', ease: 'none' }, 0)
+          .to('.pane--log',  { scale: 1.08, transformOrigin: 'right center', ease: 'none' }, 0);
+      }
+
+      if (window.Lenis) {
+        var lenis = new Lenis({ duration: 1.05 });
+        lenis.on('scroll', ScrollTrigger.update);
+        gsap.ticker.add(function (t) { lenis.raf(t * 1000); });
+        gsap.ticker.lagSmoothing(0);
+      }
+
+      var bar = document.getElementById('progress');
+      if (bar) {
+        var setBar = function () {
+          var max = document.documentElement.scrollHeight - window.innerHeight;
+          var pct = max > 0 ? (window.scrollY / max) * 100 : 0;
+          bar.style.width = Math.min(100, Math.max(0, pct)) + '%';
+        };
+        if (window.Lenis) lenis.on('scroll', setBar);
+        window.addEventListener('scroll', setBar, { passive: true });
+        window.addEventListener('resize', setBar);
+        setBar();
+      }
+    });
+  }
+
+  paintLog(2);
+})();
+</script>
+</body>
+</html>

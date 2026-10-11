@@ -12,6 +12,12 @@
 - **导入 / 导出**：任务一键导出为 JSON 文件，导入时自动跳过重名、统计失败项
 - **崩溃自愈**：服务重启时自动清理执行中残留状态，恢复全部启用的任务调度（执行记录会标记为「interrupted by service restart」）
 
+## 项目链接
+
+- 源码仓库：https://github.com/meimolihan/2Panel
+- Docker 镜像：https://hub.docker.com/r/mobufan/2panel
+- GHCR 镜像：https://ghcr.io/meimolihan/2panel
+
 ## 快速开始
 
 ```bash
@@ -144,12 +150,14 @@ GITHUB_REPO="2Panel"                  # GitHub repository name
 ```bash
 # bump main.go 版本号 -> push main -> 打 v* tag -> Actions 自动构建发布
 # 可选 -m "备注" 作为 Release 正文（写入 RELEASE_NOTES.md）
-bash scripts/build-and-push.sh v1.0.0 --yes -m "本次发布说明"
+bash scripts/build-and-push.sh v1.0.10 --yes -m "本次发布说明"
 ```
 
 推送 `v*` tag 后仅产生**一条 workflow run**，自动完成：
 - **二进制**：交叉编译 `2panel_linux_amd64` / `2panel_linux_arm64` + `sha256` 校验和，创建 GitHub Release（正文为 `RELEASE_NOTES.md` + 自动 changelog）
-- **Docker 镜像**：multi-arch（amd64 + arm64）构建并推送 `mobufan/2panel:latest` 与 `mobufan/2panel:<版本>`（`Dockerfile` multi-stage，版本经 ldflags 注入 `main.version`）
+- **Docker 镜像**：multi-arch（amd64 + arm64）构建并推送以下镜像（`Dockerfile` multi-stage，版本经 ldflags 注入 `main.version`）：
+  - Docker Hub：`mobufan/2panel:latest` / `mobufan/2panel:<版本>`
+  - GitHub Container Registry：`ghcr.io/meimolihan/2panel:latest` / `ghcr.io/meimolihan/2panel:<版本>`
 
 日常 push / PR 均不会触发该流程（PR 仅跑 ci.yaml 构建检查）。
 
@@ -157,8 +165,9 @@ bash scripts/build-and-push.sh v1.0.0 --yes -m "本次发布说明"
 
 ```bash
 gh run list --workflow=release.yaml --limit 1
-gh release view v1.0.0
-docker pull mobufan/2panel:v1.0.0
+gh release view v1.0.10
+docker pull mobufan/2panel:v1.0.10
+docker pull ghcr.io/meimolihan/2panel:v1.0.10
 ```
 
 > Release 附件名称必须为 `2panel_linux_amd64` 与 `2panel_linux_arm64`，`scripts/install.sh` 依赖该命名下载。
@@ -507,4 +516,4 @@ POST /api/cronjobs
 - 任务脚本：`<data>/task/<任务名>/<任务名>.sh`
 - 执行日志：`<data>/log/<taskID>.log`
 
-2Panel 砍掉了 1Panel 中与计划任务无关的模块（网站、应用、数据库、备份、告警、AI Agent 等），仅保留 shell / curl 两类任务及执行记录，其余保持相同的分层结构与 API 风格。
+2Panel 砍掉了 1Panel 中与计划任务无关的模块（网站与 Nginx、应用商店、数据库管理、容器编排、告警通知、AI Agent 等），仅保留 shell / curl 两类任务、脚本库、导入/导出与备份/还原，其余保持相同的分层结构与 API 风格。
