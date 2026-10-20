@@ -3,7 +3,7 @@
 docker pull mobufan/2panel:latest
 
 ```bash
-docker pull mobufan/2panel:v1.1.0
+docker pull mobufan/2panel:v1.1.1
 ```
 
 ```bash
@@ -11,7 +11,7 @@ docker pull ghcr.io/meimolihan/2panel:latest
 ```
 
 ```bash
-docker pull ghcr.io/meimolihan/2panel:v1.1.0
+docker pull ghcr.io/meimolihan/2panel:v1.1.1
 ```
 
 ## 二进制安装
