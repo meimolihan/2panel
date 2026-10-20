@@ -1,9 +1,9 @@
-自动构建发布 v1.0.10
+日常更新
 
 docker pull mobufan/2panel:latest
 
 ```bash
-docker pull mobufan/2panel:v1.0.10
+docker pull mobufan/2panel:v1.0.12
 ```
 
 ```bash
@@ -11,7 +11,7 @@ docker pull ghcr.io/meimolihan/2panel:latest
 ```
 
 ```bash
-docker pull ghcr.io/meimolihan/2panel:v1.0.10
+docker pull ghcr.io/meimolihan/2panel:v1.0.12
 ```
 
 ## 二进制安装
