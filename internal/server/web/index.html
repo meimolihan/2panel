@@ -2281,38 +2281,49 @@ td.name.ellipsis.failed { font-weight: 700; }
    ----------------------------------------------------------------------
    全部可调参数集中在 :root，纯 CSS 即可调节，无需改 JS：
      --color-dark / --color-light   遮罩底色（深/浅），建议取项目真实主题底色
-     --theme-ripple-duration        波纹扩散时长（基准 1.5s）
-     --theme-ripple-ease            波纹缓动（基准 ease-out）
      --theme-ripple-radius-scale    扩散半径倍率（1 = 刚好铺满，>1 留余量）
      --theme-ripple-center-x/-y     圆心相对按钮中心的偏移（负值向左/上）
      --theme-ripple-edge-soft       边缘抗锯齿柔化量（0 = 关闭，勿调过大）
      --theme-mask-z                 遮罩层级（须低于弹窗层，避免盖住浮层）
-     --theme-icon-duration          图标旋转+缩放时长（基准 1s）
-     --theme-icon-delay             图标动效起始延时（基准 0.8s）
-     --theme-icon-stagger           两个图标的错峰时差（0 = 同步）
-     --theme-icon-ease              图标缓动
-     --theme-icon-scale-from/-to    图标缩放倍率区间
+   —— 通道A（浅→暗）专属：已验收参数，与现状完全一致，调 B 通道不会影响它
+     --theme-ripple-duration/-ease  通道A 圆形爆炸时长与缓动（锁定 1.5s / ease-out）
+     --theme-icon-duration/-delay   通道A 图标动效时长与基础延时（锁定 1s / 0.8s）
+     --theme-icon-stagger/-ease     通道A 图标错峰时差与缓动
+     --theme-icon-scale-from/-to    通道A 图标缩放倍率区间
+   —— 通道B（暗→浅）专属：完全独立可调，与通道A 互不耦合
+     --theme-ripple-b-duration/-ease 通道B 遮罩扩散时长与缓动（默认 1.5s / ease-out）
+     --theme-icon-b-duration/-delay  通道B 图标动效时长与基础延时（默认 1s / 0.8s）
+     --theme-icon-b-stagger/-ease    通道B 图标错峰时差与缓动
+     --theme-icon-b-scale-from/-to   通道B 图标缩放倍率区间
    ====================================================================== */
 :root {
-  /* —— 遮罩配色 —— */
+  /* —— 通用配色 —— */
   --color-dark: #2b2b2b;
   --color-light: #f8f8f8;
-  /* —— 波纹时序 —— */
-  --theme-ripple-duration: 1.5s;
-  --theme-ripple-ease: ease-out;
-  /* —— 波纹几何 —— */
+  /* —— 通用几何（两通道共用的圆心/半径微调） —— */
   --theme-ripple-radius-scale: 1.04;   /* 半径倍率，1.04 留出一点余量 */
   --theme-ripple-center-x: 0px;        /* 圆心 X 偏移 */
   --theme-ripple-center-y: 0px;        /* 圆心 Y 偏移 */
   --theme-ripple-edge-soft: 0.15px;    /* 边缘抗锯齿柔化，0 = 关闭 */
   --theme-mask-z: 90;                  /* 遮罩层级：高于顶栏(80)，低于弹窗(100) */
-  /* —— 图标时序 —— */
+  /* —— 通道A（浅→暗）：锁定参数，勿改 —— */
+  --theme-ripple-duration: 1.5s;
+  --theme-ripple-ease: ease-out;
   --theme-icon-duration: 1s;
   --theme-icon-delay: 0.8s;
   --theme-icon-stagger: 0.16s;
   --theme-icon-ease: cubic-bezier(0.22, 0.68, 0.32, 1.08);
   --theme-icon-scale-from: 0.4;
   --theme-icon-scale-to: 1;
+  /* —— 通道B（暗→浅）：独立参数，与通道A 互不影响 —— */
+  --theme-ripple-b-duration: 1.5s;
+  --theme-ripple-b-ease: ease-out;
+  --theme-icon-b-duration: 1s;
+  --theme-icon-b-delay: 0.8s;
+  --theme-icon-b-stagger: 0.16s;
+  --theme-icon-b-ease: cubic-bezier(0.22, 0.68, 0.32, 1.08);
+  --theme-icon-b-scale-from: 0.4;
+  --theme-icon-b-scale-to: 1;
 }
 
 /* —— 遮罩层：全屏悬浮、绝不拦截交互、默认隐藏（初始化不闪现） —— */
@@ -2330,17 +2341,17 @@ td.name.ellipsis.failed { font-weight: 700; }
 }
 .theme-mask-dark { background: var(--color-dark); }
 
-/* —— 波纹：双向统一"新色遮罩自按钮圆心向外扩散铺满" —— */
+/* —— 波纹：仅通道B（暗→浅）启用"新色遮罩自按钮圆心向外扩散铺满" —— */
 .theme-mask.is-rippling {
   visibility: visible;
-  animation: theme-mask-expand var(--theme-ripple-duration) var(--theme-ripple-ease) forwards;
+  animation: theme-mask-expand var(--theme-ripple-b-duration) var(--theme-ripple-b-ease) forwards;
 }
 @keyframes theme-mask-expand {
   from { clip-path: circle(0px at var(--mask-x) var(--mask-y)); opacity: 1; }
   to   { clip-path: circle(var(--mask-r) at var(--mask-x) var(--mask-y)); opacity: 1; }
 }
 
-/* —— 主题按钮图标：sun / moon 叠放，切换时错峰 360° 旋转 + 缩放 —— */
+/* —— 主题按钮图标：sun / moon 叠放 —— */
 .theme-toggle { position: relative; }
 .theme-toggle .icon-sun,
 .theme-toggle .icon-moon {
@@ -2349,22 +2360,15 @@ td.name.ellipsis.failed { font-weight: 700; }
   left: 50%;
   transform: translate(-50%, -50%);
 }
-/* 动效期间两个图标同时在场（覆盖明暗主题各自的 display:none 规则） */
+
+/* —— 通道A（浅→暗）图标动效：沿用已验收参数，参数与通道B 完全独立 —— */
 .theme-toggle.is-switching .icon-sun,
 .theme-toggle.is-switching .icon-moon { display: block; }
-/* 切到深色：月亮转出、太阳转入 */
 .theme-toggle.is-switching.to-dark .icon-sun {
   animation: theme-icon-in var(--theme-icon-duration) var(--theme-icon-ease) var(--theme-icon-delay) both;
 }
 .theme-toggle.is-switching.to-dark .icon-moon {
   animation: theme-icon-out var(--theme-icon-duration) var(--theme-icon-ease) calc(var(--theme-icon-delay) + var(--theme-icon-stagger)) both;
-}
-/* 切到浅色：太阳转出、月亮转入 */
-.theme-toggle.is-switching.to-light .icon-sun {
-  animation: theme-icon-out var(--theme-icon-duration) var(--theme-icon-ease) var(--theme-icon-delay) both;
-}
-.theme-toggle.is-switching.to-light .icon-moon {
-  animation: theme-icon-in var(--theme-icon-duration) var(--theme-icon-ease) calc(var(--theme-icon-delay) + var(--theme-icon-stagger)) both;
 }
 @keyframes theme-icon-in {
   0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-180deg) scale(var(--theme-icon-scale-from)); }
@@ -2376,10 +2380,33 @@ td.name.ellipsis.failed { font-weight: 700; }
   45%  { opacity: 1; }
   100% { opacity: 0; transform: translate(-50%, -50%) rotate(180deg) scale(var(--theme-icon-scale-from)); }
 }
+
+/* —— 通道B（暗→浅）图标动效：独立 class + 独立关键帧 + 独立参数，互不耦合 —— */
+.theme-toggle.is-switching-b .icon-sun,
+.theme-toggle.is-switching-b .icon-moon { display: block; }
+.theme-toggle.is-switching-b.to-light-b .icon-sun {
+  animation: theme-icon-b-out var(--theme-icon-b-duration) var(--theme-icon-b-ease) var(--theme-icon-b-delay) both;
+}
+.theme-toggle.is-switching-b.to-light-b .icon-moon {
+  animation: theme-icon-b-in var(--theme-icon-b-duration) var(--theme-icon-b-ease) calc(var(--theme-icon-b-delay) + var(--theme-icon-b-stagger)) both;
+}
+@keyframes theme-icon-b-in {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-180deg) scale(var(--theme-icon-b-scale-from)); }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(180deg) scale(var(--theme-icon-b-scale-to)); }
+}
+@keyframes theme-icon-b-out {
+  0%   { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(var(--theme-icon-b-scale-to)); }
+  45%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(180deg) scale(var(--theme-icon-b-scale-from)); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .theme-mask.is-rippling { animation: none; }
   .theme-toggle.is-switching .icon-sun,
-  .theme-toggle.is-switching .icon-moon { animation: none; }
+  .theme-toggle.is-switching .icon-moon,
+  .theme-toggle.is-switching-b .icon-sun,
+  .theme-toggle.is-switching-b .icon-moon { animation: none; }
 }
 </style>
 </head>
@@ -5591,40 +5618,51 @@ document.getElementById('f_spec').addEventListener('input', e => calcNext(e.targ
      原有 toggleTheme()（主题判定 / localStorage 持久化源码零改动）。 -->
 <script>
 /* ================================================================
-   主题波纹动效 · 辅助层（双层悬浮遮罩）
+   主题切换动效 · 辅助层（双通道严格隔离，纯附加，不改业务主干）
    ------------------------------------------------------------
-   · ENABLE_THEME_RIPPLE = false → 一键关闭波纹，回归原生切换效果
-   · 原有 toggleTheme() / localStorage 读写 / 主题判定主干：零改动
-   · 防连击锁 isAnimating：动画未结束前屏蔽再次触发
+   通道A｜浅色 → 暗色（锁定不动，不启用遮罩）
+       沿用项目自带的 clip-path 圆形向外爆炸机制（View Transition 伪元素），
+       圆心精确锚定右上角主题按钮；时长/缓动/图标参数全部取已验收值，不改。
+   通道B｜暗色 → 浅色（仅此通道启用双层悬浮遮罩修复）
+       浅色遮罩自按钮圆心向外扩散铺满 → 动画 100% 播完后再切本体主题 →
+       立刻隐藏复位遮罩并解锁，避免出现纯白硬跳转断层。
+   · 原有 toggleTheme()（主题判定 / localStorage 持久化）源码零改动
+   · ENABLE_THEME_RIPPLE = false 一键回归原生切换
    ================================================================ */
 const ENABLE_THEME_RIPPLE = true;             // 一键开关
 const THEME_TOGGLE_SELECTOR = '.theme-toggle'; // 主题按钮选择器
-const THEME_MASK_LIGHT_ID = 'themeMaskLight';  // 浅色遮罩节点 id
-const THEME_MASK_DARK_ID = 'themeMaskDark';    // 深色遮罩节点 id
+const THEME_MASK_LIGHT_ID = 'themeMaskLight';  // 浅色遮罩节点 id（通道B 使用）
+const THEME_MASK_DARK_ID = 'themeMaskDark';    // 深色遮罩节点 id（按规范保留，当前两通道均不激活）
 const THEME_ATTR_NAME = 'data-theme';          // 根元素主题标记（若用 class 改这里并改 getCurrentTheme）
 const THEME_TOGGLE_FN = 'toggleTheme';         // 原有切换函数名（挂在 window 上）
-const SUPPRESS_LEGACY_VIEW_TRANSITION = true;  // 调用原函数时屏蔽其内置 VT 圆形揭示，避免与遮罩波纹叠加
+const SUPPRESS_LEGACY_VIEW_TRANSITION = true;  // 调用原函数时屏蔽其内置 VT，避免与本层动画叠加/嵌套
 
 (function () {
   if (!ENABLE_THEME_RIPPLE) return;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const ICON_CLASSES = ['is-switching', 'to-dark', 'to-light', 'is-switching-b', 'to-light-b'];
   let isAnimating = false;      // 防连击锁
   let bypassNextClick = false;  // 内部重新派发点击时放行
   let iconResetTimer = null;    // 图标复位定时器（避免跨轮次误清）
+  let lockTimer = null;         // 锁释放兜底
 
-  /* 读取 :root 上的动画参数（CSS 单一数据源，JS 不硬写数值） */
+  /* —— 读取 :root 上的动画参数（CSS 单一数据源，JS 不硬写数值） —— */
+  function cssString(name, fallback) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
   function cssNumber(name, fallback) {
-    const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+    const v = parseFloat(cssString(name, ''));
     return Number.isFinite(v) ? v : fallback;
   }
   function cssTime(name, fallback) {
-    const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const raw = cssString(name, '');
     if (!raw) return fallback;
     if (raw.endsWith('ms')) return parseFloat(raw) || fallback;
     if (raw.endsWith('s')) return (parseFloat(raw) || fallback / 1000) * 1000;
     return fallback;
   }
-  /* 当前主题判定：优先读 data-theme，兼容 class 方案与系统偏好兜底 */
+  /* —— 当前主题判定：优先读 data-theme，兼容 class 方案与系统偏好兜底 —— */
   function getCurrentTheme() {
     const root = document.documentElement;
     const attr = root.getAttribute(THEME_ATTR_NAME);
@@ -5633,11 +5671,11 @@ const SUPPRESS_LEGACY_VIEW_TRANSITION = true;  // 调用原函数时屏蔽其内
     if (root.classList.contains('light')) return 'light';
     return reduceMotion.matches ? 'dark' : 'light';
   }
-  /* 调用原有切换逻辑：优先直接调用原函数，否则重新派发一次原生点击 */
-  function invokeOriginalToggle(button) {
+  /* —— 调用原有切换逻辑：优先直接调用原函数，否则重新派发一次原生点击 —— */
+  function invokeOriginalToggle(button, suppressViewTransition) {
     const fn = window[THEME_TOGGLE_FN];
     if (typeof fn === 'function') {
-      if (SUPPRESS_LEGACY_VIEW_TRANSITION && 'startViewTransition' in document) {
+      if (suppressViewTransition && SUPPRESS_LEGACY_VIEW_TRANSITION && 'startViewTransition' in document) {
         const saved = document.startViewTransition;
         try { document.startViewTransition = undefined; fn(); }
         finally { document.startViewTransition = saved; }
@@ -5647,67 +5685,119 @@ const SUPPRESS_LEGACY_VIEW_TRANSITION = true;  // 调用原函数时屏蔽其内
     bypassNextClick = true;
     try { button.click(); } finally { bypassNextClick = false; }
   }
-  /* 播放波纹：遮罩自按钮圆心向外扩散铺满，结束后回调（此刻才切本体主题） */
-  function playRipple(button, targetTheme, done) {
-    const mask = document.getElementById(targetTheme === 'dark' ? THEME_MASK_DARK_ID : THEME_MASK_LIGHT_ID);
-    if (!mask) { done(); return; }
-    const rect = button.getBoundingClientRect();          // 动态取按钮坐标，适配位置微变
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const maxX = Math.max(cx, window.innerWidth - cx);
-    const maxY = Math.max(cy, window.innerHeight - cy);
-    const radius = Math.hypot(maxX, maxY) * cssNumber('--theme-ripple-radius-scale', 1);
-    mask.style.setProperty('--mask-x', (cx + cssNumber('--theme-ripple-center-x', 0)) + 'px');
-    mask.style.setProperty('--mask-y', (cy + cssNumber('--theme-ripple-center-y', 0)) + 'px');
-    mask.style.setProperty('--mask-r', radius + 'px');
-    // 复位上一轮遗留的图标状态，避免 to-light / to-dark 叠加导致方向错乱
+  /* —— 波纹几何：动态读取按钮坐标，兼容按钮位移与页面滚动 —— */
+  function rippleGeometry(button) {
+    const rect = button.getBoundingClientRect();
+    const x = rect.left + rect.width / 2 + cssNumber('--theme-ripple-center-x', 0);
+    const y = rect.top + rect.height / 2 + cssNumber('--theme-ripple-center-y', 0);
+    const maxX = Math.max(x, window.innerWidth - x);
+    const maxY = Math.max(y, window.innerHeight - y);
+    return { x: x, y: y, r: Math.hypot(maxX, maxY) * cssNumber('--theme-ripple-radius-scale', 1) };
+  }
+  /* —— 图标类切换：先清上一轮残留，再挂本轮，保证两通道不串味 —— */
+  function setIconClasses(button, classes, total) {
     if (iconResetTimer) { clearTimeout(iconResetTimer); iconResetTimer = null; }
-    button.classList.remove('is-switching', 'to-dark', 'to-light');
-    button.classList.add('is-switching', targetTheme === 'dark' ? 'to-dark' : 'to-light');
+    button.classList.remove.apply(button.classList, ICON_CLASSES);
+    classes.forEach(function (c) { button.classList.add(c); });
+    iconResetTimer = setTimeout(function () {
+      iconResetTimer = null;
+      button.classList.remove.apply(button.classList, ICON_CLASSES);
+    }, total);
+  }
+  /* —— 锁释放 —— */
+  function releaseLock(delay) {
+    if (lockTimer) { clearTimeout(lockTimer); lockTimer = null; }
+    lockTimer = setTimeout(function () {
+      lockTimer = null;
+      isAnimating = false;
+    }, delay || 0);
+  }
+
+  /* ============================================================
+     通道A｜浅色 → 暗色（锁定不动）
+     使用项目自带的 View Transition 伪元素 clip-path 圆形爆炸机制，
+     不引入任何遮罩元素；圆心锚定按钮中心，参数取已验收值。
+     ============================================================ */
+  function playChannelA(button) {
+    setIconClasses(button, ['is-switching', 'to-dark'],
+      cssTime('--theme-icon-delay', 800) + cssTime('--theme-icon-duration', 1000) + cssTime('--theme-icon-stagger', 160));
+    const dur = cssTime('--theme-ripple-duration', 1500);
+    if (!document.startViewTransition) {            // 不支持 VT → 退化为瞬时切换
+      invokeOriginalToggle(button, true);
+      releaseLock(0);
+      return;
+    }
+    let t;
+    try {
+      t = document.startViewTransition(function () {
+        /* 主题切换发生在快照内 → 新快照即新主题（屏蔽原函数内置 VT 以免嵌套） */
+        invokeOriginalToggle(button, true);
+      });
+    } catch (e) {
+      invokeOriginalToggle(button, true);
+      releaseLock(0);
+      return;
+    }
+    t.ready.then(function () {
+      const g = rippleGeometry(button);
+      document.documentElement.animate(
+        { clipPath: ['circle(0px at ' + g.x + 'px ' + g.y + 'px)', 'circle(' + g.r + 'px at ' + g.x + 'px ' + g.y + 'px)'] },
+        { duration: dur, easing: cssString('--theme-ripple-ease', 'ease-out'), pseudoElement: '::view-transition-new(root)' }
+      );
+    }).catch(function () {});
+    releaseLock(dur + 120);
+  }
+
+  /* ============================================================
+     通道B｜暗色 → 浅色（仅此通道启用遮罩修复）
+     浅色遮罩自按钮圆心向外扩散 → 动画 100% 播完 → 切本体主题 → 复位遮罩。
+     ============================================================ */
+  function playChannelB(button) {
+    setIconClasses(button, ['is-switching-b', 'to-light-b'],
+      cssTime('--theme-icon-b-delay', 800) + cssTime('--theme-icon-b-duration', 1000) + cssTime('--theme-icon-b-stagger', 160));
+    const mask = document.getElementById(THEME_MASK_LIGHT_ID);
+    if (!mask) {
+      invokeOriginalToggle(button, true);
+      releaseLock(0);
+      return;
+    }
+    const g = rippleGeometry(button);
+    mask.style.setProperty('--mask-x', g.x + 'px');
+    mask.style.setProperty('--mask-y', g.y + 'px');
+    mask.style.setProperty('--mask-r', g.r + 'px');
     let finished = false;
-    const finish = () => {
+    const finish = function () {
       if (finished) return;
       finished = true;
       clearTimeout(safety);
-      done();                                   // 本体主题此刻才真正切换
-      mask.classList.remove('is-rippling');    // 遮罩复原隐藏，清除临时状态
+      invokeOriginalToggle(button, true);   // 本体主题此刻才真正切换（无白闪断层）
+      mask.classList.remove('is-rippling'); // 遮罩立即复位隐藏
+      releaseLock(0);
     };
     mask.addEventListener('animationend', finish, { once: true });
-    const safety = setTimeout(finish, cssTime('--theme-ripple-duration', 1500) + 220);  // 动画丢失兜底
+    const safety = setTimeout(finish, cssTime('--theme-ripple-b-duration', 1500) + 220);  // 动画丢失兜底
     mask.classList.add('is-rippling');
   }
-  /* 图标动效跑完后复位按钮状态 */
-  function resetButton(button) {
-    if (iconResetTimer) { clearTimeout(iconResetTimer); iconResetTimer = null; }
-    const total = cssTime('--theme-icon-delay', 800) + cssTime('--theme-icon-duration', 1000) + cssTime('--theme-icon-stagger', 160);
-    iconResetTimer = setTimeout(() => {
-      iconResetTimer = null;
-      button.classList.remove('is-switching', 'to-dark', 'to-light');
-    }, total);
-  }
-  /* 捕获阶段拦截：阻止原点击处理，改为"先动画、后切换" */
+
+  /* —— 捕获阶段拦截：按方向分流到通道A / 通道B —— */
   function onClick(e) {
     if (bypassNextClick) return;
     const t = e.target;
     const button = t && t.closest ? t.closest(THEME_TOGGLE_SELECTOR) : null;
     if (!button) return;
     if (isAnimating) { e.preventDefault(); e.stopImmediatePropagation(); return; }  // 防连击
-    // 系统开启"减少动效"：不播波纹，直接走原函数并屏蔽其内置 VT，保证瞬时无动画切换
+    /* 系统开启"减少动效"：两条通道都不播动画，瞬时切换 */
     if (reduceMotion.matches) {
       e.preventDefault();
       e.stopImmediatePropagation();
-      invokeOriginalToggle(button);
+      invokeOriginalToggle(button, true);
       return;
     }
     e.preventDefault();
     e.stopImmediatePropagation();
     isAnimating = true;
-    const targetTheme = getCurrentTheme() === 'dark' ? 'light' : 'dark';
-    playRipple(button, targetTheme, function () {
-      invokeOriginalToggle(button);
-      resetButton(button);
-      isAnimating = false;
-    });
+    if (getCurrentTheme() === 'light') playChannelA(button);  // 浅→暗：锁定通道
+    else playChannelB(button);                                // 暗→浅：遮罩修复通道
   }
   function init() {
     if (!document.getElementById(THEME_MASK_LIGHT_ID) || !document.getElementById(THEME_MASK_DARK_ID)) return;
