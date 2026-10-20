@@ -47,11 +47,14 @@ type Cronjob struct {
 type JobRecord struct {
 	BaseModel
 
-	CronjobID uint      `gorm:"index" json:"cronjobID"`
-	TaskID    string    `gorm:"index" json:"taskID"`
-	StartTime time.Time `json:"startTime"`
+	CronjobID uint   `gorm:"index" json:"cronjobID"`
+	TaskID    string `gorm:"index" json:"taskID"`
+	// Status is declared before StartTime on purpose: GORM emits index
+	// columns in field order, and status = ? is an equality probe that must
+	// lead the composite index for the planner to seek into it.
+	Status    string    `gorm:"index:idx_jobrec_status_start" json:"status"`
+	StartTime time.Time `gorm:"index:idx_jobrec_status_start" json:"startTime"`
 	Interval  float64   `json:"interval"`
 	Records   string    `json:"records"`
-	Status    string    `json:"status"`
 	Message   string    `json:"message"`
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -22,6 +23,11 @@ import (
 type CronjobService struct{}
 
 var cronjobRepo repo.CronjobRepo
+
+// specParser is stateless and safe for concurrent use (robfig/cron's Parser
+// holds no mutable state), so it is shared package-wide instead of being
+// rebuilt on every spec parse.
+var specParser = cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 
 func (u *CronjobService) SearchWithPage(search dto.SearchCronjob) (int64, []dto.CronjobInfo, error) {
 	var opts []repo.DBOption
@@ -153,7 +159,6 @@ func (u *CronjobService) nextRunTime(spec string) ([]string, error) {
 }
 
 func (u *CronjobService) nextRunTimeSingle(spec string, now time.Time) ([]string, error) {
-	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 	var next []string
 	if strings.HasPrefix(spec, "@every ") {
 		normalized, err := scheduler.NormalizeEverySpec(spec)
@@ -173,7 +178,7 @@ func (u *CronjobService) nextRunTimeSingle(spec string, now time.Time) ([]string
 		}
 		return next, nil
 	}
-	sched, err := parser.Parse(spec)
+	sched, err := specParser.Parse(spec)
 	if err != nil {
 		return nil, err
 	}
@@ -234,14 +239,18 @@ func (u *CronjobService) Update(id uint, req dto.CronjobOperate) error {
 	}
 
 	if cronjob.Status == model.StatusEnable {
-		scheduler.GetRunner().Remove(cronjob.EntryIDs)
 		upCronjob := cronjob
 		upCronjob.Spec = req.Spec
-		entryIDs, err := scheduler.GetRunner().Register(&upCronjob, u.HandleJob)
+		// Register-before-swap: if the new registration fails, the old
+		// entries stay in place and DB/scheduler never disagree. With the
+		// old remove-first order a failed Register left entry_ids in the
+		// DB while nothing was scheduled — the job silently stopped.
+		newEntryIDs, err := scheduler.GetRunner().Register(&upCronjob, u.HandleJob)
 		if err != nil {
 			return fmt.Errorf("re-register cronjob failed: %v", err)
 		}
-		cronjob.EntryIDs = entryIDs
+		scheduler.GetRunner().Remove(cronjob.EntryIDs)
+		cronjob.EntryIDs = newEntryIDs
 	}
 
 	vars := map[string]interface{}{
@@ -286,10 +295,18 @@ func (u *CronjobService) UpdateStatus(id uint, status string) error {
 		scheduler.GetRunner().Remove(cronjob.EntryIDs)
 		entryIDs = ""
 	}
-	return cronjobRepo.Update(id, map[string]interface{}{
+	if err := cronjobRepo.Update(id, map[string]interface{}{
 		"status":    status,
 		"entry_ids": entryIDs,
-	})
+	}); err != nil {
+		// DB write failed: drop the entries just registered so a restart
+		// cannot resurrect a job whose row still says disabled.
+		if status == model.StatusEnable && entryIDs != "" {
+			scheduler.GetRunner().Remove(entryIDs)
+		}
+		return err
+	}
+	return nil
 }
 
 func (u *CronjobService) Delete(req dto.CronjobBatchDelete) error {
@@ -607,7 +624,6 @@ func (u *CronjobService) validateOperate(req dto.CronjobOperate) error {
 }
 
 func (u *CronjobService) validateSpec(spec string) error {
-	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 	for _, s := range strings.Split(spec, "&&") {
 		s = strings.TrimSpace(s)
 		if len(s) == 0 {
@@ -619,7 +635,7 @@ func (u *CronjobService) validateSpec(spec string) error {
 			}
 			continue
 		}
-		if _, err := parser.Parse(s); err != nil {
+		if _, err := specParser.Parse(s); err != nil {
 			return err
 		}
 	}
@@ -645,6 +661,9 @@ func RestoreCronjobs() {
 		cronjob := cronjobs[i]
 		entryIDs, err := scheduler.GetRunner().Register(&cronjob, cronjobSvc.HandleJob)
 		if err != nil {
+			// Surface restore failures: a silently skipped registration
+			// means the job never triggers and no log would say why.
+			log.Printf("restore cronjob [%s] schedule failed: %v", cronjob.Name, err)
 			continue
 		}
 		_ = cronjobRepo.Update(cronjob.ID, map[string]interface{}{"entry_ids": entryIDs})

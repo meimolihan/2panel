@@ -14,6 +14,14 @@ var webFS embed.FS
 func New() http.Handler {
 	mux := http.NewServeMux()
 
+	// healthz is intentionally unauthenticated and returns a constant
+	// payload so container/LB probes never see version details; those
+	// stay behind the authenticated /api/version route.
+	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		_, _ = w.Write([]byte(`{"code":0,"msg":"ok"}`))
+	})
+
 	cronjobs := "/api/cronjobs"
 	cronApi := handler.BaseApi.CronjobApi
 	authApi := handler.BaseApi.AuthApi
@@ -92,5 +100,18 @@ func New() http.Handler {
 		panic(err)
 	}
 	mux.Handle("/", http.FileServerFS(web))
-	return mux
+	return securityHeaders(mux)
+}
+
+// securityHeaders adds low-cost hardening headers to every response. The
+// panel is a same-origin single-page app, so nosniff / DENY framing /
+// same-origin referrer do not affect normal use.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "same-origin")
+		h.Set("X-Frame-Options", "DENY")
+		next.ServeHTTP(w, r)
+	})
 }

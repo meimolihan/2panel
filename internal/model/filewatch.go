@@ -56,14 +56,18 @@ type FileWatch struct {
 type FileWatchRecord struct {
 	BaseModel
 
-	WatchID   uint      `gorm:"index" json:"watchID"`
-	WatchName string    `json:"watchName"`
-	TaskID    string    `gorm:"index" json:"taskID"`
-	EventPath string    `json:"eventPath"`
-	EventType string    `json:"eventType"`
-	StartTime time.Time `json:"startTime"`
+	WatchID   uint   `gorm:"index" json:"watchID"`
+	WatchName string `json:"watchName"`
+	TaskID    string `gorm:"index" json:"taskID"`
+	EventPath string `json:"eventPath"`
+	EventType string `json:"eventType"`
+	// Status is declared before StartTime on purpose: GORM emits index
+	// columns in field order, and status = ? must lead the composite index
+	// for the planner to seek into it. Index names are distinct per table
+	// because SQLite scopes index names across the whole database.
+	Status    string    `gorm:"index:idx_watchrec_status_start" json:"status"`
+	StartTime time.Time `gorm:"index:idx_watchrec_status_start" json:"startTime"`
 	Interval  float64   `json:"interval"`
 	Records   string    `json:"records"`
-	Status    string    `json:"status"`
 	Message   string    `json:"message"`
 }
