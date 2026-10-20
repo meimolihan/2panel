@@ -1,9 +1,9 @@
-日常更新
+优化暗色模式显示效果
 
 docker pull mobufan/2panel:latest
 
 ```bash
-docker pull mobufan/2panel:v1.0.12
+docker pull mobufan/2panel:v1.0.2
 ```
 
 ```bash
@@ -11,7 +11,7 @@ docker pull ghcr.io/meimolihan/2panel:latest
 ```
 
 ```bash
-docker pull ghcr.io/meimolihan/2panel:v1.0.12
+docker pull ghcr.io/meimolihan/2panel:v1.0.2
 ```
 
 ## 二进制安装
