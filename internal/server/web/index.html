@@ -2102,75 +2102,245 @@ td.name.ellipsis.failed { font-weight: 700; }
 :root:not([data-theme="light"]) .modal-head h3 { letter-spacing: -0.01em; }
 
 /* ======================================================================
-   追加层 9：主题切换 —— clip-path 圆形波纹过渡 + sun/moon 图标错峰旋转
+   追加层 10：UI 标准化审查修复（明暗双主题）
    ----------------------------------------------------------------------
-   可调参数（全部集中在 :root，改数值即可微调，不必动 JS）：
-     --theme-ripple-dur     背景扩散/收缩时长        —— 微调动画快慢（规范 1500ms）
-     --theme-ripple-ease    背景缓动曲线            —— ease-out；越接近 1 前段越"冲"
-     --theme-icon-ease      图标缓动曲线            —— 与背景解耦，可单独调回弹手感
-     --theme-ripple-fade    波纹层淡入时长          —— 柔化收缩方向的起始硬切
-     --theme-icon-dur       图标旋转+缩放时长        —— 微调图标动画快慢（规范 1000ms）
-     --theme-icon-delay     图标动画起始延时        —— 微调图标出场时机（规范 800ms）
-     --theme-icon-stagger   两个图标的错峰间隔      —— 数值 > 0 即为错峰，0 则同步
-     --theme-dark           深色底色（波纹层用）    —— 规范 #2b2b2b
-     --theme-light          浅色底色（波纹层用）    —— 规范 #f8f8f8
-     --theme-ripple-z       波纹层层级              —— 必须低于弹窗(100)/对话框(500)
-   圆心与半径不在这里：JS 按主题按钮实际坐标写入 --ripple-x / --ripple-y / --ripple-r
+   仅补充色彩 / 触控热区 / 时序，不新增删除任何 DOM，不改业务与交互逻辑。
+   暗色样式统一嵌套项目原有暗色根 [data-theme="dark"]，
+   浅色样式统一嵌套 [data-theme="light"]，杜绝全局污染。
+   ====================================================================== */
+
+/* 修复问题#1：Switch 触控热区仅 38×22px —— 用伪元素外扩命中区，视觉尺寸与布局不变 */
+@media (pointer: coarse) {
+  .switch::before { content: ""; position: absolute; inset: -11px -3px; border-radius: inherit; }
+}
+
+/* 修复问题#2：关闭按钮 / 返回顶部 / 分组 chip 触控热区不足 44px —— 同样以伪元素外扩 */
+@media (pointer: coarse) {
+  .modal-head .close::before { inset: -10px; }
+  .back-top { position: relative; }
+  .back-top::before { content: ""; position: absolute; inset: -3px; border-radius: 50%; }
+  .group-chip { position: relative; }
+  .group-chip::before { content: ""; position: absolute; inset: -10px -4px; border-radius: inherit; }
+}
+
+/* 修复问题#3：移动端表单控件触控热区 <44px —— 表单元素不支持伪元素，只能提最小高度 */
+@media (max-width: 767px) {
+  .toolbar input[type=text], .toolbar select { min-height: 44px; }
+  .pager-jump input[type=number] { min-height: 44px; }
+  .form-row input[type=text], .form-row select { min-height: 44px; }
+  .dialog-field input { min-height: 44px; }
+}
+
+/* 修复问题#4：触屏端 hover 颜色/旋转残留 —— 仅复位颜色，不改布局 */
+@media (hover: none), (pointer: coarse) {
+  .btn:not(.primary):not(.danger):hover { border-color: var(--border); color: var(--text); }
+  .btn.danger:hover { background: var(--bg-card); border-color: var(--danger); color: var(--danger); }
+  .tab:hover { background: transparent; }
+  .tab.active:hover { background: transparent; }
+  .group-chip:hover { border-color: var(--border); color: var(--text-secondary); }
+  .group-chip.on:hover { border-color: var(--primary); color: var(--primary); }
+  .spec-presets .preset:hover { border-color: var(--border); color: var(--text-secondary); box-shadow: none; }
+  .dropdown-item:hover { background: transparent; color: var(--text); }
+  .dropdown-item.danger:hover { background: transparent; color: var(--danger); }
+  tbody tr:hover { background-image: none; }
+  tbody tr:nth-child(even):hover { background: var(--row-zebra); }
+  tbody tr:nth-child(odd):hover { background: transparent; }
+  tbody tr.row-running:hover { background-color: color-mix(in srgb, var(--primary) 7%, var(--bg-card)); }
+  .spec-row:hover { border-color: var(--border); background: var(--bg-input); }
+  .user-avatar:hover { border-color: var(--border); color: var(--text-secondary); }
+  .switch:hover .track { border-color: var(--border); }
+  .theme-toggle:hover svg { transform: translate(-50%, -50%); }
+  .back-top:hover { color: var(--text-secondary); border-color: var(--border); }
+  [data-theme="dark"] .btn.primary:hover {
+    background: linear-gradient(180deg, #45639f 0%, #3c5994 100%);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 1px 2px rgba(12, 17, 26, 0.34), 0 0 0 1px rgba(124, 154, 216, 0.16), 0 4px 12px rgba(62, 92, 154, 0.20);
+  }
+  [data-theme="light"] .btn.primary:hover {
+    background: var(--primary-solid);
+    border-color: var(--primary-solid);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+/* 修复问题#5：暗色主题阴影为纯黑 rgba(0,0,0,*)，改为低饱和冷色柔阴影（阴影令牌 + 硬编码处） */
+[data-theme="dark"] {
+  --shadow-sm: 0 1px 2px rgba(12, 17, 26, 0.34), 0 4px 12px rgba(12, 17, 26, 0.20);
+  --shadow-md: 0 2px 6px rgba(12, 17, 26, 0.28), 0 10px 26px rgba(12, 17, 26, 0.24);
+  --shadow-lg: 0 16px 44px rgba(10, 14, 22, 0.46);
+  --shadow-hover: 0 4px 10px rgba(12, 17, 26, 0.30), 0 14px 30px rgba(12, 17, 26, 0.22);
+}
+[data-theme="dark"] .card,
+[data-theme="dark"] .stat-card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 1px 2px rgba(12, 17, 26, 0.30), 0 10px 24px rgba(12, 17, 26, 0.18);
+}
+[data-theme="dark"] .login-card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 6px rgba(12, 17, 26, 0.32), 0 20px 48px rgba(12, 17, 26, 0.32);
+}
+[data-theme="dark"] .modal,
+[data-theme="dark"] .dialog-box {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 24px 60px rgba(10, 14, 22, 0.48);
+}
+[data-theme="dark"] .toast { box-shadow: 0 10px 30px rgba(12, 17, 26, 0.38); }
+[data-theme="dark"] .btn { box-shadow: 0 1px 2px rgba(12, 17, 26, 0.26); }
+[data-theme="dark"] .log-view { box-shadow: inset 0 2px 10px rgba(8, 11, 17, 0.34); }
+[data-theme="dark"] .toolbar input[type=text],
+[data-theme="dark"] .toolbar select,
+[data-theme="dark"] .form-row input[type=text],
+[data-theme="dark"] .form-row textarea,
+[data-theme="dark"] .form-row select,
+[data-theme="dark"] .login-field input,
+[data-theme="dark"] .pwd-wrap,
+[data-theme="dark"] .spec-row select,
+[data-theme="dark"] .spec-row input[type=number],
+[data-theme="dark"] .dialog-field input,
+[data-theme="dark"] .pager-jump input[type=number],
+[data-theme="dark"] .group-edit-name {
+  box-shadow: inset 0 1px 2px rgba(8, 11, 17, 0.22);
+}
+
+/* 修复问题#6：浅色主题卡片为死纯白 #ffffff —— 改为低饱和柔白（保留极淡明度落差分层） */
+[data-theme="light"] {
+  --bg-card: #fbfcfd;
+  --bg-header: #f4f7fa;
+  --card-grad: linear-gradient(180deg, #fdfefe 0%, #f7f9fc 100%);
+}
+[data-theme="light"] .card,
+[data-theme="light"] .stat-card {
+  background-image: linear-gradient(160deg, #fdfefe 0%, #f6f8fb 100%);
+}
+[data-theme="light"] .header { background: rgba(248, 250, 252, 0.86); }
+
+/* 修复问题#7：浅色主题次级与辅助文字明度几乎相同（60%/40% 分层失效） */
+[data-theme="light"] {
+  --text-secondary: #4d5663;
+  --text-tertiary: #656e7a;
+}
+
+/* 修复问题#8：浅色主题斑马纹过重、行悬停为高饱和蓝硬色块，与暗色（0.022/0.06）不统一 */
+[data-theme="light"] {
+  --row-zebra: rgba(15, 23, 42, 0.025);
+  --row-hover-bg: rgba(47, 111, 237, 0.07);
+}
+
+/* 修复问题#9：浅色主题弹层阴影厚重（24px/56px 深色阴影） */
+[data-theme="light"] {
+  --shadow-md: 0 2px 6px rgba(23, 32, 46, 0.05), 0 8px 18px rgba(23, 32, 46, 0.07);
+  --shadow-lg: 0 10px 26px rgba(23, 32, 46, 0.12), 0 2px 6px rgba(23, 32, 46, 0.06);
+  --shadow-hover: 0 4px 10px rgba(23, 32, 46, 0.06), 0 12px 24px rgba(23, 32, 46, 0.08);
+}
+
+/* 修复问题#10：浅色主题输出区仍是硬编码暗色块，与浅色主题语言割裂 */
+[data-theme="light"] .log-view {
+  background: var(--bg-code);
+  color: var(--text);
+  box-shadow: inset 0 2px 8px rgba(23, 32, 46, 0.10);
+}
+[data-theme="light"] .log-view .err { color: var(--danger); }
+
+/* 修复问题#11：浅色主题默认密码提示文字对比度仅约 2.8:1（#d97706 on #f5f0e8） */
+[data-theme="light"] { --warning: #a05804; }
+
+/* 修复问题#12：暗色主题"已禁用"标签前景约 4.3:1，低于 4.5:1 */
+[data-theme="dark"] { --tag-disabled-color: rgba(255, 255, 255, 0.55); }
+
+/* 修复问题#13：浅色主题滚动条滑块近乎不可见（--border #e5e9f0） */
+[data-theme="light"] * { scrollbar-color: rgba(15, 23, 42, 0.18) transparent; }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(15, 23, 42, 0.18); }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(47, 111, 237, 0.42); }
+
+/* 修复问题#14：统计图标色块两主题不统一（暗色中性底 / 浅色四色块） */
+[data-theme="light"] .stat-icon {
+  background: rgba(15, 23, 42, 0.04);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+/* 修复问题#15：浅色主题缺同款微光（奖励徽标 / 选中态），与暗色 20% 重点元素规则不对齐 */
+[data-theme="light"] .upd-badge { box-shadow: 0 0 10px rgba(217, 174, 124, 0.22); }
+[data-theme="light"] .group-chip.on { box-shadow: 0 0 10px rgba(47, 111, 237, 0.14); }
+[data-theme="light"] .tab.active { text-shadow: 0 0 12px rgba(47, 111, 237, 0.18); }
+
+/* 修复问题#16：浅色主题登录页仍保留 6s 无限旋转光带边框（暗色已移除），两主题不一致且属重旋转动画 */
+[data-theme="light"] .login-card::before,
+[data-theme="light"] .login-card::after { display: none; }
+[data-theme="light"] .login-card { border: 1px solid var(--border); }
+
+/* 修复问题#17：过渡时序未统一 —— 0.18s 收进 0.2–0.3s 区间，登录抖动 0.5s 收进 0.3s */
+.stat-card { transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease; }
+.login-card.shake { animation: login-shake 0.3s ease; }
+
+/* 修复问题#18：移动端表格分隔线为生硬虚线，且长路径被 break-all 逐字断开 */
+@media (max-width: 767px) {
+  td { border-bottom-color: var(--border-soft); }
+  /* 行内 style 含 word-break:break-all，需 !important 才能覆盖 */
+  td[data-label="监控路径"] { word-break: normal !important; overflow-wrap: anywhere; }
+}
+
+/* ======================================================================
+   追加层 11：主题波纹动效（双层悬浮遮罩 · 纯动画层，不改业务主干）
+   ----------------------------------------------------------------------
+   全部可调参数集中在 :root，纯 CSS 即可调节，无需改 JS：
+     --color-dark / --color-light   遮罩底色（深/浅），建议取项目真实主题底色
+     --theme-ripple-duration        波纹扩散时长（基准 1.5s）
+     --theme-ripple-ease            波纹缓动（基准 ease-out）
+     --theme-ripple-radius-scale    扩散半径倍率（1 = 刚好铺满，>1 留余量）
+     --theme-ripple-center-x/-y     圆心相对按钮中心的偏移（负值向左/上）
+     --theme-ripple-edge-soft       边缘抗锯齿柔化量（0 = 关闭，勿调过大）
+     --theme-mask-z                 遮罩层级（须低于弹窗层，避免盖住浮层）
+     --theme-icon-duration          图标旋转+缩放时长（基准 1s）
+     --theme-icon-delay             图标动效起始延时（基准 0.8s）
+     --theme-icon-stagger           两个图标的错峰时差（0 = 同步）
+     --theme-icon-ease              图标缓动
+     --theme-icon-scale-from/-to    图标缩放倍率区间
    ====================================================================== */
 :root {
-  --theme-ripple-dur: 1500ms;
-  --theme-ripple-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --theme-ripple-fade: 160ms;
-  --theme-icon-dur: 1000ms;
+  /* —— 遮罩配色 —— */
+  --color-dark: #2b2b2b;
+  --color-light: #f8f8f8;
+  /* —— 波纹时序 —— */
+  --theme-ripple-duration: 1.5s;
+  --theme-ripple-ease: ease-out;
+  /* —— 波纹几何 —— */
+  --theme-ripple-radius-scale: 1.04;   /* 半径倍率，1.04 留出一点余量 */
+  --theme-ripple-center-x: 0px;        /* 圆心 X 偏移 */
+  --theme-ripple-center-y: 0px;        /* 圆心 Y 偏移 */
+  --theme-ripple-edge-soft: 0.15px;    /* 边缘抗锯齿柔化，0 = 关闭 */
+  --theme-mask-z: 90;                  /* 遮罩层级：高于顶栏(80)，低于弹窗(100) */
+  /* —— 图标时序 —— */
+  --theme-icon-duration: 1s;
+  --theme-icon-delay: 0.8s;
+  --theme-icon-stagger: 0.16s;
   --theme-icon-ease: cubic-bezier(0.22, 0.68, 0.32, 1.08);
-  --theme-icon-delay: 800ms;
-  --theme-icon-stagger: 160ms;
-  --theme-dark: #2b2b2b;
-  --theme-light: #f8f8f8;
-  --theme-ripple-z: 90;
+  --theme-icon-scale-from: 0.4;
+  --theme-icon-scale-to: 1;
 }
 
-/* —— 波纹层：整屏圆形遮罩，不接收任何指针事件 —— */
-.theme-ripple {
+/* —— 遮罩层：全屏悬浮、绝不拦截交互、默认隐藏（初始化不闪现） —— */
+.theme-mask {
   position: fixed;
   inset: 0;
-  z-index: var(--theme-ripple-z);
-  pointer-events: none;            /* 永不遮挡/拦截其他可点击元素 */
-  background: var(--theme-light);
+  z-index: var(--theme-mask-z);
+  pointer-events: none;                 /* 永不遮挡任何可点击元素 */
   opacity: 0;
   visibility: hidden;
-  clip-path: circle(0px at var(--ripple-x, 100vw) var(--ripple-y, 0px));
-  will-change: clip-path, opacity;
+  background: var(--color-light);
+  clip-path: circle(0px at var(--mask-x, 100%) var(--mask-y, 0px));
+  will-change: clip-path;
+  filter: blur(var(--theme-ripple-edge-soft));  /* 极轻微边缘柔化，0 即关闭 */
 }
-.theme-ripple.is-expand,
-.theme-ripple.is-contract { visibility: visible; }
+.theme-mask-dark { background: var(--color-dark); }
 
-/* 浅色向外炸开：浅色圆自按钮扩散铺满全屏 */
-.theme-ripple.is-expand {
-  background: var(--theme-light);
-  animation: theme-ripple-expand var(--theme-ripple-dur) var(--theme-ripple-ease) forwards;
+/* —— 波纹：双向统一"新色遮罩自按钮圆心向外扩散铺满" —— */
+.theme-mask.is-rippling {
+  visibility: visible;
+  animation: theme-mask-expand var(--theme-ripple-duration) var(--theme-ripple-ease) forwards;
 }
-/* 深色向内收缩：深色圆由全屏收拢回按钮 */
-.theme-ripple.is-contract {
-  background: var(--theme-dark);
-  animation:
-    theme-ripple-fade var(--theme-ripple-fade) ease-out forwards,
-    theme-ripple-contract var(--theme-ripple-dur) var(--theme-ripple-ease) forwards;
-}
-@keyframes theme-ripple-expand {
-  from { clip-path: circle(0px at var(--ripple-x) var(--ripple-y)); opacity: 1; }
-  to   { clip-path: circle(var(--ripple-r) at var(--ripple-x) var(--ripple-y)); opacity: 1; }
-}
-@keyframes theme-ripple-contract {
-  from { clip-path: circle(var(--ripple-r) at var(--ripple-x) var(--ripple-y)); opacity: 1; }
-  to   { clip-path: circle(0px at var(--ripple-x) var(--ripple-y)); opacity: 1; }
-}
-@keyframes theme-ripple-fade {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+@keyframes theme-mask-expand {
+  from { clip-path: circle(0px at var(--mask-x) var(--mask-y)); opacity: 1; }
+  to   { clip-path: circle(var(--mask-r) at var(--mask-x) var(--mask-y)); opacity: 1; }
 }
 
-/* —— 主题按钮：sun / moon 叠放于同一位置，切换时错峰旋转 —— */
+/* —— 主题按钮图标：sun / moon 叠放，切换时错峰 360° 旋转 + 缩放 —— */
 .theme-toggle { position: relative; }
 .theme-toggle .icon-sun,
 .theme-toggle .icon-moon {
@@ -2179,37 +2349,35 @@ td.name.ellipsis.failed { font-weight: 700; }
   left: 50%;
   transform: translate(-50%, -50%);
 }
-/* 过渡期间两个图标同时在场（覆盖明暗主题各自的 display:none 规则） */
+/* 动效期间两个图标同时在场（覆盖明暗主题各自的 display:none 规则） */
 .theme-toggle.is-switching .icon-sun,
 .theme-toggle.is-switching .icon-moon { display: block; }
-
-/* 切到浅色：太阳转出、月亮转入（两者错峰，不同步） */
-.theme-toggle.is-switching.to-light .icon-sun {
-  animation: theme-icon-out var(--theme-icon-dur) var(--theme-icon-ease) var(--theme-icon-delay) both;
-}
-.theme-toggle.is-switching.to-light .icon-moon {
-  animation: theme-icon-in var(--theme-icon-dur) var(--theme-icon-ease) calc(var(--theme-icon-delay) + var(--theme-icon-stagger)) both;
-}
 /* 切到深色：月亮转出、太阳转入 */
 .theme-toggle.is-switching.to-dark .icon-sun {
-  animation: theme-icon-in var(--theme-icon-dur) var(--theme-icon-ease) var(--theme-icon-delay) both;
+  animation: theme-icon-in var(--theme-icon-duration) var(--theme-icon-ease) var(--theme-icon-delay) both;
 }
 .theme-toggle.is-switching.to-dark .icon-moon {
-  animation: theme-icon-out var(--theme-icon-dur) var(--theme-icon-ease) calc(var(--theme-icon-delay) + var(--theme-icon-stagger)) both;
+  animation: theme-icon-out var(--theme-icon-duration) var(--theme-icon-ease) calc(var(--theme-icon-delay) + var(--theme-icon-stagger)) both;
+}
+/* 切到浅色：太阳转出、月亮转入 */
+.theme-toggle.is-switching.to-light .icon-sun {
+  animation: theme-icon-out var(--theme-icon-duration) var(--theme-icon-ease) var(--theme-icon-delay) both;
+}
+.theme-toggle.is-switching.to-light .icon-moon {
+  animation: theme-icon-in var(--theme-icon-duration) var(--theme-icon-ease) calc(var(--theme-icon-delay) + var(--theme-icon-stagger)) both;
 }
 @keyframes theme-icon-in {
-  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-180deg) scale(0.4); }
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-180deg) scale(var(--theme-icon-scale-from)); }
   55%  { opacity: 1; }
-  100% { opacity: 1; transform: translate(-50%, -50%) rotate(180deg) scale(1); }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(180deg) scale(var(--theme-icon-scale-to)); }
 }
 @keyframes theme-icon-out {
-  0%   { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+  0%   { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(var(--theme-icon-scale-to)); }
   45%  { opacity: 1; }
-  100% { opacity: 0; transform: translate(-50%, -50%) rotate(180deg) scale(0.4); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(180deg) scale(var(--theme-icon-scale-from)); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .theme-ripple.is-expand,
-  .theme-ripple.is-contract { animation: none; }
+  .theme-mask.is-rippling { animation: none; }
   .theme-toggle.is-switching .icon-sun,
   .theme-toggle.is-switching .icon-moon { animation: none; }
 }
@@ -3685,107 +3853,25 @@ function flushScriptSearch() {
   loadScriptList(1);
 }
 
-/* ============================================================
-   主题切换：clip-path 圆形波纹过渡
-   —— 只替换「过渡表现」；主题读写逻辑（data-theme + localStorage）保持原样
-   ============================================================ */
-const THEME_RIPPLE = { ripple: null, btn: null, rippleTimer: null, iconTimer: null, pending: null };
-
-/* 从 CSS 变量读取时序，保证样式与脚本单一数据源（改 CSS 即可微调） */
-function themeRippleTiming() {
-  const cs = getComputedStyle(document.documentElement);
-  const num = (name, fallback) => {
-    const v = parseFloat(cs.getPropertyValue(name));
-    return Number.isFinite(v) ? v : fallback;
-  };
-  return {
-    dur: num('--theme-ripple-dur', 1500),
-    iconDur: num('--theme-icon-dur', 1000),
-    iconDelay: num('--theme-icon-delay', 800),
-    stagger: num('--theme-icon-stagger', 160)
-  };
-}
-
-/* 收尾：波纹层与图标状态复位；applyPending 为真时把延后提交的主题落地 */
-function themeRippleReset(applyPending) {
-  if (THEME_RIPPLE.rippleTimer) { clearTimeout(THEME_RIPPLE.rippleTimer); THEME_RIPPLE.rippleTimer = null; }
-  if (THEME_RIPPLE.iconTimer) { clearTimeout(THEME_RIPPLE.iconTimer); THEME_RIPPLE.iconTimer = null; }
-  if (applyPending && THEME_RIPPLE.pending) {
-    const p = THEME_RIPPLE.pending;
-    THEME_RIPPLE.pending = null;
-    p();
-  }
-  THEME_RIPPLE.pending = null;
-  if (THEME_RIPPLE.ripple) THEME_RIPPLE.ripple.classList.remove('is-expand', 'is-contract');
-  if (THEME_RIPPLE.btn) THEME_RIPPLE.btn.classList.remove('is-switching', 'to-light', 'to-dark');
-}
-
 function toggleTheme() {
-  const root = document.documentElement;
-  const current = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-  const target = current === 'dark' ? 'light' : 'dark';
-
-  // 主题落地的唯一出口：写 data-theme + 持久化（原有业务逻辑不变）
+  const target = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
   const commit = () => {
-    root.setAttribute('data-theme', target);
+    document.documentElement.setAttribute('data-theme', target);
     try { localStorage.setItem('theme', target); } catch (e) {}
   };
-
-  const btn = document.querySelector('.theme-toggle');
-  const ripple = document.getElementById('themeRipple');
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  // 兜底：没有波纹层 / 不支持动画 / 用户要求减少动效 → 直接切换
-  if (!btn || !ripple || reduce || !window.requestAnimationFrame) {
-    themeRippleReset(true);
-    commit();
-    return;
-  }
-
-  // 快速连点：先收尾上一次过渡，避免两次动画叠加
-  themeRippleReset(true);
-
-  const t = themeRippleTiming();
-  const rect = btn.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;                 // 圆心 X = 主题按钮中心
-  const cy = rect.top + rect.height / 2;                  // 圆心 Y = 主题按钮中心
-  const radius = Math.hypot(Math.max(cx, innerWidth - cx), Math.max(cy, innerHeight - cy)); // 铺满全屏所需半径
-
-  ripple.style.setProperty('--ripple-x', cx + 'px');
-  ripple.style.setProperty('--ripple-y', cy + 'px');
-  ripple.style.setProperty('--ripple-r', radius + 'px');
-
-  THEME_RIPPLE.ripple = ripple;
-  THEME_RIPPLE.btn = btn;
-
-  btn.classList.add('is-switching', target === 'light' ? 'to-light' : 'to-dark');
-  ripple.classList.remove('is-expand', 'is-contract');
-  void ripple.offsetWidth;                                // 强制回流，保证动画可重复触发
-  ripple.classList.add(target === 'light' ? 'is-expand' : 'is-contract');
-
-  if (target === 'light') {
-    // 浅色向外炸开：浅色圆扩散铺满全屏后此刻再切主题，画面无缝无闪烁
-    THEME_RIPPLE.pending = commit;
-    THEME_RIPPLE.rippleTimer = setTimeout(() => {
-      if (THEME_RIPPLE.rippleTimer) { clearTimeout(THEME_RIPPLE.rippleTimer); THEME_RIPPLE.rippleTimer = null; }
-      if (THEME_RIPPLE.pending) { const p = THEME_RIPPLE.pending; THEME_RIPPLE.pending = null; p(); }
-      if (THEME_RIPPLE.ripple) THEME_RIPPLE.ripple.classList.remove('is-expand', 'is-contract');
-    }, t.dur);
+  if (document.startViewTransition) {
+    const t = document.startViewTransition(commit);
+    t.ready.then(() => {
+      const cx = window.innerWidth, cy = 0;
+      const r = Math.hypot(Math.max(cx, window.innerWidth - cx), Math.max(cy, window.innerHeight - cy));
+      document.documentElement.animate(
+        { clipPath: [`circle(0% at ${cx}px ${cy}px)`, `circle(${r}px at ${cx}px ${cy}px)`] },
+        { duration: 500, easing: 'ease-in-out', pseudoElement: '::view-transition-new(root)' }
+      );
+    }).catch(() => {});
   } else {
-    // 深色向内收缩：先切主题（同色波纹盖住切换瞬间），再让深色圆收拢回按钮
     commit();
-    THEME_RIPPLE.rippleTimer = setTimeout(() => {
-      if (THEME_RIPPLE.rippleTimer) { clearTimeout(THEME_RIPPLE.rippleTimer); THEME_RIPPLE.rippleTimer = null; }
-      if (THEME_RIPPLE.ripple) THEME_RIPPLE.ripple.classList.remove('is-expand', 'is-contract');
-    }, t.dur);
   }
-
-  // 图标动画总长 = 延时 + 时长 + 错峰，按钮状态等图标跑完再撤
-  const iconEnd = Math.max(t.dur, t.iconDelay + t.iconDur + t.stagger);
-  THEME_RIPPLE.iconTimer = setTimeout(() => {
-    THEME_RIPPLE.iconTimer = null;
-    if (THEME_RIPPLE.btn) THEME_RIPPLE.btn.classList.remove('is-switching', 'to-light', 'to-dark');
-  }, iconEnd);
 }
 
 const statusText = { enabled: '已启用', disabled: '已禁用', success: '成功', failed: '失败', running: '执行中', waiting: '等待中', unexecuted: '未执行' };
@@ -5492,9 +5578,144 @@ document.getElementById('f_spec').addEventListener('input', e => calcNext(e.targ
 })();
 </script>
 
-<!-- ★新增（仅此 1 个节点）：主题切换波纹层
-     整屏 clip-path 圆形遮罩，用于 sun/moon 切换时的圆形波纹过渡。
-     pointer-events:none —— 永不拦截任何点击；由 JS 写入 --ripple-x/--ripple-y/--ripple-r 定位圆心与半径。 -->
-<div class="theme-ripple" id="themeRipple" aria-hidden="true"></div>
+<!-- ★新增（规定的 2 个遮罩节点，挂载在 body 直接子级）：
+     .theme-mask-light 承载浅色，.theme-mask-dark 承载深色。
+     均为 position:fixed 全屏覆盖 + pointer-events:none，永不阻挡任何页面交互；
+     clip-path 圆形波纹只作用在这两层上，真实页面本体的主题切换由 JS 延迟到动画结束后执行。
+     由 JS 写入 --mask-x / --mask-y / --mask-r 动态定位圆心与半径。 -->
+<div class="theme-mask theme-mask-light" id="themeMaskLight" aria-hidden="true"></div>
+<div class="theme-mask theme-mask-dark" id="themeMaskDark" aria-hidden="true"></div>
+
+<!-- ★新增：主题波纹动效辅助层（纯附加，不触碰任何业务主干）
+     原理：捕获阶段拦截主题按钮点击 → 播放遮罩圆形波纹 → 动画结束后再调用
+     原有 toggleTheme()（主题判定 / localStorage 持久化源码零改动）。 -->
+<script>
+/* ================================================================
+   主题波纹动效 · 辅助层（双层悬浮遮罩）
+   ------------------------------------------------------------
+   · ENABLE_THEME_RIPPLE = false → 一键关闭波纹，回归原生切换效果
+   · 原有 toggleTheme() / localStorage 读写 / 主题判定主干：零改动
+   · 防连击锁 isAnimating：动画未结束前屏蔽再次触发
+   ================================================================ */
+const ENABLE_THEME_RIPPLE = true;             // 一键开关
+const THEME_TOGGLE_SELECTOR = '.theme-toggle'; // 主题按钮选择器
+const THEME_MASK_LIGHT_ID = 'themeMaskLight';  // 浅色遮罩节点 id
+const THEME_MASK_DARK_ID = 'themeMaskDark';    // 深色遮罩节点 id
+const THEME_ATTR_NAME = 'data-theme';          // 根元素主题标记（若用 class 改这里并改 getCurrentTheme）
+const THEME_TOGGLE_FN = 'toggleTheme';         // 原有切换函数名（挂在 window 上）
+const SUPPRESS_LEGACY_VIEW_TRANSITION = true;  // 调用原函数时屏蔽其内置 VT 圆形揭示，避免与遮罩波纹叠加
+
+(function () {
+  if (!ENABLE_THEME_RIPPLE) return;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let isAnimating = false;      // 防连击锁
+  let bypassNextClick = false;  // 内部重新派发点击时放行
+  let iconResetTimer = null;    // 图标复位定时器（避免跨轮次误清）
+
+  /* 读取 :root 上的动画参数（CSS 单一数据源，JS 不硬写数值） */
+  function cssNumber(name, fallback) {
+    const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+    return Number.isFinite(v) ? v : fallback;
+  }
+  function cssTime(name, fallback) {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    if (!raw) return fallback;
+    if (raw.endsWith('ms')) return parseFloat(raw) || fallback;
+    if (raw.endsWith('s')) return (parseFloat(raw) || fallback / 1000) * 1000;
+    return fallback;
+  }
+  /* 当前主题判定：优先读 data-theme，兼容 class 方案与系统偏好兜底 */
+  function getCurrentTheme() {
+    const root = document.documentElement;
+    const attr = root.getAttribute(THEME_ATTR_NAME);
+    if (attr) return attr.toLowerCase() === 'dark' ? 'dark' : 'light';
+    if (root.classList.contains('dark')) return 'dark';
+    if (root.classList.contains('light')) return 'light';
+    return reduceMotion.matches ? 'dark' : 'light';
+  }
+  /* 调用原有切换逻辑：优先直接调用原函数，否则重新派发一次原生点击 */
+  function invokeOriginalToggle(button) {
+    const fn = window[THEME_TOGGLE_FN];
+    if (typeof fn === 'function') {
+      if (SUPPRESS_LEGACY_VIEW_TRANSITION && 'startViewTransition' in document) {
+        const saved = document.startViewTransition;
+        try { document.startViewTransition = undefined; fn(); }
+        finally { document.startViewTransition = saved; }
+      } else { fn(); }
+      return;
+    }
+    bypassNextClick = true;
+    try { button.click(); } finally { bypassNextClick = false; }
+  }
+  /* 播放波纹：遮罩自按钮圆心向外扩散铺满，结束后回调（此刻才切本体主题） */
+  function playRipple(button, targetTheme, done) {
+    const mask = document.getElementById(targetTheme === 'dark' ? THEME_MASK_DARK_ID : THEME_MASK_LIGHT_ID);
+    if (!mask) { done(); return; }
+    const rect = button.getBoundingClientRect();          // 动态取按钮坐标，适配位置微变
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const maxX = Math.max(cx, window.innerWidth - cx);
+    const maxY = Math.max(cy, window.innerHeight - cy);
+    const radius = Math.hypot(maxX, maxY) * cssNumber('--theme-ripple-radius-scale', 1);
+    mask.style.setProperty('--mask-x', (cx + cssNumber('--theme-ripple-center-x', 0)) + 'px');
+    mask.style.setProperty('--mask-y', (cy + cssNumber('--theme-ripple-center-y', 0)) + 'px');
+    mask.style.setProperty('--mask-r', radius + 'px');
+    // 复位上一轮遗留的图标状态，避免 to-light / to-dark 叠加导致方向错乱
+    if (iconResetTimer) { clearTimeout(iconResetTimer); iconResetTimer = null; }
+    button.classList.remove('is-switching', 'to-dark', 'to-light');
+    button.classList.add('is-switching', targetTheme === 'dark' ? 'to-dark' : 'to-light');
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(safety);
+      done();                                   // 本体主题此刻才真正切换
+      mask.classList.remove('is-rippling');    // 遮罩复原隐藏，清除临时状态
+    };
+    mask.addEventListener('animationend', finish, { once: true });
+    const safety = setTimeout(finish, cssTime('--theme-ripple-duration', 1500) + 220);  // 动画丢失兜底
+    mask.classList.add('is-rippling');
+  }
+  /* 图标动效跑完后复位按钮状态 */
+  function resetButton(button) {
+    if (iconResetTimer) { clearTimeout(iconResetTimer); iconResetTimer = null; }
+    const total = cssTime('--theme-icon-delay', 800) + cssTime('--theme-icon-duration', 1000) + cssTime('--theme-icon-stagger', 160);
+    iconResetTimer = setTimeout(() => {
+      iconResetTimer = null;
+      button.classList.remove('is-switching', 'to-dark', 'to-light');
+    }, total);
+  }
+  /* 捕获阶段拦截：阻止原点击处理，改为"先动画、后切换" */
+  function onClick(e) {
+    if (bypassNextClick) return;
+    const t = e.target;
+    const button = t && t.closest ? t.closest(THEME_TOGGLE_SELECTOR) : null;
+    if (!button) return;
+    if (isAnimating) { e.preventDefault(); e.stopImmediatePropagation(); return; }  // 防连击
+    // 系统开启"减少动效"：不播波纹，直接走原函数并屏蔽其内置 VT，保证瞬时无动画切换
+    if (reduceMotion.matches) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      invokeOriginalToggle(button);
+      return;
+    }
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    isAnimating = true;
+    const targetTheme = getCurrentTheme() === 'dark' ? 'light' : 'dark';
+    playRipple(button, targetTheme, function () {
+      invokeOriginalToggle(button);
+      resetButton(button);
+      isAnimating = false;
+    });
+  }
+  function init() {
+    if (!document.getElementById(THEME_MASK_LIGHT_ID) || !document.getElementById(THEME_MASK_DARK_ID)) return;
+    document.addEventListener('click', onClick, true);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
+})();
+</script>
 </body>
 </html>
