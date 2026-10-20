@@ -737,7 +737,8 @@ tbody tr:hover { background: var(--row-hover-bg); background-image: none; }
   .btn.primary:not(:disabled):hover { box-shadow: var(--shadow-primary); }
   .btn.danger:not(:disabled):hover { box-shadow: 0 4px 16px rgba(243, 139, 168, 0.28); }
   .spec-presets .preset:hover { transform: translateY(-1px); }
-  .theme-toggle:hover svg { transform: rotate(18deg); }
+  /* 图标改为绝对定位后需保留居中位移，否则 hover 会跳位 */
+  .theme-toggle:hover svg { transform: translate(-50%, -50%) rotate(18deg); }
 }
 
 @media (max-width: 767px) {
@@ -2099,6 +2100,119 @@ td.name.ellipsis.failed { font-weight: 700; }
 :root:not([data-theme="light"]) .stats { gap: 16px; }
 :root:not([data-theme="light"]) .stat-value,
 :root:not([data-theme="light"]) .modal-head h3 { letter-spacing: -0.01em; }
+
+/* ======================================================================
+   追加层 9：主题切换 —— clip-path 圆形波纹过渡 + sun/moon 图标错峰旋转
+   ----------------------------------------------------------------------
+   可调参数（全部集中在 :root，改数值即可微调，不必动 JS）：
+     --theme-ripple-dur     背景扩散/收缩时长        —— 微调动画快慢（规范 1500ms）
+     --theme-ripple-ease    背景缓动曲线            —— ease-out；越接近 1 前段越"冲"
+     --theme-icon-ease      图标缓动曲线            —— 与背景解耦，可单独调回弹手感
+     --theme-ripple-fade    波纹层淡入时长          —— 柔化收缩方向的起始硬切
+     --theme-icon-dur       图标旋转+缩放时长        —— 微调图标动画快慢（规范 1000ms）
+     --theme-icon-delay     图标动画起始延时        —— 微调图标出场时机（规范 800ms）
+     --theme-icon-stagger   两个图标的错峰间隔      —— 数值 > 0 即为错峰，0 则同步
+     --theme-dark           深色底色（波纹层用）    —— 规范 #2b2b2b
+     --theme-light          浅色底色（波纹层用）    —— 规范 #f8f8f8
+     --theme-ripple-z       波纹层层级              —— 必须低于弹窗(100)/对话框(500)
+   圆心与半径不在这里：JS 按主题按钮实际坐标写入 --ripple-x / --ripple-y / --ripple-r
+   ====================================================================== */
+:root {
+  --theme-ripple-dur: 1500ms;
+  --theme-ripple-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --theme-ripple-fade: 160ms;
+  --theme-icon-dur: 1000ms;
+  --theme-icon-ease: cubic-bezier(0.22, 0.68, 0.32, 1.08);
+  --theme-icon-delay: 800ms;
+  --theme-icon-stagger: 160ms;
+  --theme-dark: #2b2b2b;
+  --theme-light: #f8f8f8;
+  --theme-ripple-z: 90;
+}
+
+/* —— 波纹层：整屏圆形遮罩，不接收任何指针事件 —— */
+.theme-ripple {
+  position: fixed;
+  inset: 0;
+  z-index: var(--theme-ripple-z);
+  pointer-events: none;            /* 永不遮挡/拦截其他可点击元素 */
+  background: var(--theme-light);
+  opacity: 0;
+  visibility: hidden;
+  clip-path: circle(0px at var(--ripple-x, 100vw) var(--ripple-y, 0px));
+  will-change: clip-path, opacity;
+}
+.theme-ripple.is-expand,
+.theme-ripple.is-contract { visibility: visible; }
+
+/* 浅色向外炸开：浅色圆自按钮扩散铺满全屏 */
+.theme-ripple.is-expand {
+  background: var(--theme-light);
+  animation: theme-ripple-expand var(--theme-ripple-dur) var(--theme-ripple-ease) forwards;
+}
+/* 深色向内收缩：深色圆由全屏收拢回按钮 */
+.theme-ripple.is-contract {
+  background: var(--theme-dark);
+  animation:
+    theme-ripple-fade var(--theme-ripple-fade) ease-out forwards,
+    theme-ripple-contract var(--theme-ripple-dur) var(--theme-ripple-ease) forwards;
+}
+@keyframes theme-ripple-expand {
+  from { clip-path: circle(0px at var(--ripple-x) var(--ripple-y)); opacity: 1; }
+  to   { clip-path: circle(var(--ripple-r) at var(--ripple-x) var(--ripple-y)); opacity: 1; }
+}
+@keyframes theme-ripple-contract {
+  from { clip-path: circle(var(--ripple-r) at var(--ripple-x) var(--ripple-y)); opacity: 1; }
+  to   { clip-path: circle(0px at var(--ripple-x) var(--ripple-y)); opacity: 1; }
+}
+@keyframes theme-ripple-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* —— 主题按钮：sun / moon 叠放于同一位置，切换时错峰旋转 —— */
+.theme-toggle { position: relative; }
+.theme-toggle .icon-sun,
+.theme-toggle .icon-moon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+/* 过渡期间两个图标同时在场（覆盖明暗主题各自的 display:none 规则） */
+.theme-toggle.is-switching .icon-sun,
+.theme-toggle.is-switching .icon-moon { display: block; }
+
+/* 切到浅色：太阳转出、月亮转入（两者错峰，不同步） */
+.theme-toggle.is-switching.to-light .icon-sun {
+  animation: theme-icon-out var(--theme-icon-dur) var(--theme-icon-ease) var(--theme-icon-delay) both;
+}
+.theme-toggle.is-switching.to-light .icon-moon {
+  animation: theme-icon-in var(--theme-icon-dur) var(--theme-icon-ease) calc(var(--theme-icon-delay) + var(--theme-icon-stagger)) both;
+}
+/* 切到深色：月亮转出、太阳转入 */
+.theme-toggle.is-switching.to-dark .icon-sun {
+  animation: theme-icon-in var(--theme-icon-dur) var(--theme-icon-ease) var(--theme-icon-delay) both;
+}
+.theme-toggle.is-switching.to-dark .icon-moon {
+  animation: theme-icon-out var(--theme-icon-dur) var(--theme-icon-ease) calc(var(--theme-icon-delay) + var(--theme-icon-stagger)) both;
+}
+@keyframes theme-icon-in {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-180deg) scale(0.4); }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(180deg) scale(1); }
+}
+@keyframes theme-icon-out {
+  0%   { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+  45%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(180deg) scale(0.4); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-ripple.is-expand,
+  .theme-ripple.is-contract { animation: none; }
+  .theme-toggle.is-switching .icon-sun,
+  .theme-toggle.is-switching .icon-moon { animation: none; }
+}
 </style>
 </head>
 <body>
@@ -2180,8 +2294,8 @@ td.name.ellipsis.failed { font-weight: 700; }
   <div class="header-right">
     <span class="env" id="userInfo" style="display:none"></span>
     <button class="btn theme-toggle" onclick="toggleTheme()" title="切换明暗主题" aria-label="切换明暗主题">
-      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>
-      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      <svg class="icon-sun" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"><path d="M256 48v48M256 416v48M403.08 108.92l-33.94 33.94M142.86 369.14l-33.94 33.94M464 256h-48M96 256H48M403.08 403.08l-33.94-33.94M142.86 142.86l-33.94-33.94"></path><circle cx="256" cy="256" r="80"></circle></svg>
+      <svg class="icon-moon" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"><path d="M160 136c0-30.62 4.51-61.61 16-88C99.57 81.27 48 159.32 48 248c0 119.29 96.71 216 216 216 88.68 0 166.73-51.57 200-128-26.39 11.49-57.38 16-88 16-119.29 0-216-96.71-216-216z"></path></svg>
     </button>
     <div class="user-menu" id="userMenu" style="display:none">
       <button class="user-avatar" onclick="toggleUserMenu(event)" title="账户" aria-label="账户">
@@ -3571,25 +3685,107 @@ function flushScriptSearch() {
   loadScriptList(1);
 }
 
+/* ============================================================
+   主题切换：clip-path 圆形波纹过渡
+   —— 只替换「过渡表现」；主题读写逻辑（data-theme + localStorage）保持原样
+   ============================================================ */
+const THEME_RIPPLE = { ripple: null, btn: null, rippleTimer: null, iconTimer: null, pending: null };
+
+/* 从 CSS 变量读取时序，保证样式与脚本单一数据源（改 CSS 即可微调） */
+function themeRippleTiming() {
+  const cs = getComputedStyle(document.documentElement);
+  const num = (name, fallback) => {
+    const v = parseFloat(cs.getPropertyValue(name));
+    return Number.isFinite(v) ? v : fallback;
+  };
+  return {
+    dur: num('--theme-ripple-dur', 1500),
+    iconDur: num('--theme-icon-dur', 1000),
+    iconDelay: num('--theme-icon-delay', 800),
+    stagger: num('--theme-icon-stagger', 160)
+  };
+}
+
+/* 收尾：波纹层与图标状态复位；applyPending 为真时把延后提交的主题落地 */
+function themeRippleReset(applyPending) {
+  if (THEME_RIPPLE.rippleTimer) { clearTimeout(THEME_RIPPLE.rippleTimer); THEME_RIPPLE.rippleTimer = null; }
+  if (THEME_RIPPLE.iconTimer) { clearTimeout(THEME_RIPPLE.iconTimer); THEME_RIPPLE.iconTimer = null; }
+  if (applyPending && THEME_RIPPLE.pending) {
+    const p = THEME_RIPPLE.pending;
+    THEME_RIPPLE.pending = null;
+    p();
+  }
+  THEME_RIPPLE.pending = null;
+  if (THEME_RIPPLE.ripple) THEME_RIPPLE.ripple.classList.remove('is-expand', 'is-contract');
+  if (THEME_RIPPLE.btn) THEME_RIPPLE.btn.classList.remove('is-switching', 'to-light', 'to-dark');
+}
+
 function toggleTheme() {
-  const target = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  const root = document.documentElement;
+  const current = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  const target = current === 'dark' ? 'light' : 'dark';
+
+  // 主题落地的唯一出口：写 data-theme + 持久化（原有业务逻辑不变）
   const commit = () => {
-    document.documentElement.setAttribute('data-theme', target);
+    root.setAttribute('data-theme', target);
     try { localStorage.setItem('theme', target); } catch (e) {}
   };
-  if (document.startViewTransition) {
-    const t = document.startViewTransition(commit);
-    t.ready.then(() => {
-      const cx = window.innerWidth, cy = 0;
-      const r = Math.hypot(Math.max(cx, window.innerWidth - cx), Math.max(cy, window.innerHeight - cy));
-      document.documentElement.animate(
-        { clipPath: [`circle(0% at ${cx}px ${cy}px)`, `circle(${r}px at ${cx}px ${cy}px)`] },
-        { duration: 500, easing: 'ease-in-out', pseudoElement: '::view-transition-new(root)' }
-      );
-    }).catch(() => {});
-  } else {
+
+  const btn = document.querySelector('.theme-toggle');
+  const ripple = document.getElementById('themeRipple');
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // 兜底：没有波纹层 / 不支持动画 / 用户要求减少动效 → 直接切换
+  if (!btn || !ripple || reduce || !window.requestAnimationFrame) {
+    themeRippleReset(true);
     commit();
+    return;
   }
+
+  // 快速连点：先收尾上一次过渡，避免两次动画叠加
+  themeRippleReset(true);
+
+  const t = themeRippleTiming();
+  const rect = btn.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;                 // 圆心 X = 主题按钮中心
+  const cy = rect.top + rect.height / 2;                  // 圆心 Y = 主题按钮中心
+  const radius = Math.hypot(Math.max(cx, innerWidth - cx), Math.max(cy, innerHeight - cy)); // 铺满全屏所需半径
+
+  ripple.style.setProperty('--ripple-x', cx + 'px');
+  ripple.style.setProperty('--ripple-y', cy + 'px');
+  ripple.style.setProperty('--ripple-r', radius + 'px');
+
+  THEME_RIPPLE.ripple = ripple;
+  THEME_RIPPLE.btn = btn;
+
+  btn.classList.add('is-switching', target === 'light' ? 'to-light' : 'to-dark');
+  ripple.classList.remove('is-expand', 'is-contract');
+  void ripple.offsetWidth;                                // 强制回流，保证动画可重复触发
+  ripple.classList.add(target === 'light' ? 'is-expand' : 'is-contract');
+
+  if (target === 'light') {
+    // 浅色向外炸开：浅色圆扩散铺满全屏后此刻再切主题，画面无缝无闪烁
+    THEME_RIPPLE.pending = commit;
+    THEME_RIPPLE.rippleTimer = setTimeout(() => {
+      if (THEME_RIPPLE.rippleTimer) { clearTimeout(THEME_RIPPLE.rippleTimer); THEME_RIPPLE.rippleTimer = null; }
+      if (THEME_RIPPLE.pending) { const p = THEME_RIPPLE.pending; THEME_RIPPLE.pending = null; p(); }
+      if (THEME_RIPPLE.ripple) THEME_RIPPLE.ripple.classList.remove('is-expand', 'is-contract');
+    }, t.dur);
+  } else {
+    // 深色向内收缩：先切主题（同色波纹盖住切换瞬间），再让深色圆收拢回按钮
+    commit();
+    THEME_RIPPLE.rippleTimer = setTimeout(() => {
+      if (THEME_RIPPLE.rippleTimer) { clearTimeout(THEME_RIPPLE.rippleTimer); THEME_RIPPLE.rippleTimer = null; }
+      if (THEME_RIPPLE.ripple) THEME_RIPPLE.ripple.classList.remove('is-expand', 'is-contract');
+    }, t.dur);
+  }
+
+  // 图标动画总长 = 延时 + 时长 + 错峰，按钮状态等图标跑完再撤
+  const iconEnd = Math.max(t.dur, t.iconDelay + t.iconDur + t.stagger);
+  THEME_RIPPLE.iconTimer = setTimeout(() => {
+    THEME_RIPPLE.iconTimer = null;
+    if (THEME_RIPPLE.btn) THEME_RIPPLE.btn.classList.remove('is-switching', 'to-light', 'to-dark');
+  }, iconEnd);
 }
 
 const statusText = { enabled: '已启用', disabled: '已禁用', success: '成功', failed: '失败', running: '执行中', waiting: '等待中', unexecuted: '未执行' };
@@ -5295,5 +5491,10 @@ document.getElementById('f_spec').addEventListener('input', e => calcNext(e.targ
   }, 300);
 })();
 </script>
+
+<!-- ★新增（仅此 1 个节点）：主题切换波纹层
+     整屏 clip-path 圆形遮罩，用于 sun/moon 切换时的圆形波纹过渡。
+     pointer-events:none —— 永不拦截任何点击；由 JS 写入 --ripple-x/--ripple-y/--ripple-r 定位圆心与半径。 -->
+<div class="theme-ripple" id="themeRipple" aria-hidden="true"></div>
 </body>
 </html>
