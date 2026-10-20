@@ -76,6 +76,15 @@ RECORD_FILE="/etc/${APP_NAME}.conf"
 SERVICE_FILE="/etc/systemd/system/${APP_NAME}.service"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-}")" && pwd)"
 DEFAULT_BIN_SRC="${SCRIPT_DIR}/../${APP_NAME}"
+
+# 二进制源必须是「普通文件且非空」。
+# 只判 -s 是不够的：目录同样满足 -s，会被误当二进制，最终 cp 报
+# "cp: -r not specified; omitting directory"。
+# 典型触发场景：bash -c "$(curl ...)" 时 BASH_SOURCE[0] 是 bash，
+# SCRIPT_DIR 退化为当前目录，DEFAULT_BIN_SRC 变成同名目录（如仓库目录 2panel）。
+is_valid_bin_src() {
+  [ -n "${1:-}" ] && [ -f "${1}" ] && [ -s "${1}" ]
+}
 # ==================================================
 
 # ================== GitHub 下载加速镜像 ==================
@@ -174,6 +183,9 @@ resolve_local_src() {
     "${SCRIPT_DIR:-}/../bin/${APP_NAME}"
     "${SCRIPT_DIR:-}/../${APP_NAME}"
     "${SCRIPT_DIR:-}/../dist/${APP_NAME}_linux_${rel_arch}"
+    "${SCRIPT_DIR:-}/bin/${APP_NAME}"
+    "${SCRIPT_DIR:-}/${APP_NAME}"
+    "${SCRIPT_DIR:-}/dist/${APP_NAME}_linux_${rel_arch}"
     "$(pwd)/bin/${APP_NAME}"
     "$(pwd)/${APP_NAME}"
     "$(pwd)/dist/${APP_NAME}_linux_${rel_arch}"
@@ -182,7 +194,7 @@ resolve_local_src() {
   )
   for c in "${candidates[@]}"; do
     [ -n "${c}" ] || continue
-    if [ -s "${c}" ]; then
+    if is_valid_bin_src "${c}"; then
       printf '%s' "${c}"
       return 0
     fi
@@ -372,8 +384,9 @@ DATA_DIR="${DATA_DIR:-$DEFAULT_DATA_DIR}"
 
 # binary source
 BIN_SRC="${BIN_SRC:-$DEFAULT_BIN_SRC}"
-if [ ! -s "${BIN_SRC}" ]; then
-  # 经 curl|bash 远程执行：探测当前目录/仓库目录中的本地产物
+if ! is_valid_bin_src "${BIN_SRC}"; then
+  # 经 curl|bash 远程执行：SCRIPT_DIR 会退化为当前目录，DEFAULT_BIN_SRC 可能指向
+  # 同名目录；此时按常见目录回退探测本地产物（仓库根目录 / dist / bin）。
   if [ "${BIN_SRC_EXPLICIT}" != "1" ]; then
     DISCOVERED_BIN="$(resolve_local_src)" || true
     if [ -n "${DISCOVERED_BIN:-}" ]; then
@@ -382,7 +395,7 @@ if [ ! -s "${BIN_SRC}" ]; then
     fi
   fi
 fi
-if [ ! -s "${BIN_SRC}" ]; then
+if ! is_valid_bin_src "${BIN_SRC}"; then
   if [ "${BIN_SRC_EXPLICIT}" = "1" ]; then
     error "未找到二进制文件 ${BIN_SRC}（-b 显式指定）"
   fi
@@ -415,6 +428,10 @@ sep_line
 section "安装程序"
 ok "正在安装 ${gl_bai}${APP_NAME}${reset} 二进制 ${gl_hong}.${gl_huang}.${gl_lv}.${gl_bai}"
 
+# 兜底：复制前再确认一次源是普通文件，避免把目录交给 cp
+if ! is_valid_bin_src "${BIN_SRC}"; then
+  error "二进制源无效（不是普通文件或为空）：${BIN_SRC}"
+fi
 cp -f "${BIN_SRC}" "${BIN_PATH}"
 chmod +x "${BIN_PATH}"
 ok "已安装二进制至 ${gl_bai}${BIN_PATH}${reset}"
