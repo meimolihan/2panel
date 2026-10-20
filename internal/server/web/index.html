@@ -17,41 +17,51 @@
 </script>
 <style>
 :root {
-  /* 暗色主题（默认） */
-  --primary: #6f9bff;
-  --primary-hover: #82a8ff;
-  --danger: #f38ba8;
-  --success: #a6e3a1;
-  --warning: #fab387;
-  --text: #e2e8f0;
-  --text-secondary: #8892a4;
-  --border: #2e2e48;
-  --bg: #11111b;
-  --bg-card: #1a1a2e;
-  --bg-header: #22223a;
-  --bg-input: #22223a;
-  --bg-code: #151b22;
-  --bg-overlay: rgba(0, 0, 0, 0.65);
-  --tag-success-bg: rgba(166, 227, 161, 0.12); --tag-success-color: #a6e3a1;
-  --tag-disabled-bg: rgba(255, 255, 255, 0.06);
-  --tag-info-bg: rgba(111, 155, 255, 0.14); --tag-info-color: #6f9bff;
-  --tag-error-bg: rgba(243, 139, 168, 0.12); --tag-error-color: #f38ba8;
-  --tag-warning-bg: rgba(250, 179, 135, 0.12); --tag-warning-color: #fab387;
-  --tag-shell-bg: rgba(111, 155, 255, 0.14); --tag-shell-color: #6f9bff;
-  --tag-curl-bg: rgba(203, 166, 247, 0.14); --tag-curl-color: #cba6f7;
+  /* 暗色主题（默认）：成熟克制的深色系统 UI
+     —— 底层低饱和炭灰（非纯黑），卡片靠明度差 + 微弱阴影区分，不自发光 */
+  --primary: #7c9ad8;
+  --primary-hover: #8ea9e0;
+  --danger: #e0969f;
+  --success: #71b58c;
+  --warning: #d9ae7c;
 
-  /* 视觉层级：阴影 / 渐变 / 悬浮反馈 */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30), 0 1px 4px rgba(0, 0, 0, 0.16);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.28), 0 6px 20px rgba(0, 0, 0, 0.22);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.45);
-  --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.35), 0 14px 34px rgba(0, 0, 0, 0.30);
-  --shadow-primary: 0 4px 16px rgba(111, 155, 255, 0.35);
-  --card-grad: linear-gradient(180deg, #20203a 0%, #1a1a2e 100%);
-  --row-hover-bg: rgba(111, 155, 255, 0.06);
-  --row-zebra: rgba(255, 255, 255, 0.03);
-  --focus-ring: rgba(111, 155, 255, 0.16);
-  --bg-glow-a: rgba(111, 155, 255, 0.07);
-  --bg-glow-b: rgba(166, 227, 161, 0.04);
+  /* 文字明度层级：标题 90% / 次级 70% / 辅助说明 50%（杜绝满屏纯白） */
+  --text: rgba(255, 255, 255, 0.90);
+  --text-secondary: rgba(255, 255, 255, 0.70);
+  --text-tertiary: rgba(255, 255, 255, 0.50);
+
+  /* 描边：发丝级，靠明度差而不是辉光建立边界 */
+  --border: #232a32;
+  --border-soft: rgba(255, 255, 255, 0.055);
+
+  /* 底层表面：炭灰 → 卡片 → 表头 → 输入（内凹）→ 代码（最内层） */
+  --bg: #0e1114;
+  --bg-card: #161b21;
+  --bg-header: #1b2128;
+  --bg-input: #11161a;
+  --bg-code: #0b0e11;
+  --bg-overlay: rgba(7, 9, 12, 0.68);
+
+  --tag-success-bg: rgba(127, 199, 155, 0.10); --tag-success-color: #8fd3ab;
+  --tag-disabled-bg: rgba(255, 255, 255, 0.05);
+  --tag-info-bg: rgba(124, 154, 216, 0.12); --tag-info-color: #93add9;
+  --tag-error-bg: rgba(224, 150, 159, 0.12); --tag-error-color: #e5a0a9;
+  --tag-warning-bg: rgba(217, 174, 124, 0.12); --tag-warning-color: #dcb588;
+  --tag-shell-bg: rgba(150, 160, 200, 0.12); --tag-shell-color: #a3aec8;
+  --tag-curl-bg: rgba(158, 150, 198, 0.12); --tag-curl-color: #b0a8cc;
+
+  /* 视觉层级：细腻柔和投影 / 哑光渐变 / 悬浮反馈 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.34), 0 4px 12px rgba(0, 0, 0, 0.20);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.28), 0 10px 26px rgba(0, 0, 0, 0.26);
+  --shadow-lg: 0 16px 44px rgba(0, 0, 0, 0.46);
+  --shadow-hover: 0 4px 10px rgba(0, 0, 0, 0.30), 0 14px 30px rgba(0, 0, 0, 0.24);
+  --shadow-primary: 0 2px 10px rgba(62, 92, 154, 0.30);
+  --card-grad: linear-gradient(180deg, #191f26 0%, #151a20 100%);
+  --row-hover-bg: rgba(124, 154, 216, 0.06);
+  --row-zebra: rgba(255, 255, 255, 0.022);
+  --focus-ring: rgba(124, 154, 216, 0.18);
+  --bg-glow-a: rgba(255, 255, 255, 0.016);
+  --bg-glow-b: rgba(255, 255, 255, 0.010);
 }
 
 [data-theme="light"] {
@@ -62,7 +72,9 @@
   --warning: #d97706;
   --text: #1a1a1a;
   --text-secondary: #555555;
+  --text-tertiary: #5f6875;
   --border: #d9dde3;
+  --border-soft: rgba(15, 23, 42, 0.08);
   --bg: #eef1f5;
   --bg-card: #ffffff;
   --bg-header: #f3f5f8;
@@ -210,9 +222,9 @@ td.ellipsis { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 .tag.shell { background: var(--tag-shell-bg); color: var(--tag-shell-color); }
 .tag.curl { background: var(--tag-curl-bg); color: var(--tag-curl-color); }
 .tag-group { display: inline-flex; align-items: center; gap: 4px; }
-.empty { text-align: center; color: var(--text-secondary); padding: 48px 0; }
+.empty { text-align: center; color: var(--text-tertiary); padding: 48px 0; }
 .pager { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 16px; }
-.pager .info { color: var(--text-secondary); font-size: 13px; }
+.pager .info { color: var(--text-tertiary); font-size: 13px; }
 .modal-mask {
   position: fixed; inset: 0; background: var(--bg-overlay); display: none; align-items: flex-start; justify-content: center; z-index: 100; overflow: auto;
 }
@@ -239,7 +251,7 @@ td.ellipsis { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 }
 .form-row input[type=text]:focus, .form-row textarea:focus, .form-row select:focus { border-color: var(--primary); }
 .form-row textarea { resize: vertical; min-height: 160px; font-family: "SFMono-Regular", Consolas, monospace; }
-.form-row .hint { color: var(--text-secondary); font-size: 12px; margin-top: 4px; }
+.form-row .hint { color: var(--text-tertiary); font-size: 12px; margin-top: 4px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
 .spec-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .spec-presets .preset {
@@ -260,9 +272,9 @@ td.ellipsis { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 }
 .spec-row select.spec-type { min-width: 108px; }
 .spec-row input.spec-num { width: 68px; }
-.spec-row .unit { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+.spec-row .unit { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
 .spec-row .btn { height: 30px; }
-.spec-row .spec-preview-msg { flex-basis: 100%; font-size: 12px; color: var(--text-secondary); word-break: break-all; }
+.spec-row .spec-preview-msg { flex-basis: 100%; font-size: 12px; color: var(--text-tertiary); word-break: break-all; }
 .log-view { background: #0f1115; color: #d7dae0; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; padding: 14px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; max-height: 56vh; overflow: auto; }
 .log-view .err { color: #f87171; }
 .toast-wrap { position: fixed; top: 68px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
@@ -347,7 +359,7 @@ th, td, .code {
     border-bottom: 1px dashed var(--border);
   }
   td:last-child { border-bottom: none; }
-  td::before { content: attr(data-label); color: var(--text-secondary); font-size: 12px; flex: 0 0 auto; }
+  td::before { content: attr(data-label); color: var(--text-tertiary); font-size: 12px; flex: 0 0 auto; }
   td > span, td > code { text-align: right; }
   td > span.tag-group { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
   td[data-label="上次执行"] .last-wrap { display: inline-flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
@@ -416,7 +428,7 @@ th, td, .code {
   border: none; outline: none; background: transparent; flex: 1; min-width: 0;
   height: 42px; padding: 0 10px; color: var(--text); font-size: 14px;
 }
-.pwd-wrap input::placeholder { color: var(--text-secondary); opacity: 0.7; }
+.pwd-wrap input::placeholder { color: var(--text-tertiary); opacity: 1; }
 .pwd-wrap:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--focus-ring); }
 /* 登录页输入框：聚焦效果与「修改密码」弹窗一致（暗色：底色由输入色提亮为卡片色 + 主色描边 + 光晕） */
 .login-card .login-field .pwd-wrap { transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease; }
@@ -475,7 +487,7 @@ th, td, .code {
 .default-pwd .dp-label { color: var(--text-secondary); margin-bottom: 8px; }
 .default-pwd .dp-val { display: flex; align-items: center; gap: 10px; }
 .default-pwd .dp-val code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 17px; color: var(--warning); letter-spacing: 1px; }
-.default-pwd .dp-note { color: var(--text-secondary); margin-top: 8px; font-size: 12px; }
+.default-pwd .dp-note { color: var(--text-tertiary); margin-top: 8px; font-size: 12px; }
 
 /* ===== 修改密码页面 ===== */
 .pwd-modal { width: 440px; border-radius: 15px; overflow: hidden; }
@@ -507,7 +519,7 @@ th, td, .code {
   display: block; height: 100%; width: 0; border-radius: 3px;
   background: var(--danger); transition: width 0.25s ease, background-color 0.25s ease;
 }
-.meter-text { font-size: 12px; color: var(--text-secondary); white-space: nowrap; min-width: 56px; text-align: right; }
+.meter-text { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; min-width: 56px; text-align: right; }
 .pwd-tip {
   display: flex; align-items: flex-start; gap: 6px;
   padding: 10px 12px; border-radius: 8px;
@@ -1055,7 +1067,7 @@ thead th { position: sticky; top: 0; z-index: 2; }
    ====================================================================== */
 
 /* --- 全局描边弱化一档（暗色更暗、亮色更亮 → 对比度下降） --- */
-:root { --border: #26263f; }
+:root { --border: #232a32; }
 [data-theme="light"] { --border: #e5e9f0; }
 
 /* --- 一、统一圆角 --- */
@@ -1163,7 +1175,7 @@ td.name {
 .switch input:checked + .track + .knob { transform: translateX(16px); background: #fff; }
 .switch:hover .track { border-color: var(--primary); }
 .switch input:focus-visible + .track { box-shadow: 0 0 0 3px var(--focus-ring); }
-:root { --switch-glow: rgba(166, 227, 161, 0.30); }
+:root { --switch-glow: rgba(127, 199, 155, 0.18); }
 [data-theme="light"] { --switch-glow: rgba(22, 163, 74, 0.28); }
 
 /* --- 执行中标签：脉冲圆点 --- */
@@ -1181,7 +1193,7 @@ td.name {
   70%  { box-shadow: 0 0 0 7px var(--running-ring-fade); }
   100% { box-shadow: 0 0 0 0 var(--running-ring-fade); }
 }
-:root { --running-ring: rgba(111, 155, 255, 0.55); --running-ring-fade: rgba(111, 155, 255, 0); }
+:root { --running-ring: rgba(124, 154, 216, 0.38); --running-ring-fade: rgba(124, 154, 216, 0); }
 [data-theme="light"] { --running-ring: rgba(47, 111, 237, 0.55); --running-ring-fade: rgba(47, 111, 237, 0); }
 
 /* --- 遮罩毛玻璃 + 背景滚动锁定 --- */
@@ -1220,7 +1232,7 @@ body.modal-open { overflow: hidden; }
   position: sticky; top: 0; z-index: 80;
   backdrop-filter: blur(10px) saturate(1.2);
   -webkit-backdrop-filter: blur(10px) saturate(1.2);
-  background: rgba(26, 26, 46, 0.86);
+  background: rgba(19, 23, 28, 0.82);
 }
 [data-theme="light"] .header { background: rgba(255, 255, 255, 0.88); }
 
@@ -1253,7 +1265,7 @@ body.modal-open { overflow: hidden; }
   font-variant-numeric: tabular-nums;
   display: inline-flex; align-items: center;
 }
-.stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+.stat-label { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
 .live-dot {
   display: none; width: 8px; height: 8px; margin-left: 7px;
   border-radius: 50%; background: var(--warning);
@@ -1283,7 +1295,7 @@ body.modal-open { overflow: hidden; }
 }
 :root {
   --row-glow: var(--login-glow);
-  --row-fill-hover: linear-gradient(180deg, #26294f, #1d2040);
+  --row-fill-hover: linear-gradient(180deg, #1e242c, #171d24);
 }
 [data-theme="light"] {
   --row-fill-hover: linear-gradient(180deg, #eef3fc, #e6ebf6);
@@ -1320,7 +1332,7 @@ td.name.failed { color: var(--danger); }
   flex: 0 0 auto;
 }
 .last-wrap { display: inline-block; text-align: inherit; }
-.last-time { font-size: 12px; color: var(--text-secondary); margin-top: 3px; text-align: inherit; font-variant-numeric: tabular-nums; }
+.last-time { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; text-align: inherit; font-variant-numeric: tabular-nums; }
 
 /* 移动端：统计卡片两列 */
 @media (max-width: 767px) {
@@ -1405,7 +1417,7 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
   display: flex; justify-content: space-between; align-items: center;
   padding: 6px 0; font-size: 14px;
 }
-.upd-row .upd-key { color: var(--text-secondary); }
+.upd-row .upd-key { color: var(--text-tertiary); }
 .upd-row code { font-size: 13px; }
 .upd-changelog {
   margin-top: 10px; padding: 10px 12px; max-height: 200px; overflow: auto;
@@ -1430,7 +1442,7 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
   margin-top: 8px;
   padding: 22px 24px 30px;
   text-align: center;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   font-size: 12px;
   line-height: 1.9;
 }
@@ -1526,7 +1538,7 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
    很小一段弧，两条亮弧之间留出大片暗区，两条光带头随旋转清晰扫动。
    --login-glow 跟随明暗主题。
    ====================================================================== */
-:root { --login-glow: #45f3ff; }
+:root { --login-glow: #7c9ad8; }
 [data-theme="light"] { --login-glow: #2f6fed; }
 
 .login-card::before,
@@ -1605,7 +1617,7 @@ textarea:focus-visible,
 }
 :root {
   /* 焦点环专用色：比 --primary 更亮，保证在深色按钮上也能分辨 */
-  --focus-outline: #a9c4ff;
+  --focus-outline: #a9c0e6;
 }
 [data-theme="light"] {
   --focus-outline: #1f5fd0;
@@ -1651,10 +1663,10 @@ textarea:focus-visible,
    保留主色的色相身份，把实心底色压深到同色相深蓝，纯白文字回到达标区间；
    hover 同步加深，保证加深后仍留有反馈。 */
 :root {
-  --primary-solid: #3b62c4;
-  --primary-solid-hover: #2f52ad;
+  --primary-solid: #3e5c9a;
+  --primary-solid-hover: #365188;
   --on-primary: #ffffff;
-  --shadow-primary-solid: 0 4px 16px rgba(59, 98, 196, 0.38);
+  --shadow-primary-solid: 0 2px 12px rgba(62, 92, 154, 0.32);
 }
 [data-theme="light"] {
   --primary-solid: #2f6fed;
@@ -1767,7 +1779,7 @@ tbody tr.row-running:hover {
   display: block;
   font-size: 11px;
   line-height: 1.4;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   margin-top: 3px;
   white-space: nowrap;
   overflow: hidden;
@@ -1782,7 +1794,7 @@ td[data-label="上次执行"] .last-time {
   font-size: 11px;
   /* 不用 opacity 压暗：opacity 会把文字与底色一起混算，实测掉到 4.36:1。
      改为直接指定一个仍然偏次要、但自身达标的颜色。 */
-  color: #9aa5b8;
+  color: var(--text-tertiary);
   margin-top: 2px;
 }
 /* 浅色主题：#626b78 在白卡片上只有 3.96:1，继续压深到 4.6:1 以上 */
@@ -1808,12 +1820,12 @@ td.name.ellipsis.failed { font-weight: 700; }
    error 3.47、info 4.05），远低于正文 4.5:1。色相全部保持不变，
    只压深明度到 4.7:1 以上；状态仍然一眼可辨，可读性优先。 */
 :root {
-  --tag-shell-color: #b9a3f8;
-  --tag-curl-color: #c6a9f2;
-  --tag-info-color: #9dbcff;
+  --tag-shell-color: #a3aec8;
+  --tag-curl-color: #b0a8cc;
+  --tag-info-color: #93add9;
   /* 「已禁用」原本复用 --text-secondary，在标签底色上只有 4.22:1。
      禁用态仍要安静，但“看得清”优先于“压得暗”，单独给一个达标色。 */
-  --tag-disabled-color: #a7b0c0;
+  --tag-disabled-color: rgba(255, 255, 255, 0.45);
 }
 [data-theme="light"] {
   --tag-shell-color: #2b65d8;
@@ -1827,6 +1839,266 @@ td.name.ellipsis.failed { font-weight: 700; }
      #cb3d3d 在斑马纹行上只有 3.60:1，#a93333 对两种底色都 >= 4.8:1。 */
   --danger: #a93333;
 }
+
+/* ======================================================================
+   追加层 8：暗色主题重设计 —— 成熟克制的深色系统 UI
+   ----------------------------------------------------------------------
+   设计契约：
+   1) 底层背景：低饱和炭灰（暗灰蓝系，非 #000 纯黑），靠明度差建立纵深，
+      不使用大面积辉光 / 霓虹底；
+   2) 卡片组件：仅以微弱阴影 + 明度差与背景区分，本身不自发光；
+   3) 文字明度三级：标题 90% 白 / 次级 70% / 辅助说明 50%，杜绝满屏纯白；
+   4) 发光预算：只有约 20% 的重点元素允许发光——主行动按钮、选中态、
+      关键数值、奖励徽标；光晕柔和、范围极小、强度低、只做低强度漫射微光；
+      其余 80% 画面保持安静、低刺激、无光溢出；
+   5) 质感：微妙渐变、细腻柔和投影、高级哑光暗调，焦点明确、留白舒适。
+   仅作用于暗色主题（:not([data-theme="light"])），亮色主题与业务逻辑不变。
+   ====================================================================== */
+
+/* —— 一、底层：炭灰哑光底 + 极轻纵向渐变（无大面积辉光） —— */
+:root:not([data-theme="light"]) body {
+  background-color: var(--bg);
+  background-image: linear-gradient(180deg, #12161b 0%, #0e1114 46%, #0c0f12 100%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+:root:not([data-theme="light"]) #loginPage {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(760px 520px at 50% 4%, rgba(255, 255, 255, 0.020), transparent 68%),
+    linear-gradient(180deg, #12161b 0%, #0c0f12 100%);
+}
+:root:not([data-theme="light"]) #splash {
+  background-color: var(--bg);
+  background-image: linear-gradient(180deg, #12161b 0%, #0c0f12 100%);
+}
+
+/* —— 二、顶栏：中性磨砂底 + 发丝分隔线，去掉强调色光带 —— */
+:root:not([data-theme="light"]) .header {
+  background: rgba(19, 23, 28, 0.82);
+  border-bottom-color: var(--border);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.28), 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+:root:not([data-theme="light"]) .header::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06) 45%, transparent);
+  opacity: 1;
+}
+
+/* —— 三、容器表面：哑光，靠明度差 + 微弱阴影区分，不自发光 —— */
+:root:not([data-theme="light"]) .card,
+:root:not([data-theme="light"]) .stat-card {
+  background-color: var(--bg-card);
+  background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.030), rgba(255, 255, 255, 0.006));
+  border-color: var(--border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 1px 2px rgba(0, 0, 0, 0.30),
+    0 10px 24px rgba(0, 0, 0, 0.20);
+}
+:root:not([data-theme="light"]) .login-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 2px 6px rgba(0, 0, 0, 0.32),
+    0 20px 48px rgba(0, 0, 0, 0.34);
+}
+:root:not([data-theme="light"]) .modal,
+:root:not([data-theme="light"]) .dialog-box {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 24px 60px rgba(0, 0, 0, 0.50);
+}
+:root:not([data-theme="light"]) .modal-head,
+:root:not([data-theme="light"]) .modal-foot,
+:root:not([data-theme="light"]) .dialog-head,
+:root:not([data-theme="light"]) .dialog-foot {
+  border-color: var(--border-soft);
+}
+
+/* —— 四、表格：发丝分隔线，斑马纹与悬停都压到几乎不可察觉 —— */
+:root:not([data-theme="light"]) .card > table th,
+:root:not([data-theme="light"]) .card > table td { border-bottom-color: var(--border-soft); }
+:root:not([data-theme="light"]) .card > table th {
+  background-color: var(--bg-header);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent);
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* —— 五、按钮：次级按钮全平，只有主行动按钮带一小圈柔和微光 —— */
+:root:not([data-theme="light"]) .btn {
+  background-color: var(--bg-card);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+}
+:root:not([data-theme="light"]) .btn.primary {
+  background: linear-gradient(180deg, #45639f 0%, #3c5994 100%);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(124, 154, 216, 0.16),
+    0 4px 12px rgba(62, 92, 154, 0.20);
+}
+:root:not([data-theme="light"]) .btn.primary:not(:disabled):hover {
+  background: linear-gradient(180deg, #4d6ca9 0%, #42609d 100%);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(124, 154, 216, 0.24),
+    0 6px 16px rgba(62, 92, 154, 0.24);
+}
+:root:not([data-theme="light"]) .btn.primary:not(:disabled):active {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(124, 154, 216, 0.20);
+}
+:root:not([data-theme="light"]) .btn.danger:not(:disabled):hover {
+  background: rgba(224, 150, 159, 0.12);
+  border-color: rgba(224, 150, 159, 0.50);
+  color: #eeb3ba;
+}
+
+/* —— 六、输入控件：内凹质感 + 发丝描边，聚焦只给一圈极淡光 —— */
+:root:not([data-theme="light"]) .toolbar input[type=text],
+:root:not([data-theme="light"]) .toolbar select,
+:root:not([data-theme="light"]) .form-row input[type=text],
+:root:not([data-theme="light"]) .form-row textarea,
+:root:not([data-theme="light"]) .form-row select,
+:root:not([data-theme="light"]) .login-field input,
+:root:not([data-theme="light"]) .pwd-wrap,
+:root:not([data-theme="light"]) .spec-row select,
+:root:not([data-theme="light"]) .spec-row input[type=number],
+:root:not([data-theme="light"]) .dialog-field input,
+:root:not([data-theme="light"]) .pager-jump input[type=number],
+:root:not([data-theme="light"]) .group-edit-name {
+  background-color: var(--bg-input);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.22);
+}
+:root:not([data-theme="light"]) .toolbar input[type=text]::placeholder,
+:root:not([data-theme="light"]) .form-row input[type=text]::placeholder,
+:root:not([data-theme="light"]) .form-row textarea::placeholder,
+:root:not([data-theme="light"]) .login-field input::placeholder {
+  color: var(--text-tertiary);
+  opacity: 1;
+}
+
+/* —— 七、选中态：标签页 / 分组 chip / 开关，微光范围极小 —— */
+:root:not([data-theme="light"]) .tab { color: var(--text-secondary); }
+:root:not([data-theme="light"]) .tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  background-image: linear-gradient(180deg, rgba(124, 154, 216, 0.11), transparent);
+  text-shadow: 0 0 14px rgba(124, 154, 216, 0.22);
+}
+:root:not([data-theme="light"]) .group-chip.on {
+  background: rgba(124, 154, 216, 0.12);
+  border-color: rgba(124, 154, 216, 0.36);
+  color: var(--primary);
+  box-shadow: 0 0 10px rgba(124, 154, 216, 0.12);
+}
+:root:not([data-theme="light"]) .switch input:checked + .track {
+  background: var(--success);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 0 8px rgba(127, 199, 155, 0.16);
+}
+:root:not([data-theme="light"]) .switch input:checked + .track + .knob { background: #ffffff; }
+
+/* —— 八、关键数值与奖励徽标：发光预算的另一半 —— */
+:root:not([data-theme="light"]) .stat-value {
+  color: var(--text);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+/* 统计图标：统一中性底 + 彩色字形，避免四色图标块把画面打散 */
+:root:not([data-theme="light"]) .stat-icon {
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+:root:not([data-theme="light"]) .stat-card.is-alert {
+  border-color: rgba(124, 154, 216, 0.30);
+  background-image: linear-gradient(160deg, rgba(124, 154, 216, 0.10), rgba(124, 154, 216, 0.015));
+}
+:root:not([data-theme="light"]) .stat-card.is-alert .stat-value {
+  color: #ffffff;
+  text-shadow: 0 0 18px rgba(124, 154, 216, 0.28);
+}
+:root:not([data-theme="light"]) .upd-badge {
+  background: rgba(217, 174, 124, 0.12);
+  border: 1px solid rgba(217, 174, 124, 0.22);
+  color: var(--tag-warning-color);
+  box-shadow: 0 0 10px rgba(217, 174, 124, 0.14);
+}
+
+/* —— 九、状态微光收敛：脉冲半径更小、强度更低，不产生光溢出 —— */
+@keyframes pulse-dot-soft {
+  0%   { box-shadow: 0 0 0 0 var(--running-ring); }
+  70%  { box-shadow: 0 0 0 5px var(--running-ring-fade); }
+  100% { box-shadow: 0 0 0 0 var(--running-ring-fade); }
+}
+@keyframes soon-pulse-soft {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tag-warning-color) 45%, transparent); }
+  70%  { box-shadow: 0 0 0 4px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@keyframes live-pulse-soft {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--warning) 42%, transparent); }
+  70%  { box-shadow: 0 0 0 4px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+:root:not([data-theme="light"]) .tag.running::before { animation-name: pulse-dot-soft; }
+:root:not([data-theme="light"]) .soon-dot { animation-name: soon-pulse-soft; }
+:root:not([data-theme="light"]) .live-dot { animation-name: live-pulse-soft; }
+
+/* —— 十、登录页：撤掉旋转霓虹边框，改为静态发丝描边 + 哑光内层 —— */
+:root:not([data-theme="light"]) .login-card::before,
+:root:not([data-theme="light"]) .login-card::after { display: none; }
+:root:not([data-theme="light"]) .login-inner {
+  background: var(--card-grad);
+  border-radius: 15px;
+}
+
+/* —— 十一、其它表面：日志 / 提示 / 悬浮按钮 / 空状态，全部中性化 —— */
+:root:not([data-theme="light"]) .code {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  color: var(--text-secondary);
+}
+:root:not([data-theme="light"]) .log-view {
+  background: var(--bg-code);
+  color: rgba(255, 255, 255, 0.78);
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.34);
+}
+:root:not([data-theme="light"]) .toast {
+  background: var(--bg-card);
+  border-color: var(--border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.40);
+}
+:root:not([data-theme="light"]) .back-top {
+  background: var(--bg-card);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+:root:not([data-theme="light"]) .empty-icon { color: var(--text-tertiary); opacity: 0.5; }
+:root:not([data-theme="light"]) .skeleton {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.08) 37%, rgba(255, 255, 255, 0.04) 63%);
+}
+:root:not([data-theme="light"]) ::selection {
+  background: rgba(124, 154, 216, 0.26);
+  color: #ffffff;
+}
+:root:not([data-theme="light"]) ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.10); }
+:root:not([data-theme="light"]) ::-webkit-scrollbar-thumb:hover { background: rgba(124, 154, 216, 0.42); }
+
+/* —— 十二、呼吸感：统计卡间距与标题字距 —— */
+:root:not([data-theme="light"]) .stats { gap: 16px; }
+:root:not([data-theme="light"]) .stat-value,
+:root:not([data-theme="light"]) .modal-head h3 { letter-spacing: -0.01em; }
 </style>
 </head>
 <body>
