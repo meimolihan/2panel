@@ -1451,24 +1451,52 @@ th.sortable.sort-active.sort-desc::after { content: '↓'; }
 .footer a:hover { color: var(--primary); }
 .footer .foot-ver { font-variant-numeric: tabular-nums; }
 
-/* ===== 返回顶部悬浮按钮 ===== */
+/* ===== 返回顶部悬浮按钮（右下角锚定 · 桌面/平板/移动分段优化） =====
+   落位原则：
+   · 固定于视口右下角，位于内容栏外侧留白区，不遮挡正文、表格与分页
+   · 尺寸 ≥44px，满足触控热区标准
+   · 移动端叠加 env(safe-area-inset-*)，避开刘海与手势条
+   · 出现/隐藏用 0.25s ease 的位移+缩放，过渡与全局节奏一致 */
 .back-top {
-  position: fixed; right: 24px; bottom: 28px; z-index: 60;
-  width: 42px; height: 42px; border-radius: 50%;
-  border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary);
-  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  position: fixed;
+  right: 28px;
+  bottom: 32px;
+  z-index: 60;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
   box-shadow: var(--shadow-md);
-  opacity: 0; transform: translateY(12px); pointer-events: none;
-  transition: opacity 0.3s ease, transform 0.3s ease, color 0.25s ease, border-color 0.25s ease;
+  opacity: 0;
+  transform: translateY(10px) scale(0.92);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease, color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
-.back-top.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.back-top.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 .back-top:hover { color: var(--primary); border-color: var(--primary); }
-.back-top svg { display: block; }
+.back-top svg { display: block; width: 18px; height: 18px; }
 @media (hover: hover) and (pointer: fine) {
-  .back-top.show:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+  .back-top.show:hover { transform: translateY(-2px) scale(1.02); box-shadow: var(--shadow-hover); }
 }
+/* 平板（768~1024px）：收窄右侧留白，避免压住表格操作列 */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .back-top { right: 20px; bottom: 24px; }
+}
+/* 移动端（<768px）：拇指热区 + 刘海/手势条安全区，贴右下不压分页 */
 @media (max-width: 767px) {
-  .back-top { right: 14px; bottom: 16px; width: 40px; height: 40px; }
+  .back-top {
+    right: max(12px, env(safe-area-inset-right, 0px));
+    bottom: max(16px, env(safe-area-inset-bottom, 0px));
+    width: 46px;
+    height: 46px;
+  }
+  .back-top svg { width: 19px; height: 19px; }
 }
 
 /* ===== 首屏加载 Splash ===== */
@@ -2117,7 +2145,8 @@ td.name.ellipsis.failed { font-weight: 700; }
 /* 修复问题#2：关闭按钮 / 返回顶部 / 分组 chip 触控热区不足 44px —— 同样以伪元素外扩 */
 @media (pointer: coarse) {
   .modal-head .close::before { inset: -10px; }
-  .back-top { position: relative; }
+  /* 保持 fixed：触屏下若退回 relative，按钮会随页面滚动离开视口 */
+  .back-top { position: fixed; }
   .back-top::before { content: ""; position: absolute; inset: -3px; border-radius: 50%; }
   .group-chip { position: relative; }
   .group-chip::before { content: ""; position: absolute; inset: -10px -4px; border-radius: inherit; }
