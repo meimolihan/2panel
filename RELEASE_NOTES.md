@@ -1,9 +1,9 @@
-日常更新
+添加通知bark的功能-01
 
 docker pull mobufan/2panel:latest
 
 ```bash
-docker pull mobufan/2panel:v1.1.4
+docker pull mobufan/2panel:v1.1.5
 ```
 
 ```bash
@@ -11,7 +11,7 @@ docker pull ghcr.io/meimolihan/2panel:latest
 ```
 
 ```bash
-docker pull ghcr.io/meimolihan/2panel:v1.1.4
+docker pull ghcr.io/meimolihan/2panel:v1.1.5
 ```
 
 ## 二进制安装
