@@ -12,6 +12,7 @@ import (
 	"github.com/2panel-dev/2panel/internal/database"
 	"github.com/2panel-dev/2panel/internal/dto"
 	"github.com/2panel-dev/2panel/internal/model"
+	"github.com/2panel-dev/2panel/internal/notify"
 	"github.com/2panel-dev/2panel/internal/repo"
 	"github.com/2panel-dev/2panel/internal/scheduler"
 )
@@ -366,12 +367,16 @@ func (u *FileWatchService) HandleWatch(watch *model.FileWatch, eventType, eventP
 				"interval": interval,
 			})
 			logWriter.LogLevelf("错误", "任务 [%s] 执行失败，耗时 %.2fs，错误: %v", watchItem.Name, interval, err)
+			notify.Error("文件监控任务失败",
+				fmt.Sprintf("任务：%s\n事件：%s\n路径：%s\n错误：%v", watchItem.Name, eventType, eventPath, err))
 			return
 		}
 		fileWatchRepo.UpdateRecord(record.ID, map[string]interface{}{
 			"records": logPath, "status": model.StatusSuccess, "message": "", "interval": interval,
 		})
 		logWriter.LogLevelf("成功", "任务 [%s] 执行成功，耗时 %.2fs", watchItem.Name, interval)
+		notify.Success("文件监控任务成功",
+			fmt.Sprintf("任务：%s\n事件：%s\n路径：%s\n耗时：%.2fs", watchItem.Name, eventType, eventPath, interval))
 	}()
 }
 

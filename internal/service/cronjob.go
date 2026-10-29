@@ -15,6 +15,7 @@ import (
 	"github.com/2panel-dev/2panel/internal/database"
 	"github.com/2panel-dev/2panel/internal/dto"
 	"github.com/2panel-dev/2panel/internal/model"
+	"github.com/2panel-dev/2panel/internal/notify"
 	"github.com/2panel-dev/2panel/internal/repo"
 	"github.com/2panel-dev/2panel/internal/scheduler"
 	"github.com/robfig/cron/v3"
@@ -412,10 +413,16 @@ func (u *CronjobService) HandleJob(cronjob *model.Cronjob) {
 		if err != nil {
 			cronjobRepo.EndRecord(record, model.StatusFailed, err.Error(), logPath)
 			logWriter.LogLevelf("错误", "任务 [%s] 执行失败，耗时 %.2fs，错误: %v", cronjobItem.Name, time.Since(start).Seconds(), err)
+			// 失败告警通知（异步，Bark 未启用或推送失败均不影响任务本身）
+			notify.Error("计划任务失败",
+				fmt.Sprintf("任务：%s\n耗时：%.2fs\n错误：%v", cronjobItem.Name, time.Since(start).Seconds(), err))
 			return
 		}
 		cronjobRepo.EndRecord(record, model.StatusSuccess, "", logPath)
 		logWriter.LogLevelf("成功", "任务 [%s] 执行成功，耗时 %.2fs", cronjobItem.Name, time.Since(start).Seconds())
+		// 成功通知（异步）
+		notify.Success("计划任务成功",
+			fmt.Sprintf("任务：%s\n耗时：%.2fs", cronjobItem.Name, time.Since(start).Seconds()))
 	}()
 }
 

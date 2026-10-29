@@ -16,6 +16,7 @@ import (
 	"github.com/2panel-dev/2panel/internal/database"
 	"github.com/2panel-dev/2panel/internal/dto"
 	"github.com/2panel-dev/2panel/internal/model"
+	"github.com/2panel-dev/2panel/internal/notify"
 	"github.com/2panel-dev/2panel/internal/repo"
 	"github.com/2panel-dev/2panel/internal/scheduler"
 )
@@ -231,9 +232,13 @@ func (u *ScriptService) Run(id uint) (string, error) {
 			vars["status"] = model.StatusFailed
 			vars["message"] = err.Error()
 			logWriter.LogLevelf("错误", "脚本 [%s] 执行失败，耗时 %.2fs，错误: %v", record.ScriptName, time.Since(start).Seconds(), err)
+			notify.Error("脚本执行失败",
+				fmt.Sprintf("脚本：%s\n耗时：%.2fs\n错误：%v", record.ScriptName, time.Since(start).Seconds(), err))
 		} else {
 			vars["status"] = model.StatusSuccess
 			logWriter.LogLevelf("成功", "脚本 [%s] 执行成功，耗时 %.2fs", record.ScriptName, time.Since(start).Seconds())
+			notify.Success("脚本执行成功",
+				fmt.Sprintf("脚本：%s\n耗时：%.2fs", record.ScriptName, time.Since(start).Seconds()))
 		}
 		_ = scriptRecordRepo.Update(record.ID, vars)
 		pruneScriptRecords()

@@ -289,6 +289,53 @@ systemctl restart 2panel   # systemd 模式
 | `-debug` | `false` | 是否输出调试日志 |
 | `-version` | - | 输出版本号 |
 
+## Bark 推送通知（可选）
+
+> 通过环境变量开启，不配置时保持原有逻辑完全不变。任务成功 / 失败会自动推送，推送在独立 goroutine 中执行，网络异常不会阻塞任务。
+
+### 配置项
+
+| 环境变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `BARK_ENABLE` | `false` | 总开关，`true` / `1` / `on` / `yes` 启用 |
+| `BARK_KEY` | - | Bark 设备 Key（必填），在 Bark App 首页复制 |
+| `BARK_SERVER` | `https://api.day.app` | Bark 服务地址，支持自建服务 |
+| `BARK_ICON` | - | 默认推送图标 URL（可选，iOS 15+） |
+| `BARK_GROUP` | - | 默认通知分组（可选，建议 ≤ 8 字符） |
+| `BARK_SOUND_SUCCESS` | `bell` | 成功通知铃声 |
+| `BARK_SOUND_ERROR` | `alarm` | 失败告警铃声 |
+| `BARK_SOUND_INFO` | `none` | 普通提示铃声 |
+| `BARK_TIMEOUT` | `5` | 单次请求超时（秒） |
+
+### 使用示例
+
+```bash
+# 直接运行时
+BARK_ENABLE=true \
+BARK_KEY=your-device-key \
+BARK_SERVER=https://api.day.app \
+BARK_SOUND_SUCCESS=bell \
+BARK_SOUND_ERROR=alarm \
+./2panel
+```
+
+```yaml
+# docker-compose.yml
+services:
+  app:
+    environment:
+      - BARK_ENABLE=true
+      - BARK_KEY=your-device-key
+      - BARK_SERVER=https://api.day.app
+      - BARK_GROUP=2panel
+```
+
+> 自建 Bark 服务：把 `BARK_SERVER` 改成例如 `http://192.168.1.10:8080` 即可（不要带末尾 `/`）。
+>
+> 铃声可选值参考 Bark App 内设置，如 `bell`、`alarm`、`birdsong`、`piano`、`none` 等。
+>
+> 中文标题和内容会自动 URL 编码；推送失败只打印 `[bark] 推送失败 ...` 日志，不会重试，也不会影响任务执行与记录。
+
 ## 基础命令
 
 `2panel` 支持若干子命令，统一由二进制入口分发，与 systemd 服务解耦，可在任意机器上对目标数据目录操作。
