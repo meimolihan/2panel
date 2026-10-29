@@ -30,6 +30,7 @@ func New() http.Handler {
 	upgradeApi := handler.BaseApi.UpgradeApi
 	watchApi := handler.BaseApi.FileWatchApi
 	accountApi := handler.BaseApi.AccountApi
+	notifyApi := handler.BaseApi.NotifyApi
 	{
 		mux.HandleFunc("POST /api/version", handler.AuthMiddleware(upgradeApi.Version))
 		mux.HandleFunc("POST /api/upgrade/check", handler.AuthMiddleware(upgradeApi.Check))
@@ -93,6 +94,10 @@ func New() http.Handler {
 		mux.HandleFunc("POST /api/filewatchs/records/log/tail", handler.AuthMiddleware(watchApi.RecordLogTail))
 		mux.HandleFunc("POST /api/filewatchs/records/clear", handler.AuthMiddleware(watchApi.ClearRecords))
 		mux.HandleFunc("POST /api/filewatchs/script/options", handler.AuthMiddleware(watchApi.ScriptOptions))
+
+		mux.HandleFunc("POST /api/notify/bark/load", handler.AuthMiddleware(notifyApi.LoadConfig))
+		mux.HandleFunc("POST /api/notify/bark/save", handler.AuthMiddleware(notifyApi.SaveConfig))
+		mux.HandleFunc("POST /api/notify/bark/test", handler.AuthMiddleware(notifyApi.Test))
 	}
 
 	web, err := fs.Sub(webFS, "web")

@@ -1,8 +1,9 @@
 // Package notify 提供统一的外部通知能力，目前实现 Bark（iOS 推送）。
 //
 // ============================================================================
-// Bark 配置区域（全部通过环境变量设置，与业务代码解耦）
+// Bark 配置区域（环境变量作为默认值 / 兜底；Web 界面保存后以数据库配置为准）
 //
+// Web 入口：右上角头像 -> 推送通知，可在界面中配置并发送测试推送。
 // 注意：BARK_ENABLE 关闭时，所有 Notify / NotifyAsync 调用会立即返回，
 // 不会发送任何请求，也不会影响原有业务逻辑。
 //
@@ -65,7 +66,8 @@ const (
 	defaultTimeout = 5 * time.Second
 )
 
-// Config 是 Bark 的独立配置，全部来源于环境变量。
+// Config 是 Bark 的独立配置。
+// 默认从环境变量读取；Web 界面保存后会通过 SetConfig 覆盖为数据库中的配置。
 type Config struct {
 	Enable       bool
 	Server       string
@@ -79,14 +81,17 @@ type Config struct {
 }
 
 var (
-	configOnce sync.Once
-	config     Config
-	clientOnce sync.Once
-	client     *http.Client
+	// configMu 保护 config，支持运行期通过 Web 界面热更新配置。
+	configMu     sync.RWMutex
+	config       Config
+	configLoaded bool
+
+	// httpClient 复用连接；单次请求超时由 context 控制。
+	httpClient = &http.Client{}
 )
 
-// loadConfig 读取环境变量并填充默认值。只会执行一次。
-func loadConfig() Config {
+// loadEnvConfig 读取环境变量并填充默认值。
+func loadEnvConfig() Config {
 	timeout := defaultTimeout
 	if v := strings.TrimSpace(os.Getenv("BARK_TIMEOUT")); v != "" {
 		if seconds, err := strconv.Atoi(v); err == nil && seconds > 0 {
@@ -127,18 +132,49 @@ func parseBool(v string) bool {
 }
 
 func getConfig() Config {
-	configOnce.Do(func() { config = loadConfig() })
+	configMu.RLock()
+	if configLoaded {
+		cfg := config
+		configMu.RUnlock()
+		return cfg
+	}
+	configMu.RUnlock()
+
+	configMu.Lock()
+	defer configMu.Unlock()
+	if !configLoaded {
+		config = normalizeConfig(loadEnvConfig())
+		configLoaded = true
+	}
 	return config
 }
 
-func getClient(cfg Config) *http.Client {
-	clientOnce.Do(func() {
-		client = &http.Client{Timeout: cfg.Timeout}
-	})
-	return client
+func normalizeConfig(cfg Config) Config {
+	cfg.Server = strings.TrimRight(strings.TrimSpace(cfg.Server), "/")
+	if cfg.Server == "" {
+		cfg.Server = defaultServer
+	}
+	if cfg.Timeout <= 0 {
+		cfg.Timeout = defaultTimeout
+	}
+	return cfg
 }
 
-// Enabled 报告 Bark 推送是否已启用（BARK_ENABLE 为真）。
+// SetConfig 在运行期覆盖配置（Web 界面保存后调用），立即生效，无需重启。
+func SetConfig(cfg Config) {
+	cfg = normalizeConfig(cfg)
+	configMu.Lock()
+	config = cfg
+	configLoaded = true
+	configMu.Unlock()
+}
+
+// CurrentConfig 返回当前生效的配置（只读副本）。
+func CurrentConfig() Config {
+	return getConfig()
+}
+
+// Enabled 报告 Bark 推送是否已启用（BARK_ENABLE 或 Web 界面开关）。
 func Enabled() bool {
 	return getConfig().Enable
 }
@@ -190,7 +226,7 @@ func Notify(level, title, content, icon, jumpURL, group string, mute bool) (err 
 	if err != nil {
 		return fmt.Errorf("build bark request: %w", err)
 	}
-	resp, err := getClient(cfg).Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("request bark server: %w", err)
 	}
