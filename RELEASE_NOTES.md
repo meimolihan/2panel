@@ -1,9 +1,9 @@
-添加bark通知-02
+添加推送通知-03
 
 docker pull mobufan/2panel:latest
 
 ```bash
-docker pull mobufan/2panel:v1.1.6
+docker pull mobufan/2panel:v1.1.7
 ```
 
 ```bash
@@ -11,7 +11,7 @@ docker pull ghcr.io/meimolihan/2panel:latest
 ```
 
 ```bash
-docker pull ghcr.io/meimolihan/2panel:v1.1.6
+docker pull ghcr.io/meimolihan/2panel:v1.1.7
 ```
 
 ## 二进制安装
