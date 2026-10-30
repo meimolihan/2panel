@@ -157,6 +157,15 @@ func normalizeConfig(cfg Config) Config {
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = defaultTimeout
 	}
+	if cfg.SoundSuccess == "" {
+		cfg.SoundSuccess = "bell"
+	}
+	if cfg.SoundError == "" {
+		cfg.SoundError = "alarm"
+	}
+	if cfg.SoundInfo == "" {
+		cfg.SoundInfo = "none"
+	}
 	return cfg
 }
 

@@ -97,6 +97,9 @@ func main() {
 	service.InitAuth()
 	scheduler.Init(dataDir)
 
+	// load persisted Bark notification config (falls back to env vars)
+	service.InitNotify()
+
 	// restore running cron entries from db
 	service.RestoreCronjobs()
 	service.RestoreScriptRecords()

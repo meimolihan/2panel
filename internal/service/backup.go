@@ -207,6 +207,9 @@ func RestoreZip(zipBytes []byte) error {
 		return fmt.Errorf("还原脚本/日志文件失败: %v", err)
 	}
 
+	// reload Bark notification config from the restored settings table
+	InitNotify()
+
 	// re-register schedulers from the restored database
 	RestoreCronjobs()
 	RestoreScriptRecords()

@@ -1,14 +1,14 @@
 package handler
 
 type ApiGroup struct {
-	CronjobApi    CronjobApi
-	AuthApi       AuthApi
-	ScriptApi     ScriptApi
-	GroupApi      GroupApi
-	UpgradeApi    UpgradeApi
-	FileWatchApi  FileWatchApi
-	AccountApi    AccountApi
-	NotifyApi     NotifyApi
+	CronjobApi   CronjobApi
+	AuthApi      AuthApi
+	ScriptApi    ScriptApi
+	GroupApi     GroupApi
+	UpgradeApi   UpgradeApi
+	FileWatchApi FileWatchApi
+	AccountApi   AccountApi
+	NotifyApi    NotifyApi
 }
 
 var BaseApi = ApiGroup{
