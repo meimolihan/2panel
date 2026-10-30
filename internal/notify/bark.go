@@ -183,6 +183,16 @@ func CurrentConfig() Config {
 	return getConfig()
 }
 
+// ResetConfig 丢弃当前内存配置并重新从环境变量加载。
+// 用于备份还原后，若新数据库中没有 Bark 配置，避免旧配置残留。
+func ResetConfig() {
+	cfg := normalizeConfig(loadEnvConfig())
+	configMu.Lock()
+	config = cfg
+	configLoaded = true
+	configMu.Unlock()
+}
+
 // Enabled 报告 Bark 推送是否已启用（BARK_ENABLE 或 Web 界面开关）。
 func Enabled() bool {
 	return getConfig().Enable

@@ -17,10 +17,12 @@ const SettingBarkConfig = "bark_config"
 type NotifyService struct{}
 
 // InitNotify 在服务启动（以及备份还原）后，把数据库中的 Bark 配置加载到
-// notify 包。若从未在界面保存过配置，则继续使用环境变量兜底。
+// notify 包。若数据库中没有配置（或读取失败），则回退到环境变量，
+// 同时清除可能残留的旧内存配置，保证还原后运行时状态与数据库一致。
 func InitNotify() {
 	cfg, ok, err := loadStoredBarkConfig()
 	if err != nil || !ok {
+		notify.ResetConfig()
 		return
 	}
 	notify.SetConfig(cfg)

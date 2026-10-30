@@ -7,6 +7,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/2panel-dev/2panel/internal/database"
+	"github.com/2panel-dev/2panel/internal/dto"
+	"github.com/2panel-dev/2panel/internal/notify"
+	"github.com/2panel-dev/2panel/internal/repo"
+	"github.com/2panel-dev/2panel/internal/scheduler"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -111,5 +116,262 @@ func TestReadBackupDBWithoutFilewatchTables(t *testing.T) {
 	}
 	if len(watchRecords) != 0 {
 		t.Errorf("watchRecords = %d, want 0", len(watchRecords))
+	}
+}
+func zipBytes(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, content := range files {
+		w, err := zw.Create(name)
+		if err != nil {
+			t.Fatalf("zip create %s: %v", name, err)
+		}
+		if _, err := w.Write([]byte(content)); err != nil {
+			t.Fatalf("zip write %s: %v", name, err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("zip close: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func TestFindRootBackupDB(t *testing.T) {
+	nested := zipBytes(t, map[string]string{"sub/2panel.db": "x"})
+	r, err := zip.NewReader(bytes.NewReader(nested), int64(len(nested)))
+	if err != nil {
+		t.Fatalf("open nested zip: %v", err)
+	}
+	if got := findRootBackupDB(r); got != nil {
+		t.Fatalf("nested 2panel.db should not be accepted, got %q", got.Name)
+	}
+
+	root := zipBytes(t, map[string]string{backupDBName: "x", "log/a.log": "a"})
+	r, err = zip.NewReader(bytes.NewReader(root), int64(len(root)))
+	if err != nil {
+		t.Fatalf("open root zip: %v", err)
+	}
+	got := findRootBackupDB(r)
+	if got == nil || got.Name != backupDBName {
+		t.Fatalf("root 2panel.db not found: %+v", got)
+	}
+}
+
+func TestExtractDataFilesRestoresAllNonDBEntries(t *testing.T) {
+	dest := t.TempDir()
+	raw := zipBytes(t, map[string]string{
+		backupDBName:                   "db",
+		backupDBName + "-wal":          "wal",
+		"log/run.log":                  "log",
+		"task/job/run.sh":              "script",
+		"custom/config.json":           `{"v":1}`,
+		"sub/2panel.db":                "nested db",
+		"sub/" + backupDBName + "-wal": "nested wal",
+	})
+	r, err := zip.NewReader(bytes.NewReader(raw), int64(len(raw)))
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+	if err := extractDataFiles(r, dest); err != nil {
+		t.Fatalf("extractDataFiles: %v", err)
+	}
+
+	for name, want := range map[string]string{
+		"log/run.log":        "log",
+		"task/job/run.sh":    "script",
+		"custom/config.json": `{"v":1}`,
+	} {
+		got, err := os.ReadFile(filepath.Join(dest, name))
+		if err != nil {
+			t.Errorf("read %s: %v", name, err)
+			continue
+		}
+		if string(got) != want {
+			t.Errorf("%s = %q, want %q", name, got, want)
+		}
+	}
+	for _, name := range []string{backupDBName, backupDBName + "-wal", "sub/" + backupDBName} {
+		if _, err := os.Stat(filepath.Join(dest, name)); !os.IsNotExist(err) {
+			t.Errorf("%s should not be extracted", name)
+		}
+	}
+}
+
+func TestExtractDataFilesRejectsZipSlip(t *testing.T) {
+	raw := zipBytes(t, map[string]string{"../evil.txt": "x"})
+	r, err := zip.NewReader(bytes.NewReader(raw), int64(len(raw)))
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+	if err := extractDataFiles(r, t.TempDir()); err == nil {
+		t.Fatal("zip-slip entry should be rejected")
+	}
+}
+
+func TestMoveAndRemoveDataEntriesKeepsDatabase(t *testing.T) {
+	dataDir := t.TempDir()
+	backupDir := t.TempDir()
+	for name, content := range map[string]string{
+		backupDBName:          "db",
+		backupDBName + "-wal": "wal",
+		"log/a.log":           "log",
+		"task/job/run.sh":     "script",
+		"custom/config.json":  "config",
+	} {
+		path := filepath.Join(dataDir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	if err := moveDataEntries(dataDir, backupDir); err != nil {
+		t.Fatalf("move out: %v", err)
+	}
+	for _, name := range []string{backupDBName, backupDBName + "-wal"} {
+		if _, err := os.Stat(filepath.Join(dataDir, name)); err != nil {
+			t.Errorf("%s should remain in data dir: %v", name, err)
+		}
+	}
+	for _, name := range []string{"log/a.log", "task/job/run.sh", "custom/config.json"} {
+		if _, err := os.Stat(filepath.Join(backupDir, name)); err != nil {
+			t.Errorf("%s should be moved aside: %v", name, err)
+		}
+	}
+
+	if err := moveDataEntries(backupDir, dataDir); err != nil {
+		t.Fatalf("move back: %v", err)
+	}
+	for _, name := range []string{"log/a.log", "task/job/run.sh", "custom/config.json"} {
+		if _, err := os.Stat(filepath.Join(dataDir, name)); err != nil {
+			t.Errorf("%s should be restored: %v", name, err)
+		}
+	}
+
+	if err := removeDataEntries(dataDir); err != nil {
+		t.Fatalf("remove entries: %v", err)
+	}
+	for _, name := range []string{backupDBName, backupDBName + "-wal"} {
+		if _, err := os.Stat(filepath.Join(dataDir, name)); err != nil {
+			t.Errorf("%s should survive cleanup: %v", name, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "log")); !os.IsNotExist(err) {
+		t.Error("log/ should be removed")
+	}
+}
+
+// TestRestoreZipRoundTrip exercises the web restore path end-to-end: settings
+// (including Bark config), unknown root-level data files, logs and task files
+// must all come back, while files created after the backup must be removed.
+func TestRestoreZipRoundTrip(t *testing.T) {
+	root := t.TempDir()
+	dataDir := filepath.Join(root, "data")
+	if err := os.MkdirAll(dataDir, 0700); err != nil {
+		t.Fatalf("mkdir data dir: %v", err)
+	}
+	if err := database.Init(filepath.Join(dataDir, backupDBName)); err != nil {
+		t.Fatalf("init database: %v", err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	scheduler.Init(dataDir)
+	t.Cleanup(func() {
+		scheduler.GetRunner().ResetEntries()
+		scheduler.GetRunner().StopAllFileWatches()
+	})
+
+	writeFile := func(name, content string) {
+		t.Helper()
+		path := filepath.Join(dataDir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			t.Fatalf("mkdir %s: %v", name, err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	settingRepo := &repo.SettingRepo{}
+	if err := settingRepo.Set("restore_test", "original"); err != nil {
+		t.Fatalf("seed setting: %v", err)
+	}
+	wantBark := dto.BarkConfig{
+		Enable:       true,
+		Key:          "backup-key",
+		Server:       "https://bark.example.com",
+		SoundSuccess: "bell",
+		SoundError:   "alarm",
+		SoundInfo:    "none",
+		Timeout:      5,
+	}
+	if err := (&NotifyService{}).SaveConfig(wantBark); err != nil {
+		t.Fatalf("save bark config: %v", err)
+	}
+	writeFile("log/old.log", "old log")
+	writeFile("task/job/run.sh", "echo old")
+	writeFile("custom/config.json", `{"v":1}`)
+
+	snap, err := PrepareBackupSnapshot()
+	if err != nil {
+		t.Fatalf("prepare snapshot: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(snap) })
+	var buf bytes.Buffer
+	if err := WriteBackupZip(&buf, snap); err != nil {
+		t.Fatalf("write backup: %v", err)
+	}
+	backup := buf.Bytes()
+
+	// mutate everything after the backup
+	if err := settingRepo.Set("restore_test", "mutated"); err != nil {
+		t.Fatalf("mutate setting: %v", err)
+	}
+	if err := (&NotifyService{}).SaveConfig(dto.BarkConfig{Enable: false, Key: "stale", Timeout: 5}); err != nil {
+		t.Fatalf("mutate bark: %v", err)
+	}
+	for _, name := range []string{"log", "task", "custom"} {
+		if err := os.RemoveAll(filepath.Join(dataDir, name)); err != nil {
+			t.Fatalf("remove %s: %v", name, err)
+		}
+	}
+	writeFile("log/new.log", "new log")
+	writeFile("custom/config.json", `{"v":2}`)
+
+	if err := RestoreZip(backup); err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+
+	setting, err := settingRepo.Get("restore_test")
+	if err != nil {
+		t.Fatalf("read restored setting: %v", err)
+	}
+	if setting.Value != "original" {
+		t.Errorf("restore_test = %q, want original", setting.Value)
+	}
+	if got := (&NotifyService{}).LoadConfig(); got != wantBark {
+		t.Errorf("bark config = %+v, want %+v", got, wantBark)
+	}
+	if got := notify.CurrentConfig(); !got.Enable || got.Key != wantBark.Key {
+		t.Errorf("runtime bark config not restored: %+v", got)
+	}
+	for name, want := range map[string]string{
+		"log/old.log":        "old log",
+		"task/job/run.sh":    "echo old",
+		"custom/config.json": `{"v":1}`,
+	} {
+		got, err := os.ReadFile(filepath.Join(dataDir, name))
+		if err != nil {
+			t.Errorf("read %s: %v", name, err)
+			continue
+		}
+		if string(got) != want {
+			t.Errorf("%s = %q, want %q", name, got, want)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "log/new.log")); !os.IsNotExist(err) {
+		t.Error("log/new.log created after backup should be removed")
 	}
 }

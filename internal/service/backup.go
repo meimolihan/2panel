@@ -97,23 +97,37 @@ func WriteBackupZip(w io.Writer, snapPath string) error {
 
 // RestoreZip replaces the current data with the contents of a backup produced
 // by WriteBackupZip or `2panel backup`. The database content is swapped
-// in-place (so the running session keeps working), log/task files are written
-// to disk, and the scheduler is re-registered from the restored database.
+// in-place (so the running session keeps working), every non-database data
+// file is written to disk, and the scheduler is re-registered from the
+// restored database.
 func RestoreZip(zipBytes []byte) error {
 	r, err := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
 	if err != nil {
 		return fmt.Errorf("无效的备份文件：不是有效的 zip 压缩包")
 	}
 
-	var dbFile *zip.File
-	for _, f := range r.File {
-		if filepath.Base(f.Name) == backupDBName {
-			dbFile = f
-			break
-		}
-	}
+	dbFile := findRootBackupDB(r)
 	if dbFile == nil {
-		return fmt.Errorf("备份文件中未找到 %s，可能不是 2Panel 备份", backupDBName)
+		return fmt.Errorf("备份文件根目录中未找到 %s，可能不是 2Panel 备份", backupDBName)
+	}
+
+	cronjobs, records, settings, scripts, scriptRecords, groups, watches, watchRecords, err := readBackupDB(dbFile)
+	if err != nil {
+		return err
+	}
+
+	dataDir := scheduler.GetRunner().DataDir()
+
+	// Stage every non-database file before touching the current data, so a
+	// truncated/corrupt archive cannot destroy the existing log/task files.
+	base := strings.TrimRight(dataDir, "/")
+	staging, err := os.MkdirTemp(filepath.Dir(base), filepath.Base(base)+".restore-staging-")
+	if err != nil {
+		return fmt.Errorf("创建还原临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(staging)
+	if err := extractDataFiles(r, staging); err != nil {
+		return fmt.Errorf("解压备份文件失败: %v", err)
 	}
 
 	// Stop every scheduled entry BEFORE touching the database so a cron tick
@@ -127,20 +141,32 @@ func RestoreZip(zipBytes []byte) error {
 		return err
 	}
 
-	cronjobs, records, settings, scripts, scriptRecords, groups, watches, watchRecords, err := readBackupDB(dbFile)
-	if err != nil {
-		return err
-	}
-
-	dataDir := scheduler.GetRunner().DataDir()
-
 	// safety net: keep a copy of the current database before overwriting. The
 	// copy lives next to the data dir (never inside it) so a trailing slash on
 	// -data cannot leave it in the data dir where a later backup would pack it.
-	base := strings.TrimRight(dataDir, "/")
 	pruneOldRestoreBackups(base)
-	if err := copyFile(filepath.Join(dataDir, backupDBName), base+".pre-restore-"+time.Now().Format("20060102-150405")+".db"); err != nil {
+	// Use the same consistent snapshot path as regular backups; a raw file copy
+	// would miss committed transactions still sitting in the live -wal file.
+	if err := database.SnapshotDB(filepath.Join(dataDir, backupDBName), base+".pre-restore-"+time.Now().Format("20060102-150405")+".db"); err != nil {
 		return fmt.Errorf("备份当前数据库失败: %v", err)
+	}
+
+	// Move the current non-database files aside, then move the staged files in.
+	// Doing file operations before the DB swap means a failure here can restore
+	// the old files while the database is still untouched.
+	fileBackup, err := os.MkdirTemp(filepath.Dir(base), filepath.Base(base)+".pre-restore-files-")
+	if err != nil {
+		return fmt.Errorf("创建还原回滚目录失败: %v", err)
+	}
+	defer os.RemoveAll(fileBackup)
+	if err := moveDataEntries(dataDir, fileBackup); err != nil {
+		_ = moveDataEntries(fileBackup, dataDir)
+		return fmt.Errorf("暂存现有数据文件失败: %v", err)
+	}
+	if err := moveDataEntries(staging, dataDir); err != nil {
+		_ = removeDataEntries(dataDir)
+		_ = moveDataEntries(fileBackup, dataDir)
+		return fmt.Errorf("写入还原文件失败: %v", err)
 	}
 
 	// swap data in a single transaction
@@ -193,19 +219,15 @@ func RestoreZip(zipBytes []byte) error {
 		return nil
 	})
 	if err != nil {
+		// The transaction rolled back, so the old database is still intact.
+		// Put the old data files back to keep DB and files consistent.
+		_ = removeDataEntries(dataDir)
+		_ = moveDataEntries(fileBackup, dataDir)
 		return fmt.Errorf("写入还原数据失败: %v", err)
 	}
 
-	// Clear stale log/ and task/ files (created after the backup) so a restore
-	// leaves the same state as the CLI one, which swaps the whole directory.
-	if err := clearDataFiles(dataDir); err != nil {
-		return fmt.Errorf("清理旧数据文件失败: %v", err)
-	}
-
-	// restore log/ and task/ files (skip the db, already handled above)
-	if err := extractDataFiles(r, dataDir); err != nil {
-		return fmt.Errorf("还原脚本/日志文件失败: %v", err)
-	}
+	// restored data files are now in place and the DB swap committed
+	_ = os.RemoveAll(fileBackup)
 
 	// reload Bark notification config from the restored settings table
 	InitNotify()
@@ -217,37 +239,89 @@ func RestoreZip(zipBytes []byte) error {
 	return nil
 }
 
+// findRootBackupDB returns the database entry only when it sits at the archive
+// root, matching the layout produced by WriteBackupZip and `2panel backup`.
+func findRootBackupDB(r *zip.Reader) *zip.File {
+	for _, f := range r.File {
+		if filepath.Clean(filepath.FromSlash(f.Name)) == backupDBName {
+			return f
+		}
+	}
+	return nil
+}
+
 // pruneOldRestoreBackups keeps only the two most recent pre-restore database
-// snapshots, so repeated restores cannot accumulate unbounded copies next to
-// the data directory.
+// snapshots, file rollback dirs and staging dirs, so repeated restores or a
+// crash cannot accumulate unbounded copies next to the data directory.
 func pruneOldRestoreBackups(base string) {
-	pattern := filepath.Base(base) + ".pre-restore-*.db"
-	matches, err := filepath.Glob(filepath.Join(filepath.Dir(base), pattern))
-	if err != nil {
-		return
+	patterns := []string{
+		filepath.Base(base) + ".pre-restore-*.db",
+		filepath.Base(base) + ".pre-restore-files-*",
+		filepath.Base(base) + ".restore-staging-*",
 	}
-	sort.Sort(sort.Reverse(sort.StringSlice(matches)))
-	if len(matches) <= 2 {
-		return
-	}
-	for _, m := range matches[2:] {
-		_ = os.Remove(m)
+	for _, pattern := range patterns {
+		matches, err := filepath.Glob(filepath.Join(filepath.Dir(base), pattern))
+		if err != nil {
+			continue
+		}
+		sort.Sort(sort.Reverse(sort.StringSlice(matches)))
+		if len(matches) <= 2 {
+			continue
+		}
+		for _, m := range matches[2:] {
+			_ = os.RemoveAll(m)
+		}
 	}
 }
 
-// clearDataFiles removes and recreates the log/ and task/ directories so no
-// stale files survive a restore.
-func clearDataFiles(dataDir string) error {
-	for _, sub := range []string{"log", "task"} {
-		dir := filepath.Join(dataDir, sub)
-		if err := os.RemoveAll(dir); err != nil {
-			return err
+// isDBEntry reports whether a top-level data-dir name is the live database or
+// one of its WAL/SHM/journal companions.
+func isDBEntry(name string) bool {
+	return name == backupDBName || strings.HasPrefix(name, backupDBName+"-")
+}
+
+// moveDataEntries renames every non-database top-level entry from src to dst.
+// The caller is responsible for keeping both paths on the same filesystem.
+func moveDataEntries(src, dst string) error {
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if isDBEntry(entry.Name()) {
+			continue
 		}
-		if err := os.MkdirAll(dir, 0700); err != nil {
+		if err := os.Rename(filepath.Join(src, entry.Name()), filepath.Join(dst, entry.Name())); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// removeDataEntries deletes every non-database top-level entry in dir.
+func removeDataEntries(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if isDBEntry(entry.Name()) {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(dir, entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// pathWithin reports whether target stays inside base after cleaning.
+func pathWithin(base, target string) bool {
+	rel, err := filepath.Rel(base, target)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) && !filepath.IsAbs(rel)
 }
 
 // ensureIdle rejects a restore while any task/script is executing or waiting,
@@ -345,26 +419,26 @@ func readBackupDB(dbFile *zip.File) ([]model.Cronjob, []model.JobRecord, []model
 	return cronjobs, records, settings, scripts, scriptRecords, groups, watches, watchRecords, nil
 }
 
-// extractDataFiles writes log/ and task/ entries from the archive into the
-// data dir, guarding against zip-slip.
-func extractDataFiles(r *zip.Reader, dataDir string) error {
+// extractDataFiles writes every non-database entry from the archive into dest,
+// preserving the archive's relative layout and guarding against zip-slip. The
+// database itself is restored separately through the live DB connection.
+func extractDataFiles(r *zip.Reader, dest string) error {
 	for _, f := range r.File {
 		if f.FileInfo().IsDir() {
 			continue
 		}
 		name := filepath.Clean(filepath.FromSlash(f.Name))
-		if name == backupDBName {
-			continue
-		}
-		if !strings.HasPrefix(name, "log"+string(os.PathSeparator)) &&
-			!strings.HasPrefix(name, "task"+string(os.PathSeparator)) {
-			continue
-		}
-		if name == ".." || strings.HasPrefix(name, ".."+string(os.PathSeparator)) || filepath.IsAbs(name) {
+		if name == "." || name == ".." ||
+			strings.HasPrefix(name, ".."+string(os.PathSeparator)) ||
+			filepath.IsAbs(name) {
 			return fmt.Errorf("备份文件包含非法路径: %s", f.Name)
 		}
-		target := filepath.Join(dataDir, name)
-		if !strings.HasPrefix(target, dataDir) {
+		baseName := filepath.Base(name)
+		if baseName == backupDBName || strings.HasPrefix(baseName, backupDBName+"-") {
+			continue
+		}
+		target := filepath.Join(dest, name)
+		if !pathWithin(dest, target) {
 			return fmt.Errorf("备份文件路径越界: %s", f.Name)
 		}
 		if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
@@ -391,19 +465,4 @@ func extractDataFiles(r *zip.Reader, dataDir string) error {
 		}
 	}
 	return nil
-}
-
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	_, err = io.Copy(out, in)
-	return err
 }

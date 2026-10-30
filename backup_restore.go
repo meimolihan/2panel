@@ -292,7 +292,8 @@ func zipDir(src, dest, dbSnapshot string) (int, error) {
 	return files, err
 }
 
-// checkZip validates that path is a zip archive containing a 2panel.db.
+// checkZip validates that path is a zip archive containing a root-level
+// 2panel.db, matching the layout produced by `2panel backup`.
 func checkZip(path string) error {
 	r, err := zip.OpenReader(path)
 	if err != nil {
@@ -300,11 +301,11 @@ func checkZip(path string) error {
 	}
 	defer r.Close()
 	for _, f := range r.File {
-		if filepath.Base(f.Name) == backupDBName {
+		if filepath.Clean(filepath.FromSlash(f.Name)) == backupDBName {
 			return nil
 		}
 	}
-	return fmt.Errorf("压缩包中未找到 %s，可能不是 2Panel 备份", backupDBName)
+	return fmt.Errorf("压缩包根目录中未找到 %s，可能不是 2Panel 备份", backupDBName)
 }
 
 // unzipDir extracts the archive into dest, guarding against zip-slip. It
