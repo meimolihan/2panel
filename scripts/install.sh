@@ -88,7 +88,8 @@ is_valid_bin_src() {
 # ==================================================
 
 # ================== GitHub 下载加速镜像 ==================
-# 原始 GitHub 地址超时/失败时，按下列顺序依次尝试（末尾必须带斜杠）
+# 按下列顺序优先使用镜像下载，全部失败后再回退原始 GitHub 地址。
+# 末尾必须带斜杠，脚本会直接拼接完整 GitHub URL。
 GITHUB_MIRRORS=(
   "https://ghfast.top/"
   "https://ghproxy.net/"
@@ -96,28 +97,20 @@ GITHUB_MIRRORS=(
   "https://v6.gh-proxy.org/"
   "https://githubproxy.cc/"
 )
-# v6.gh-proxy.org 为纯 IPv6 代理：本机未配置 IPv6 地址时剔除，避免空等超时
-if [ ! -s /proc/net/if_inet6 ]; then
-  _no_v6=()
-  for _m in "${GITHUB_MIRRORS[@]}"; do
-    case "${_m}" in
-      *v6.gh-proxy.org*) continue ;;
-    esac
-    _no_v6+=("${_m}")
-  done
-  GITHUB_MIRRORS=("${_no_v6[@]}")
-fi
+# 单链接下载超时（秒），curl/wget 均使用该值。
+DOWNLOAD_TIMEOUT=120
 
-# 原始 GitHub URL -> 候选地址列表（原始优先，再依次套用各镜像）
+# 原始 GitHub URL -> 候选地址列表（五个镜像依次优先，原始地址最后兜底）
 make_url_candidates() {
   local github_url="$1" p
-  printf '%s\n' "${github_url}"
   for p in "${GITHUB_MIRRORS[@]}"; do
     printf '%s\n' "${p}${github_url}"
   done
+  printf '%s\n' "${github_url}"
 }
 
-# 下载单个文件：候选按序尝试，单链接单次 120s 超时后换源。
+# 下载单个文件：五个镜像按序优先，最后回退原始 GitHub 地址；
+# 单链接单次 120s 超时后换源。
 # 用法: download_file <URL> <输出文件> [期望魔数hex]
 #   魔数为可选，用于甄别镜像返回的错误页/截断文件（7f454c46=ELF、1f8b=gzip）。
 #   下载成功后尝试拉取 <URL>.sha256 校验（校验文件缺失时跳过，魔数兜底）。
@@ -130,12 +123,16 @@ download_file() {
     rm -f "${dst}"
     if command -v curl >/dev/null 2>&1; then
       if command -v timeout >/dev/null 2>&1; then
-        timeout 120 curl -fsSL --connect-timeout 10 --max-time 120 -o "${dst}" "${u}" 2>/dev/null || continue
+        timeout "${DOWNLOAD_TIMEOUT}" curl -fsSL --connect-timeout 10 --max-time "${DOWNLOAD_TIMEOUT}" -o "${dst}" "${u}" 2>/dev/null || continue
       else
-        curl -fsSL --connect-timeout 10 --max-time 120 -o "${dst}" "${u}" 2>/dev/null || continue
+        curl -fsSL --connect-timeout 10 --max-time "${DOWNLOAD_TIMEOUT}" -o "${dst}" "${u}" 2>/dev/null || continue
       fi
     elif command -v wget >/dev/null 2>&1; then
-      wget -qO "${dst}" --timeout=120 --tries=1 "${u}" 2>/dev/null || continue
+      if command -v timeout >/dev/null 2>&1; then
+        timeout "${DOWNLOAD_TIMEOUT}" wget -qO "${dst}" --timeout="${DOWNLOAD_TIMEOUT}" --tries=1 "${u}" 2>/dev/null || continue
+      else
+        wget -qO "${dst}" --timeout="${DOWNLOAD_TIMEOUT}" --tries=1 "${u}" 2>/dev/null || continue
+      fi
     else
       return 1
     fi
@@ -150,8 +147,8 @@ download_file() {
     # sha256 校验（校验文件缺失时跳过，仅依赖魔数兜底）
     if command -v sha256sum >/dev/null 2>&1; then
       rm -f "${sha_file}"
-      if { command -v curl >/dev/null 2>&1 && curl -fsSL --connect-timeout 10 --max-time 60 -o "${sha_file}" "${u}.sha256" 2>/dev/null; } || \
-         { command -v wget >/dev/null 2>&1 && wget -qO "${sha_file}" --timeout=60 --tries=1 "${u}.sha256" 2>/dev/null; }; then
+      if { command -v curl >/dev/null 2>&1 && curl -fsSL --connect-timeout 10 --max-time "${DOWNLOAD_TIMEOUT}" -o "${sha_file}" "${u}.sha256" 2>/dev/null; } || \
+         { command -v wget >/dev/null 2>&1 && wget -qO "${sha_file}" --timeout="${DOWNLOAD_TIMEOUT}" --tries=1 "${u}.sha256" 2>/dev/null; }; then
         if [ -s "${sha_file}" ]; then
           esha="$(awk '{print $1}' "${sha_file}" | tr '[:upper:]' '[:lower:]')"
           if [ -n "${esha}" ]; then
