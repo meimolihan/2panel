@@ -5,8 +5,66 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>2Panel · 把服务器上的定时任务收进一个能看见的地方</title>
 <meta name="description" content="2Panel 是一个单二进制的自托管 Linux 计划任务管理器。SQLite 持久化，无需 Node、CGO 或外部数据库。支持 shell 脚本与 curl 请求两类任务，含脚本库、导入导出、备份还原与崩溃自愈。">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="dark light">
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0iIzA0MDUwQiIvPjxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjYiIGZpbGw9IiMyREU4RkYiLz48L3N2Zz4=">
+<script>
+/* ---------- 主题：在样式表之前解析，避免首屏闪一下 ---------- */
+(function () {
+  var KEY = '2panel-theme';
+  var root = document.documentElement;
+  function read() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+  var saved = read();
+  var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+  root.setAttribute('data-theme', saved || (mq && mq.matches ? 'light' : 'dark'));
+
+  /* 按钮文案 / aria-label 统一同步（旧实现只在首次加载和点击时更新，
+     跟随系统切换时文案会停留在上一次的状态） */
+  function syncLabel() {
+    var btn = document.getElementById('themeBtn');
+    var tip = document.getElementById('themeTip');
+    if (!btn) return;
+    var light = root.getAttribute('data-theme') === 'light';
+    btn.setAttribute('aria-label', light ? '切换到深色主题' : '切换到浅色主题');
+    if (tip) tip.textContent = light ? '深色' : '浅色';
+  }
+
+  /* 切换时给按钮加光晕 + 图标旋转交换，纯装饰、不改变主题状态 */
+  function pulse(target) {
+    var btn = document.getElementById('themeBtn');
+    if (!btn || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    btn.classList.remove('is-switching', 'to-dark', 'to-light');
+    void btn.offsetWidth;                       /* 强制回流，保证连点可重播 */
+    btn.classList.add('is-switching', 'to-' + target);
+    clearTimeout(pulse._timer);
+    pulse._timer = setTimeout(function () {
+      btn.classList.remove('is-switching', 'to-dark', 'to-light');
+    }, 480);
+  }
+
+  if (!saved && mq) {
+    var onChange = function (e) {
+      root.setAttribute('data-theme', e.matches ? 'light' : 'dark');
+      syncLabel();
+    };
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else if (mq.addListener) mq.addListener(onChange);
+  }
+
+  window.addEventListener('DOMContentLoaded', function () {
+    var btn = document.getElementById('themeBtn');
+    if (!btn) return;
+    syncLabel();
+    btn.addEventListener('click', function () {
+      var light = root.getAttribute('data-theme') === 'light';
+      var target = light ? 'dark' : 'light';
+      root.setAttribute('data-theme', target);
+      try { localStorage.setItem(KEY, target); } catch (e) {}
+      syncLabel();
+      pulse(target);
+    });
+  });
+})();
+</script>
 <style>
 /* ============================================================
    2Panel 落地页 · 全面重构（赛博幻彩霓虹风）
@@ -71,6 +129,7 @@
   --mono:'JetBrains Mono','SFMono-Regular',ui-monospace,'Courier New',monospace;
 
   --pad:clamp(20px,5vw,64px);
+  color-scheme: dark;
 }
 
 :root[data-theme="light"]{
@@ -111,6 +170,7 @@
   --brand-dot-glow:rgba(14,143,176,.35);
   --primary-btn:var(--grad);
   --glass-shadow:0 18px 50px -28px rgba(124,58,237,.40);
+  color-scheme: light;
 }
 
 *,*::before,*::after{box-sizing:border-box}
@@ -482,43 +542,27 @@ p{margin:0}
 .nav__links a,.matrix__row,.theme__tip{transition-duration:.2s}
 .theme__thumb{transition-duration:.2s}
 
+
+/* ============================================================
+   主题切换动效优化：按钮光晕波纹 + 图标旋转交换
+   ============================================================ */
+.theme::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--neon-cyan);opacity:0;pointer-events:none}
+.theme.is-switching::before{animation:theme-halo .5s cubic-bezier(.22,.68,.32,1) both}
+.theme.is-switching.to-dark::before{background:var(--neon-violet)}
+.theme.is-switching.to-light::before{background:var(--neon-amber)}
+@keyframes theme-halo{0%{opacity:.45;transform:scale(.85)}100%{opacity:0;transform:scale(2.35)}}
+
+/* 切换期间两个图标叠放做旋转交换；末态角度归零，移除 class 时不会回弹 */
+.theme.is-switching .theme__icon{display:block !important;position:absolute;top:50%;left:50%;animation-duration:.42s;animation-timing-function:cubic-bezier(.34,1.28,.64,1);animation-fill-mode:both}
+.theme.is-switching.to-light .theme__icon--sun,
+.theme.is-switching.to-dark .theme__icon--moon{animation-name:theme-lp-icon-out}
+.theme.is-switching.to-light .theme__icon--moon,
+.theme.is-switching.to-dark .theme__icon--sun{animation-name:theme-lp-icon-in}
+@keyframes theme-lp-icon-in{from{opacity:0;transform:translate(-50%,-50%) rotate(-140deg) scale(.4)}to{opacity:1;transform:translate(-50%,-50%) rotate(0deg) scale(1)}}
+@keyframes theme-lp-icon-out{from{opacity:1;transform:translate(-50%,-50%) rotate(0deg) scale(1)}to{opacity:0;transform:translate(-50%,-50%) rotate(140deg) scale(.4)}}
+@media (prefers-reduced-motion:reduce){.theme.is-switching::before,.theme.is-switching .theme__icon{animation:none}}
 </style>
-<script>
-/* ---------- 主题：默认值在样式之前解析，避免首屏闪一下 ---------- */
-(function () {
-  var KEY = '2panel-theme';
-  var root = document.documentElement;
-  function read() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
-  var saved = read();
-  var prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
-  root.setAttribute('data-theme', saved || (prefersLight ? 'light' : 'dark'));
 
-  if (!saved && window.matchMedia) {
-    var mq = window.matchMedia('(prefers-color-scheme: light)');
-    var onChange = function (e) { root.setAttribute('data-theme', e.matches ? 'light' : 'dark'); };
-    if (mq.addEventListener) mq.addEventListener('change', onChange);
-    else if (mq.addListener) mq.addListener(onChange);
-  }
-
-  window.addEventListener('DOMContentLoaded', function () {
-    var btn = document.getElementById('themeBtn');
-    var tip = document.getElementById('themeTip');
-    if (!btn) return;
-    function label() {
-      var light = root.getAttribute('data-theme') === 'light';
-      btn.setAttribute('aria-label', light ? '切换到深色主题' : '切换到浅色主题');
-      tip.textContent = light ? '深色' : '浅色';
-    }
-    label();
-    btn.addEventListener('click', function () {
-      var light = root.getAttribute('data-theme') === 'light';
-      root.setAttribute('data-theme', light ? 'dark' : 'light');
-      try { localStorage.setItem(KEY, light ? 'dark' : 'light'); } catch (e) {}
-      label();
-    });
-  });
-})();
-</script>
 </head>
 <body>
 
