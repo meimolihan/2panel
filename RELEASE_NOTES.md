@@ -1,9 +1,9 @@
-修复明暗模式切换动画
+计划任务 脚本库 文件监控，优化三个按钮为 玻璃胶囊 风格
 
 docker pull mobufan/2panel:latest
 
 ```bash
-docker pull mobufan/2panel:v1.2.0
+docker pull mobufan/2panel:v1.2.3
 ```
 
 ```bash
@@ -11,7 +11,7 @@ docker pull ghcr.io/meimolihan/2panel:latest
 ```
 
 ```bash
-docker pull ghcr.io/meimolihan/2panel:v1.2.0
+docker pull ghcr.io/meimolihan/2panel:v1.2.3
 ```
 
 ## 二进制安装
