@@ -1,9 +1,9 @@
-修复明暗模式切换动画
+美化WEB界面为：赛博朋克风格
 
 docker pull mobufan/2panel:latest
 
 ```bash
-docker pull mobufan/2panel:v1.2.0
+docker pull mobufan/2panel:v1.2.2
 ```
 
 ```bash
@@ -11,7 +11,7 @@ docker pull ghcr.io/meimolihan/2panel:latest
 ```
 
 ```bash
-docker pull ghcr.io/meimolihan/2panel:v1.2.0
+docker pull ghcr.io/meimolihan/2panel:v1.2.2
 ```
 
 ## 二进制安装
