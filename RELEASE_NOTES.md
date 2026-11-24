@@ -1,9 +1,9 @@
-修复明暗模式切换动画
+OTA 升级加速
 
 docker pull mobufan/2panel:latest
 
 ```bash
-docker pull mobufan/2panel:v1.2.0
+docker pull mobufan/2panel:v1.2.4
 ```
 
 ```bash
@@ -11,7 +11,7 @@ docker pull ghcr.io/meimolihan/2panel:latest
 ```
 
 ```bash
-docker pull ghcr.io/meimolihan/2panel:v1.2.0
+docker pull ghcr.io/meimolihan/2panel:v1.2.4
 ```
 
 ## 二进制安装
