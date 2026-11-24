@@ -2482,9 +2482,273 @@ html.theme-switching *::after { transition: none !important; }
   .theme-toggle.is-switching .icon-sun,
   .theme-toggle.is-switching .icon-moon { animation: none; }
 }
+/* ==================================================================
+   幻彩琉璃风格层 · Prism Glass（覆盖在上面所有规则之后）
+   青 / 紫 / 粉三色霓虹 + 玻璃拟态 + CRT 扫描线 + 漂移光球
+   —— 独立命名空间，不改上方任何既有规则，主题切换与 View Transition 完全保留
+   ================================================================== */
+
+:root{
+  --fx-cyan:#2DE8FF; --fx-violet:#A468FF; --fx-pink:#FF3DA0;
+  --fx-green:#2BFFB0; --fx-amber:#FFC24B;
+  --fx-bg:#06040D; --fx-bg2:#0A0716;
+  --fx-panel:rgba(19,15,34,.58); --fx-panel2:rgba(14,11,27,.46);
+  --fx-line:rgba(164,104,255,.24); --fx-line2:rgba(45,232,255,.38);
+  --fx-text:#F0EAFB; --fx-muted:#A79CC4; --fx-dim:#6F6690;
+  --fx-glow-c:0 0 22px -4px rgba(45,232,255,.55);
+  --fx-glow-v:0 0 22px -4px rgba(164,104,255,.55);
+  --fx-glow-p:0 0 22px -4px rgba(255,61,160,.55);
+  --fx-grad:linear-gradient(120deg,#2DE8FF 0%,#A468FF 50%,#FF3DA0 100%);
+  --fx-grad-t:linear-gradient(100deg,#2DE8FF 0%,#A468FF 48%,#FF3DA0 100%);
+  --fx-scan:.10; --fx-orb:1; --fx-grid:rgba(164,104,255,.05);
+}
+:root[data-theme="light"]{
+  --fx-cyan:#0E8FB0; --fx-violet:#7C3AED; --fx-pink:#DB2777;
+  --fx-green:#0E9F73; --fx-amber:#C7791A;
+  --fx-bg:#F1EEF8; --fx-bg2:#E9E4F4;
+  --fx-panel:rgba(255,255,255,.76); --fx-panel2:rgba(255,255,255,.60);
+  --fx-line:rgba(124,58,237,.20); --fx-line2:rgba(14,143,176,.30);
+  --fx-text:#17102B; --fx-muted:#584C78; --fx-dim:#81769D;
+  --fx-glow-c:0 0 14px -6px rgba(14,143,176,.26);
+  --fx-glow-v:0 0 14px -6px rgba(124,58,237,.26);
+  --fx-glow-p:0 0 14px -6px rgba(219,39,119,.26);
+  --fx-grad:linear-gradient(120deg,#0E8FB0 0%,#7C3AED 50%,#DB2777 100%);
+  --fx-grad-t:linear-gradient(100deg,#0E8FB0 0%,#7C3AED 48%,#DB2777 100%);
+  --fx-scan:.04; --fx-orb:.5; --fx-grid:rgba(124,58,237,.04);
+}
+
+/* 停用原星云层，底色交给 fx-bg */
+html{background-color:var(--fx-bg)!important}
+body::before{display:none!important}
+body{
+  color:var(--fx-text)!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  font-feature-settings:"tnum" 1;
+}
+.fx-bg{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;
+  background:radial-gradient(130% 110% at 50% -8%,var(--fx-bg2) 0%,var(--fx-bg) 62%)}
+.fx-grid{position:absolute;inset:-2px;
+  background-image:linear-gradient(var(--fx-grid) 1px,transparent 1px),linear-gradient(90deg,var(--fx-grid) 1px,transparent 1px);
+  background-size:46px 46px;
+  -webkit-mask-image:radial-gradient(125% 95% at 50% 0%,#000 25%,transparent 85%);
+  mask-image:radial-gradient(125% 95% at 50% 0%,#000 25%,transparent 85%);
+  animation:fxGridPan 26s linear infinite}
+.fx-orb{position:absolute;border-radius:50%;filter:blur(46px);opacity:var(--fx-orb)}
+.fx-orb-a{width:52vw;height:52vw;left:-10vw;top:-16vw;background:radial-gradient(circle,var(--fx-cyan),transparent 62%);animation:fxDrift 22s ease-in-out infinite alternate}
+.fx-orb-b{width:46vw;height:46vw;right:-10vw;top:-10vw;background:radial-gradient(circle,var(--fx-violet),transparent 62%);animation:fxDrift 26s ease-in-out infinite alternate-reverse}
+.fx-orb-c{width:56vw;height:56vw;left:16vw;bottom:-26vw;background:radial-gradient(circle,var(--fx-pink),transparent 62%);animation:fxDrift 30s ease-in-out infinite alternate}
+.fx-scan{position:absolute;inset:0;opacity:var(--fx-scan);
+  background:repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(0,0,0,.55) 3px,transparent 4px)}
+.fx-veil{position:absolute;inset:0;background:radial-gradient(120% 85% at 50% 0%,transparent 40%,var(--fx-bg) 100%)}
+@keyframes fxGridPan{to{background-position:46px 46px}}
+@keyframes fxDrift{0%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(3%,-2%,0) scale(1.08)}100%{transform:translate3d(-2%,3%,0) scale(1)}}
+@media(prefers-reduced-motion:reduce){.fx-grid,.fx-orb{animation:none}}
+
+/* 变量重映射：让所有既有组件自动吃到幻彩配色 */
+:root{
+  --primary:#2DE8FF; --primary-hover:#5CF2FF;
+  --danger:#FF3DA0; --success:#2BFFB0; --warning:#FFC24B;
+  --text:var(--fx-text); --text-secondary:var(--fx-muted); --text-tertiary:var(--fx-dim);
+  --border:var(--fx-line); --border-soft:rgba(164,104,255,.10);
+  --bg:var(--fx-bg); --bg-card:var(--fx-panel); --bg-header:var(--fx-panel2);
+  --bg-input:rgba(10,8,22,.55); --bg-code:rgba(6,4,13,.80); --bg-overlay:rgba(4,3,10,.72);
+  --tag-success-bg:rgba(43,255,176,.10); --tag-success-color:#5CFFC8;
+  --tag-disabled-bg:rgba(167,156,196,.10);
+  --tag-info-bg:rgba(45,232,255,.10); --tag-info-color:#6BF0FF;
+  --tag-error-bg:rgba(255,61,160,.12); --tag-error-color:#FF7ABF;
+  --tag-warning-bg:rgba(255,194,75,.10); --tag-warning-color:#FFD47A;
+  --tag-shell-bg:rgba(164,104,255,.12); --tag-shell-color:#C39BFF;
+  --tag-curl-bg:rgba(255,61,160,.10); --tag-curl-color:#FF86C4;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.30),0 4px 16px -6px rgba(164,104,255,.30);
+  --shadow-md:0 4px 20px -8px rgba(164,104,255,.40);
+  --shadow-lg:0 16px 48px -12px rgba(45,232,255,.26),0 0 60px -18px rgba(255,61,160,.30);
+  --shadow-hover:0 6px 22px -8px rgba(45,232,255,.36);
+  --shadow-primary:0 0 18px -4px rgba(45,232,255,.55);
+  --card-grad:linear-gradient(160deg,rgba(19,15,34,.62) 0%,rgba(14,11,27,.50) 100%);
+  --row-hover-bg:rgba(45,232,255,.08); --row-zebra:rgba(164,104,255,.035);
+  --focus-ring:rgba(45,232,255,.22);
+  --bg-glow-a:rgba(164,104,255,.09); --bg-glow-b:rgba(255,61,160,.07);
+  --login-glow:#2DE8FF; --primary-solid:#2DE8FF; --primary-solid-hover:#5CF2FF;
+  --switch-glow:rgba(43,255,176,.6);
+}
+:root[data-theme="light"]{
+  --primary:#0E8FB0; --primary-hover:#0B7598;
+  --danger:#DB2777; --success:#0E9F73; --warning:#C7791A;
+  --text:var(--fx-text); --text-secondary:var(--fx-muted); --text-tertiary:var(--fx-dim);
+  --border:var(--fx-line); --border-soft:rgba(124,58,237,.08);
+  --bg:var(--fx-bg); --bg-card:var(--fx-panel); --bg-header:var(--fx-panel2);
+  --bg-input:rgba(255,255,255,.85); --bg-code:#F4F1FA; --bg-overlay:rgba(30,20,60,.30);
+  --tag-success-bg:#E4F7EF; --tag-success-color:#0E9F73;
+  --tag-disabled-bg:#EFECF6;
+  --tag-info-bg:#E4F5FA; --tag-info-color:#0E8FB0;
+  --tag-error-bg:#FCE8F1; --tag-error-color:#DB2777;
+  --tag-warning-bg:#FBF1E2; --tag-warning-color:#C7791A;
+  --tag-shell-bg:#EFEAFB; --tag-shell-color:#7C3AED;
+  --tag-curl-bg:#FCE8F1; --tag-curl-color:#C2185B;
+  --shadow-sm:0 1px 2px rgba(23,16,43,.05),0 3px 12px -6px rgba(124,58,237,.18);
+  --shadow-md:0 4px 18px -8px rgba(124,58,237,.24);
+  --shadow-lg:0 14px 40px -14px rgba(14,143,176,.20),0 0 44px -18px rgba(219,39,119,.20);
+  --shadow-hover:0 6px 20px -8px rgba(14,143,176,.24);
+  --shadow-primary:0 0 14px -4px rgba(14,143,176,.34);
+  --card-grad:linear-gradient(160deg,rgba(255,255,255,.80) 0%,rgba(248,246,253,.68) 100%);
+  --row-hover-bg:rgba(14,143,176,.09); --row-zebra:rgba(124,58,237,.035);
+  --focus-ring:rgba(14,143,176,.22);
+  --bg-glow-a:rgba(124,58,237,.07); --bg-glow-b:rgba(219,39,119,.05);
+  --login-glow:#0E8FB0; --primary-solid:#0E8FB0; --primary-solid-hover:#0B7598;
+  --switch-glow:rgba(14,159,115,.5);
+}
+
+/* ---------- 玻璃拟态容器 ---------- */
+.header,.card,.stat-card,.modal,.login-card,.user-dropdown,.theme-toggle,
+.btn,.tag,.toast,.spec-row,.group-chip,.tab,.pager,.back-top,.code,
+input,select,textarea,.pwd-wrap,.switch .track,.empty{
+  backdrop-filter:blur(14px) saturate(1.25);
+  -webkit-backdrop-filter:blur(14px) saturate(1.25);
+}
+.header,.card,.stat-card,.modal,.login-card,.user-dropdown{
+  border:1px solid var(--fx-line)!important;
+  box-shadow:var(--fx-glow-v)!important;
+}
+.header{background:var(--fx-panel)!important;border-radius:14px 14px 0 0!important}
+.header::after{background:var(--fx-grad)!important;opacity:.7;height:1px!important}
+.card,.stat-card,.login-card,.modal{
+  background-image:var(--card-grad)!important;
+  background-color:transparent!important;
+  border-radius:14px!important;
+}
+.stat-card{position:relative;overflow:hidden}
+.stat-card::before{content:"";position:absolute;left:0;top:14%;bottom:14%;width:2px;
+  background:var(--fx-grad);box-shadow:var(--fx-glow-c);border-radius:2px}
+.stat-card:nth-child(2)::before{background:linear-gradient(180deg,var(--fx-violet),var(--fx-cyan))}
+.stat-card:nth-child(3)::before{background:linear-gradient(180deg,var(--fx-pink),var(--fx-violet))}
+.stat-card:nth-child(4)::before{background:var(--fx-grad)}
+.stat-value{background:var(--fx-grad-t);-webkit-background-clip:text;background-clip:text;color:transparent!important}
+.stat-label{color:var(--fx-muted)!important}
+
+/* 顶栏文字 / 品牌 / 环境标签 */
+.header h1 span,.header h1 span[style]{color:var(--fx-cyan)!important;text-shadow:0 0 14px var(--fx-cyan)}
+.env{color:var(--fx-violet)!important;border-color:var(--fx-line)!important;
+  background:rgba(164,104,255,.10)!important;text-shadow:0 0 12px var(--fx-violet)}
+.user-avatar{border:1px solid var(--fx-line2)!important;background:var(--fx-grad)!important;
+  color:#fff!important;box-shadow:var(--fx-glow-c)!important}
+.theme-toggle{border-color:var(--fx-line)!important;color:var(--fx-text)!important}
+.theme-toggle:hover{border-color:var(--fx-cyan)!important;color:var(--fx-cyan)!important;box-shadow:var(--fx-glow-c)!important}
+.dropdown-item:hover{color:var(--fx-cyan)!important;background:rgba(45,232,255,.08)!important}
+.dropdown-item.danger:hover{color:var(--fx-pink)!important;background:rgba(255,61,160,.10)!important}
+
+/* 按钮：描边霓虹 + 主按钮三色渐变 */
+.btn{border-color:var(--fx-line)!important;color:var(--fx-text)!important;border-radius:9px!important}
+.btn:hover{border-color:var(--fx-cyan)!important;color:var(--fx-cyan)!important;
+  box-shadow:var(--fx-glow-c)!important}
+.btn.primary,.btn.primary:hover{
+  border-color:transparent!important;color:#fff!important;font-weight:600!important;
+  background:var(--fx-grad)!important;box-shadow:var(--fx-glow-p)!important;
+}
+:root:not([data-theme="light"]) .btn.primary,
+:root:not([data-theme="light"]) .btn.primary:not(:disabled):hover{
+  background:var(--fx-grad)!important;border-color:transparent!important;
+  box-shadow:var(--fx-glow-p)!important;
+}
+[data-theme="light"] .btn.primary{background:var(--fx-grad)!important;
+  box-shadow:0 3px 12px -4px rgba(124,58,237,.36)!important}
+.btn.danger{color:var(--fx-pink)!important;border-color:rgba(255,61,160,.42)!important}
+.btn.danger:hover{background:rgba(255,61,160,.14)!important;color:#fff!important;
+  box-shadow:var(--fx-glow-p)!important}
+
+/* 标签：霓虹描边 */
+.tag{border-radius:6px!important;border:1px solid transparent}
+.tag.enabled,.tag.success,.tag.ok{background:var(--tag-success-bg)!important;
+  color:var(--tag-success-color)!important;border-color:rgba(43,255,176,.28)!important;
+  box-shadow:0 0 10px -4px rgba(43,255,176,.5)!important}
+.tag.disabled{background:var(--tag-disabled-bg)!important;color:var(--fx-dim)!important;
+  border-color:var(--fx-line)!important}
+.tag.waiting,.tag.running{background:var(--tag-info-bg)!important;color:var(--tag-info-color)!important;
+  border-color:rgba(45,232,255,.30)!important;box-shadow:0 0 10px -4px rgba(45,232,255,.5)!important}
+.tag.failed{background:var(--tag-error-bg)!important;color:var(--tag-error-color)!important;
+  border-color:rgba(255,61,160,.32)!important;box-shadow:0 0 10px -4px rgba(255,61,160,.5)!important}
+.tag.unexecuted{background:var(--tag-warning-bg)!important;color:var(--tag-warning-color)!important;
+  border-color:rgba(255,194,75,.28)!important}
+.tag.shell{background:var(--tag-shell-bg)!important;color:var(--tag-shell-color)!important;
+  border-color:rgba(164,104,255,.30)!important}
+.tag.curl{background:var(--tag-curl-bg)!important;color:var(--tag-curl-color)!important;
+  border-color:rgba(255,61,160,.26)!important}
+.tag-group .tag{margin-right:4px}
+
+/* 标签页 / 分组 chip / 开关 */
+.tab.active{color:var(--fx-cyan)!important;border-bottom-color:var(--fx-cyan)!important;
+  text-shadow:0 0 12px var(--fx-cyan)!important}
+.tab:hover{color:var(--fx-text)!important}
+:root:not([data-theme="light"]) .tab.active{background-image:linear-gradient(180deg,rgba(45,232,255,.14),transparent)!important}
+.group-chip{border-radius:16px!important;border-color:var(--fx-line)!important}
+.group-chip.on{background:var(--tag-info-bg)!important;color:var(--fx-cyan)!important;
+  border-color:var(--fx-cyan)!important;box-shadow:var(--fx-glow-c)!important}
+.switch .track{border-color:var(--fx-line)!important;background:rgba(120,110,160,.16)!important}
+.switch input:checked + .track{background:linear-gradient(90deg,var(--fx-green),var(--fx-cyan))!important;
+  border-color:var(--fx-green)!important;box-shadow:0 0 12px rgba(43,255,176,.45)!important}
+
+/* 表格 */
+th{color:var(--fx-muted)!important;background:rgba(164,104,255,.07)!important;
+  border-bottom:1px solid var(--fx-line)!important}
+td{border-bottom-color:var(--fx-line)!important}
+tbody tr:nth-child(even){background:rgba(164,104,255,.035)!important}
+tbody tr:hover{background:rgba(45,232,255,.08)!important}
+
+/* 表单控件 */
+input,select,textarea,.pwd-wrap{
+  border-color:var(--fx-line)!important;color:var(--fx-text)!important;
+  background:var(--bg-input)!important;border-radius:8px!important;
+}
+input:focus,select:focus,textarea:focus,.pwd-wrap:focus-within{
+  border-color:var(--fx-cyan)!important;box-shadow:0 0 0 3px var(--focus-ring),var(--fx-glow-c)!important;
+}
+input::placeholder,textarea::placeholder{color:var(--fx-dim)!important}
+.code{background:rgba(45,232,255,.07)!important;color:var(--fx-cyan)!important;
+  border:1px solid var(--fx-line)!important;border-radius:5px!important;
+  text-shadow:0 0 10px rgba(45,232,255,.35)!important}
+
+/* 弹窗 / 登录卡 */
+.modal-mask,.dialog-mask{background:var(--bg-overlay)!important;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.modal-head{background:var(--fx-panel2)!important;border-bottom-color:var(--fx-line)!important}
+.modal-foot{background:var(--fx-panel2)!important;border-top-color:var(--fx-line)!important}
+.modal-icon{background:var(--fx-grad)!important;box-shadow:var(--fx-glow-v)!important}
+.login-card::before,.login-card::after{filter:blur(2px)}
+#loginPage{background:transparent!important}
+.login-card .login-brand h2 span{color:var(--fx-cyan)!important;text-shadow:0 0 16px var(--fx-cyan)!important}
+
+/* 其它细节 */
+.toast{border-left:3px solid var(--fx-cyan)!important;box-shadow:var(--fx-glow-c)!important}
+.toast.success{border-left-color:var(--fx-green)!important}
+.toast.error{border-left-color:var(--fx-pink)!important}
+.pager .btn.on,.pager .active{color:var(--fx-cyan)!important;border-color:var(--fx-cyan)!important;box-shadow:var(--fx-glow-c)!important}
+.empty-icon{color:var(--fx-violet)!important;opacity:.7}
+.upd-badge{background:rgba(255,194,75,.10)!important;border-color:rgba(255,194,75,.28)!important;
+  color:var(--fx-amber)!important;box-shadow:0 0 10px -4px rgba(255,194,75,.5)!important}
+.preset:hover,.spec-row:hover{border-color:var(--fx-violet)!important;box-shadow:var(--fx-glow-v)!important}
+.back-top{border-color:var(--fx-line)!important;color:var(--fx-muted)!important}
+.back-top:hover{border-color:var(--fx-cyan)!important;color:var(--fx-cyan)!important;box-shadow:var(--fx-glow-c)!important}
+::selection{background:var(--fx-violet)!important;color:#fff!important;text-shadow:0 0 8px var(--fx-violet)}
+::-webkit-scrollbar-track{background:var(--fx-bg)!important}
+::-webkit-scrollbar-thumb{background:rgba(164,104,255,.32)!important;border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:rgba(45,232,255,.42)!important}
+:focus-visible{outline-color:var(--fx-cyan)!important}
+/* 首屏与主题遮罩跟随 */
+#splash{background:var(--fx-bg)!important;
+  background-image:radial-gradient(560px 400px at 30% 20%,rgba(45,232,255,.10),transparent 60%),
+    radial-gradient(520px 380px at 70% 80%,rgba(255,61,160,.10),transparent 60%)!important}
+.theme-mask{--theme-mask-dark:var(--fx-bg);--theme-mask-light:var(--fx-bg)}
 </style>
 </head>
 <body>
+<!-- 幻彩琉璃背景层：网格 + 三色光球 + CRT 扫描线 + 暗角，固定不随滚动 -->
+<div class="fx-bg" aria-hidden="true">
+  <div class="fx-grid"></div>
+  <div class="fx-orb fx-orb-a"></div>
+  <div class="fx-orb fx-orb-b"></div>
+  <div class="fx-orb fx-orb-c"></div>
+  <div class="fx-scan"></div>
+  <div class="fx-veil"></div>
+</div>
 <div id="splash">
   <svg class="splash-logo" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <rect width="512" height="512" rx="110" fill="#f4f6f8"/>
