@@ -6,6 +6,7 @@
 package upgrade
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -37,6 +38,26 @@ const (
 	// AssetName is the release asset name pattern, e.g. 2panel_linux_amd64.
 	AssetName = "2panel_linux_%s"
 )
+
+// githubMirrors 与 scripts/install.sh 保持一致的 GitHub 下载加速镜像。
+// 末尾带斜杠，直接拼接完整 GitHub release URL；按顺序优先，全部失败回退原地址。
+// 改动此处时请同步 scripts/install.sh 的 GITHUB_MIRRORS，保持两条升级路径一致。
+var githubMirrors = []string{
+	"https://ghfast.top/",
+	"https://ghproxy.net/",
+	"https://gh.xxooo.cf/",
+	"https://v6.gh-proxy.org/",
+	"https://githubproxy.cc/",
+}
+
+// candidateURLs 把一个 GitHub release URL 展开为「镜像优先 + 原地址兜底」的候选列表。
+func candidateURLs(githubURL string) []string {
+	urls := make([]string, 0, len(githubMirrors)+1)
+	for _, prefix := range githubMirrors {
+		urls = append(urls, prefix+githubURL)
+	}
+	return append(urls, githubURL)
+}
 
 // MinisignPublicKey 是发布资产签名所用的公钥（方案 D，防供应链篡改）。
 // 将 `minisign -G` 生成的公钥文件（minisign.pub，含 untrusted comment 行的
@@ -343,16 +364,58 @@ func doUpgrade() error {
 
 	base := fmt.Sprintf("https://github.com/%s/%s/releases/latest/download/%s",
 		GitHubOwner, GitHubRepo, fmt.Sprintf(AssetName, runtime.GOARCH))
+	urls := candidateURLs(base)
 
 	logf("开始升级到 %s", info.Latest)
-	logf("下载 %s", base)
+
+	// 1. 先取期望 SHA-256（校验文件也走镜像轮询，避免原地址不可达时误判）
+	setStatus("verifying")
+	expected, err := fetchExpectedSHA256(base + ".sha256")
+	if err != nil {
+		return fmt.Errorf("获取 SHA-256 校验文件失败：%v", err)
+	}
+	logf("SHA-256 期望值 %s…", shortHash(expected))
+
+	// 2. 逐镜像下载：每个候选都做魔数甄别 + SHA-256 校验，通过才接受，
+	//    全部失败后原地址是候选列表最后一项，天然实现「回退原地址」。
+	setStatus("downloading")
 	tmp, err := os.CreateTemp(filepath.Dir(cfg.BinPath), ".2panel-update-*.tmp")
 	if err != nil {
 		return err
 	}
 	defer os.Remove(tmp.Name())
-	if err := downloadToFile(base, tmp); err != nil {
-		return err
+
+	downloaded, lastErr := false, error(nil)
+	for _, u := range urls {
+		logf("下载 %s", u)
+		if err := downloadToFile(u, tmp); err != nil {
+			lastErr = err
+			logf("下载失败：%v，换源重试", err)
+			continue
+		}
+		// 魔数甄别镜像返回的 HTML 错误页 / 截断文件（ELF: 7f 45 4c 46）
+		if err := checkMagic(tmp.Name(), 0x7f, 0x45, 0x4c, 0x46); err != nil {
+			lastErr = err
+			logf("下载内容非预期：%v，换源重试", err)
+			continue
+		}
+		sum, err := fileSHA256(tmp.Name())
+		if err != nil {
+			lastErr = err
+			logf("读取校验值失败：%v，换源重试", err)
+			continue
+		}
+		if !strings.EqualFold(sum, expected) {
+			lastErr = fmt.Errorf("SHA-256 不符（预期 %s，实际 %s）", shortHash(expected), shortHash(sum))
+			logf("SHA-256 校验失败，换源重试")
+			continue
+		}
+		logf("SHA-256 校验通过")
+		downloaded = true
+		break
+	}
+	if !downloaded {
+		return fmt.Errorf("所有镜像下载均失败：%v", lastErr)
 	}
 	if err := tmp.Sync(); err != nil {
 		return err
@@ -361,25 +424,7 @@ func doUpgrade() error {
 		return err
 	}
 
-	// 1. SHA-256 完整性校验
-	setStatus("verifying")
-	logf("校验 SHA-256…")
-	sumText, err := fetchText(base+".sha256", 30*time.Second)
-	if err != nil {
-		return fmt.Errorf("下载校验文件失败：%v", err)
-	}
-	fields := strings.Fields(sumText)
-	if len(fields) == 0 {
-		return fmt.Errorf("校验文件格式无效")
-	}
-	if sum, err := fileSHA256(tmp.Name()); err != nil {
-		return err
-	} else if !strings.EqualFold(sum, fields[0]) {
-		return fmt.Errorf("SHA-256 校验失败（预期 %s，实际 %s），已中止", fields[0], sum)
-	}
-	logf("SHA-256 校验通过")
-
-	// 2. minisign 签名校验（方案 D）
+	// 3. minisign 签名校验（方案 D，可选）
 	if MinisignPublicKey != "" {
 		if err := verifyMinisign(tmp.Name(), base+".minisig"); err != nil {
 			return err
@@ -411,13 +456,26 @@ func verifyMinisign(binPath, sigURL string) error {
 	if err != nil {
 		return fmt.Errorf("解析 minisign 公钥失败：%v", err)
 	}
-	sigText, err := fetchText(sigURL, 30*time.Second)
-	if err != nil {
-		return fmt.Errorf("下载签名文件失败：%v", err)
+	var sig minisign.Signature
+	gotSig := false
+	var lastErr error
+	for _, u := range candidateURLs(sigURL) {
+		text, e := fetchText(u, 30*time.Second)
+		if e != nil {
+			lastErr = e
+			continue
+		}
+		decoded, e := minisign.DecodeSignature(text)
+		if e != nil {
+			lastErr = e
+			continue
+		}
+		sig = decoded
+		gotSig = true
+		break // 拿到格式正确的签名即采用
 	}
-	sig, err := minisign.DecodeSignature(sigText)
-	if err != nil {
-		return fmt.Errorf("解析签名失败：%v", err)
+	if !gotSig {
+		return fmt.Errorf("下载签名文件失败：%v", lastErr)
 	}
 	message, err := os.ReadFile(binPath)
 	if err != nil {
@@ -551,21 +609,79 @@ func get(url string, timeout time.Duration) (*http.Response, error) {
 	return client.Do(req)
 }
 
+// downloadPerAttemptTimeout 是单个镜像源的连接+下载超时。源多了不能共用一个
+// 长超时，否则某个卡住的镜像会拖垮整轮轮询；20 分钟留给整体升级太久了。
+const downloadPerAttemptTimeout = 120 * time.Second
+
 func downloadToFile(url string, f *os.File) error {
-	resp, err := get(url, 20*time.Minute)
+	resp, err := get(url, downloadPerAttemptTimeout)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("下载失败：HTTP %d", resp.StatusCode)
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 	// 防御：拒绝超大文件
 	if resp.ContentLength > 300<<20 {
 		return fmt.Errorf("下载文件过大（%d 字节），已中止", resp.ContentLength)
 	}
+	// 重试同一临时文件前先清空，避免失败源的部分内容残留
+	if err := f.Truncate(0); err != nil {
+		return err
+	}
+	if _, err := f.Seek(0, 0); err != nil {
+		return err
+	}
 	_, err = io.Copy(f, resp.Body)
 	return err
+}
+
+// checkMagic 校验文件头魔数，用于甄别镜像返回的错误页或截断文件。
+func checkMagic(path string, want ...byte) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	buf := make([]byte, len(want))
+	if _, err := io.ReadFull(f, buf); err != nil {
+		return fmt.Errorf("文件过短：%v", err)
+	}
+	if !bytes.Equal(buf, want) {
+		return fmt.Errorf("文件头为 %x，期望 %x", buf, want)
+	}
+	return nil
+}
+
+// fetchExpectedSHA256 轮询镜像读取 .sha256 校验文件，取其中的十六进制摘要。
+func fetchExpectedSHA256(githubURL string) (string, error) {
+	var lastErr error
+	for _, u := range candidateURLs(githubURL) {
+		text, err := fetchText(u, 30*time.Second)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		fields := strings.Fields(text)
+		if len(fields) == 0 || len(fields[0]) != 64 {
+			lastErr = fmt.Errorf("校验文件格式无效（%s）", u)
+			continue
+		}
+		if _, err := hex.DecodeString(fields[0]); err != nil {
+			lastErr = fmt.Errorf("校验文件含非法十六进制（%s）", u)
+			continue
+		}
+		return fields[0], nil
+	}
+	return "", lastErr
+}
+
+func shortHash(s string) string {
+	if len(s) > 12 {
+		return s[:12]
+	}
+	return s
 }
 
 func fetchText(url string, timeout time.Duration) (string, error) {
