@@ -2500,6 +2500,7 @@ html.theme-switching *::after { transition: none !important; }
   --fx-glow-p:0 0 22px -4px rgba(255,61,160,.55);
   --fx-grad:linear-gradient(120deg,#2DE8FF 0%,#A468FF 50%,#FF3DA0 100%);
   --fx-grad-t:linear-gradient(100deg,#2DE8FF 0%,#A468FF 48%,#FF3DA0 100%);
+  --fx-grad-btn:linear-gradient(120deg,#0B7285 0%,#7040B8 50%,#C02467 100%);
   --fx-scan:.10; --fx-orb:1; --fx-grid:rgba(164,104,255,.05);
 }
 :root[data-theme="light"]{
@@ -2514,6 +2515,7 @@ html.theme-switching *::after { transition: none !important; }
   --fx-glow-p:0 0 14px -6px rgba(219,39,119,.26);
   --fx-grad:linear-gradient(120deg,#0E8FB0 0%,#7C3AED 50%,#DB2777 100%);
   --fx-grad-t:linear-gradient(100deg,#0E8FB0 0%,#7C3AED 48%,#DB2777 100%);
+  --fx-grad-btn:linear-gradient(120deg,#0E7490 0%,#6D28D9 50%,#BE185D 100%);
   --fx-scan:.04; --fx-orb:.5; --fx-grid:rgba(124,58,237,.04);
 }
 
@@ -2643,14 +2645,15 @@ input,select,textarea,.pwd-wrap,.switch .track,.empty{
   box-shadow:var(--fx-glow-c)!important}
 .btn.primary,.btn.primary:hover{
   border-color:transparent!important;color:#fff!important;font-weight:600!important;
-  background:var(--fx-grad)!important;box-shadow:var(--fx-glow-p)!important;
+  background:var(--fx-grad-btn)!important;box-shadow:var(--fx-glow-p)!important;
+  text-shadow:0 1px 2px rgba(0,0,0,.28)!important;
 }
 :root:not([data-theme="light"]) .btn.primary,
 :root:not([data-theme="light"]) .btn.primary:not(:disabled):hover{
-  background:var(--fx-grad)!important;border-color:transparent!important;
+  background:var(--fx-grad-btn)!important;border-color:transparent!important;
   box-shadow:var(--fx-glow-p)!important;
 }
-[data-theme="light"] .btn.primary{background:var(--fx-grad)!important;
+[data-theme="light"] .btn.primary{background:var(--fx-grad-btn)!important;
   box-shadow:0 3px 12px -4px rgba(124,58,237,.36)!important}
 .btn.danger{color:var(--fx-pink)!important;border-color:rgba(255,61,160,.42)!important}
 .btn.danger:hover{background:rgba(255,61,160,.14)!important;color:#fff!important;
@@ -2737,6 +2740,25 @@ input::placeholder,textarea::placeholder{color:var(--fx-dim)!important}
   background-image:radial-gradient(560px 400px at 30% 20%,rgba(45,232,255,.10),transparent 60%),
     radial-gradient(520px 380px at 70% 80%,rgba(255,61,160,.10),transparent 60%)!important}
 .theme-mask{--theme-mask-dark:var(--fx-bg);--theme-mask-light:var(--fx-bg)}
+
+/* ---------- 三个标签按钮：② 玻璃胶囊（Glass Capsule） ---------- */
+.tabs{display:inline-flex;gap:4px;padding:5px;border-radius:13px!important;
+  background:var(--fx-panel2)!important;border:1px solid var(--fx-line)!important;
+  margin-bottom:16px!important;backdrop-filter:blur(14px) saturate(1.25);
+  -webkit-backdrop-filter:blur(14px) saturate(1.25);box-shadow:var(--fx-glow-v)!important}
+.tab{padding:9px 22px!important;border:0!important;border-radius:9px!important;
+  background:transparent!important;color:var(--fx-muted)!important;font-size:14px;
+  white-space:nowrap;transition:color .24s,background .24s,box-shadow .24s,transform .24s}
+.tab:hover{color:var(--fx-text)!important;background:rgba(164,104,255,.12)!important;
+  border-bottom-color:transparent!important}
+[data-theme="light"] .tab:hover{background:rgba(124,58,237,.10)!important}
+.tab.active{color:#fff!important;font-weight:650!important;
+  background:var(--fx-grad-btn)!important;border:0!important;
+  box-shadow:0 3px 14px -4px rgba(112,64,184,.7),inset 0 1px 0 rgba(255,255,255,.22)!important;
+  text-shadow:0 1px 2px rgba(0,0,0,.3)!important;
+  border-bottom-color:transparent!important}
+.tab:active{transform:scale(.97)}
+@media(prefers-reduced-motion:reduce){.tab{transition:none}.tab:active{transform:none}}
 </style>
 </head>
 <body>
